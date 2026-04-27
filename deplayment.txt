@@ -1,0 +1,141 @@
+用 **systemd** 做成服务，步骤如下：
+
+---
+
+### 1. 确认部署路径和 Python 环境
+
+```bash
+# 确认文件在正确位置
+ls /opt/monitorcenter/app.py
+
+# 确认 Python 和依赖
+python3 --version                          # 需要 3.12
+pip3 install flask gunicorn               # 确保已安装
+# 或者用 virtualenv
+python3 -m venv /opt/monitorcenter/venv
+/opt/monitorcenter/venv/bin/pip install flask gunicorn
+```
+
+---
+
+### 2. 创建 systemd service 文件
+
+```bash
+sudo nano /etc/systemd/system/monitorcenter.service
+```
+
+粘贴以下内容：
+
+```ini
+[Unit]
+Description=Monitorcenter Hardware Test Dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/monitorcenter
+ExecStart=/opt/monitorcenter/venv/bin/gunicorn \
+    --workers 2 \
+    --bind 0.0.0.0:5004 \
+    --access-logfile /var/log/monitorcenter/access.log \
+    --error-logfile /var/log/monitorcenter/error.log \
+    app:app
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+```
+
+> 如果没用 virtualenv，把 `ExecStart` 改为：
+> `ExecStart=/usr/bin/gunicorn3 --workers 2 --bind 0.0.0.0:5004 app:app`
+
+---
+
+### 3. 创建日志目录
+
+```bash
+sudo mkdir -p /var/log/monitorcenter
+sudo chown www-data:www-data /var/log/monitorcenter
+
+# 确认 /opt/monitorcenter/data 目录 www-data 有写权限
+sudo chown -R www-data:www-data /opt/monitorcenter/data
+```
+
+---
+
+### 4. 启用并启动服务
+
+```bash
+# 重新加载 systemd 配置
+sudo systemctl daemon-reload
+
+# 开机自动启动
+sudo systemctl enable monitorcenter
+
+# 立即启动
+sudo systemctl start monitorcenter
+
+# 查看状态
+sudo systemctl status monitorcenter
+```
+
+---
+
+### 5. 常用管理命令
+
+```bash
+# 查看实时日志
+sudo journalctl -u monitorcenter -f
+
+# 重启（改了代码后）
+sudo systemctl restart monitorcenter
+
+# 停止
+sudo systemctl stop monitorcenter
+
+# 查看详细错误
+sudo journalctl -u monitorcenter -n 50 --no-pager
+```
+
+---
+
+### 6. （可选）用 Nginx 做反向代理
+
+如果想用 80 端口访问：
+
+```bash
+sudo apt install nginx
+sudo nano /etc/nginx/sites-available/monitorcenter
+```
+
+```nginx
+server {
+    listen 80;
+    server_name _;  # 或填你的 IP / 域名
+
+    location / {
+        proxy_pass http://127.0.0.1:5004;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/monitorcenter /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+---
+
+### 验证
+
+```bash
+curl http://localhost:5004/
+# 应该返回 HTML
+```

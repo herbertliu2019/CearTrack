@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+{% block title %}{{ display_name }} — CearTrack{% endblock %}
+{% block content %}
+<script src="{{ url_for('static', filename='js/renderer.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+<div x-data="dashboardApp('{{ module_name }}')" x-init="init()">
+
+  <div class="stats-strip">
+    <div class="stat-card">
+      <div class="stat-label">Tested Today</div>
+      <div class="stat-value" x-text="stats.total_today ?? 0"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Passed</div>
+      <div class="stat-value" x-text="stats.pass ?? 0" style="color: var(--pass)"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Failed</div>
+      <div class="stat-value" x-text="stats.fail ?? 0" style="color: var(--fail)"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Pass Rate</div>
+      <div class="stat-value" x-text="(stats.pass_rate ?? 0) + '%'"></div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn" :class="{active: activeTab==='latest'}"
+            @click="activeTab='latest'">Today</button>
+    <button class="tab-btn" :class="{active: activeTab==='stats'}"
+            @click="activeTab='stats'; loadStatsRange()">Stats</button>
+    <button class="tab-btn" :class="{active: activeTab==='search'}"
+            @click="activeTab='search'">Search</button>
+  </div>
+
+  <!-- LATEST TAB -->
+  <div class="tab-content" :class="{active: activeTab==='latest'}">
+    <div class="cards-grid">
+      <template x-for="r in paginatedLatest()" :key="r.sn + r.timestamp">
+        <div :class="'result-card ' + r.overall_result.toLowerCase()">
+          <div class="card-summary" @click="toggleExpand(r.sn + '_' + r.timestamp)">
+            <div class="card-header">
+              <div>
+                <div class="card-sn" x-text="r.sn"></div>
+                <div class="card-model" x-text="r.payload?.system?.vendor + ' ' + r.payload?.system?.model"></div>
+              </div>
+              <span class="badge" :class="r.overall_result.toLowerCase()" x-text="r.overall_result"></span>
+            </div>
+            <div class="card-body">
+              <div class="card-spec" x-text="cardSpecs(r).cpu"></div>
+              <div class="card-spec" x-text="cardSpecs(r).memory + ' • Battery ' + cardSpecs(r).battery"></div>
+            </div>
+            <div class="status-mini-grid">
+              <template x-for="item in miniStatusItems(r)" :key="item.label">
+                <div class="status-dot" :class="statusClass(item.value)">
+                  <span x-text="item.label"></span>
+                </div>
+              </template>
+            </div>
+            <div class="card-footer" x-text="r.timestamp"></div>
+          </div>
+
+          <!-- Expanded details (outside .card-summary so clicks here don't collapse) -->
+          <template x-if="isExpanded(r.sn + '_' + r.timestamp)">
+            <div class="detail-panel" x-html="renderDetails(r)"></div>
+          </template>
+        </div>
+      </template>
+    </div>
+    <div x-show="latest.length === 0" style="color: var(--text-secondary); text-align: center; padding: 40px;">
+      No tests today yet.
+    </div>
+
+    <div class="pagination" x-show="totalPages() > 1">
+      <button class="page-btn" @click="prevPage()" :disabled="currentPage === 1">← Prev</button>
+      <span class="page-info">
+        Page <span x-text="currentPage"></span> of <span x-text="totalPages()"></span>
+        <span class="page-range" x-text="pageRangeLabel()"></span>
+      </span>
+      <button class="page-btn" @click="nextPage()" :disabled="currentPage === totalPages()">Next →</button>
+    </div>
+  </div>
+
+  <!-- SEARCH TAB -->
+  <div class="tab-content" :class="{active: activeTab==='search'}">
+    <div class="search-box">
+      <input type="text" x-model="searchQuery" @keydown.enter="runSearch()" placeholder="Enter SN or Service Tag...">
+      <button @click="runSearch()">Search</button>
+    </div>
+    <div x-show="searchResults.length === 0 && searchQuery" style="color: var(--text-secondary);">
+      No records found for <span x-text="searchQuery"></span>.
+    </div>
+    <template x-for="r in searchResults" :key="r.timestamp">
+      <div class="detail-panel">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+          <strong x-text="r.sn + ' — ' + r.timestamp"></strong>
+          <span class="badge" :class="r.overall_result.toLowerCase()" x-text="r.overall_result"></span>
+        </div>
+        <div x-html="renderDetails(r)"></div>
+      </div>
+    </template>
+  </div>
+
+  <!-- STATISTICS TAB -->
+  <div class="tab-content" :class="{active: activeTab==='stats'}">
+
+    <!-- Range selector -->
+    <div style="display:flex; gap:10px; margin-bottom:20px; align-items:center; flex-wrap:wrap;">
+      <button class="tab-btn" :class="{active: statsRange==='week'}"
+              @click="statsRange='week'; loadStatsRange()">
+        This Week
+        <span x-show="statsData && statsRange==='week'"
+              style="font-size:0.75em; opacity:0.5; margin-left:6px; font-weight:normal;"
+              x-text="formatDateRange(statsData?.date_from, statsData?.date_to)">
+        </span>
+      </button>
+      <button class="tab-btn" :class="{active: statsRange==='month'}"
+              @click="statsRange='month'; loadStatsRange()">
+        This Month
+        <span x-show="statsData && statsRange==='month'"
+              style="font-size:0.75em; opacity:0.5; margin-left:6px; font-weight:normal;"
+              x-text="formatDateRange(statsData?.date_from, statsData?.date_to)">
+        </span>
+      </button>
+      <button class="tab-btn" :class="{active: statsRange==='custom'}"
+              @click="statsRange='custom'">Custom Range</button>
+      <template x-if="statsRange==='custom'">
+        <span style="display:flex; gap:8px; align-items:center;">
+          <input type="date" x-model="statsFrom"
+                 style="background:var(--bg-card);border:1px solid var(--border);
+                        color:var(--text-primary);padding:6px 10px;border-radius:4px;">
+          <span style="color:var(--text-secondary)">to</span>
+          <input type="date" x-model="statsTo"
+                 style="background:var(--bg-card);border:1px solid var(--border);
+                        color:var(--text-primary);padding:6px 10px;border-radius:4px;">
+          <button @click="loadStatsRange()"
+                  style="padding:6px 16px;background:var(--accent);color:var(--bg-primary);
+                         border:none;border-radius:4px;cursor:pointer;font-weight:600;">
+            Apply
+          </button>
+        </span>
+      </template>
+    </div>
+
+    <!-- Summary stat cards -->
+    <div class="stats-strip" x-show="statsData">
+      <div class="stat-card">
+        <div class="stat-label">Total Tested</div>
+        <div class="stat-value" x-text="statsData?.total ?? 0"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Passed</div>
+        <div class="stat-value" style="color:var(--pass)" x-text="statsData?.passed ?? 0"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Failed</div>
+        <div class="stat-value" style="color:var(--fail)" x-text="statsData?.failed ?? 0"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Pass Rate</div>
+        <div class="stat-value" x-text="(statsData?.pass_rate ?? 0) + '%'"></div>
+      </div>
+    </div>
+
+    <!-- Brand distribution + Fail reasons -->
+    <div class="stats-row" x-show="statsData">
+
+      <!-- By Brand Card -->
+      <div class="detail-panel">
+        <h3 style="color:var(--accent); margin-bottom:16px; font-size:0.9em;
+                   text-transform:uppercase; letter-spacing:0.06em;">
+          By Brand
+        </h3>
+
+        <template x-for="[brand, count] in (statsData?.brands ?? [])" :key="brand">
+          <div style="margin-bottom:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;
+                        margin-bottom:5px;">
+              <span style="font-size:0.9em; color:var(--text-primary);"
+                    x-text="brand"></span>
+              <span style="font-size:1.4em; font-weight:700; color:var(--accent);"
+                    x-text="count"></span>
+            </div>
+            <div style="height:3px; max-width:300px; border-radius:2px;
+                        background:rgba(255,255,255,0.05); overflow:hidden;">
+              <div style="height:100%; border-radius:2px; background:var(--accent); transition:width 0.4s ease;"
+                   :style="`width:${Math.round(count / (statsData?.total || 1) * 100)}%`">
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <div x-show="(statsData?.brands ?? []).length === 0"
+             style="color:var(--text-secondary); font-size:0.85em;">No data</div>
+      </div>
+
+      <!-- Common Fail Reasons Card -->
+      <div class="detail-panel">
+        <h3 style="color:#e07b3a; margin-bottom:16px; font-size:0.9em;
+                   text-transform:uppercase; letter-spacing:0.06em;">
+          Common Fail Reasons
+        </h3>
+
+        <template x-if="(statsData?.fail_reasons ?? []).length === 0">
+          <div style="color:var(--pass); font-size:0.85em;">No failures in this period 🎉</div>
+        </template>
+
+        <template x-for="[reason, count] in (statsData?.fail_reasons ?? [])" :key="reason">
+          <div style="margin-bottom:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;
+                        margin-bottom:5px;">
+              <span style="display:flex; align-items:center; gap:8px;">
+                <span style="color:#e07b3a; font-size:1em;">⚠</span>
+                <span style="font-size:0.9em; color:var(--text-primary);"
+                      x-text="reason"></span>
+              </span>
+              <span style="font-size:1.4em; font-weight:700; color:#e07b3a;"
+                    x-text="count"></span>
+            </div>
+            <div style="height:3px; max-width:300px; border-radius:2px;
+                        background:rgba(255,255,255,0.05); overflow:hidden;">
+              <div style="height:100%; border-radius:2px; background:#e07b3a; transition:width 0.4s ease;"
+                   :style="`width:${Math.round(count / (statsData?.failed || 1) * 100)}%`">
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- All Records table -->
+    <div class="detail-panel" x-show="statsData">
+      <h3 style="color:var(--accent);margin-bottom:12px;">
+        All Records
+        <span style="color:var(--text-secondary);font-size:0.85em;font-weight:normal;"
+              x-text="' (' + (statsData?.date_from ?? '') + ' → ' + (statsData?.date_to ?? '') + ')'">
+        </span>
+      </h3>
+
+      <div style="display:grid;grid-template-columns:160px 1fr 1fr 100px;
+                  gap:8px;padding:6px 0;border-bottom:2px solid var(--border);
+                  color:var(--text-secondary);font-size:0.8em;text-transform:uppercase;
+                  letter-spacing:0.05em;">
+        <span>Date</span>
+        <span>SN</span>
+        <span>Model</span>
+        <span>Result</span>
+      </div>
+
+      <template x-for="r in (statsData?.records ?? [])" :key="r.sn + r.timestamp">
+        <div>
+          <div class="stats-record-row"
+               @click="toggleStatsExpand(r.sn + '_' + r.timestamp)">
+            <div style="display:grid;grid-template-columns:160px 1fr 1fr 100px;
+                        gap:8px;width:100%;align-items:center;">
+              <span style="color:var(--text-secondary);font-size:0.85em;"
+                    x-text="r.timestamp?.slice(0,10)"></span>
+              <span style="font-family:monospace;font-weight:600;" x-text="r.sn"></span>
+              <span style="color:var(--text-secondary);font-size:0.85em;"
+                    x-text="r.vendor + ' ' + r.model"></span>
+              <span class="badge" :class="r.overall_result?.toLowerCase()"
+                    x-text="r.overall_result"></span>
+            </div>
+            <span style="color:var(--text-secondary);margin-left:12px;"
+                  x-text="isStatsExpanded(r.sn + '_' + r.timestamp) ? '▲' : '▼'"></span>
+          </div>
+
+          <template x-if="isStatsExpanded(r.sn + '_' + r.timestamp)">
+            <div class="stats-record-expand" x-html="renderDetails(r)"></div>
+          </template>
+        </div>
+      </template>
+
+      <div x-show="(statsData?.records ?? []).length === 0"
+           style="color:var(--text-secondary);text-align:center;padding:20px;">
+        No records in this period.
+      </div>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

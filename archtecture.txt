@@ -1,0 +1,13 @@
+Client → nginx :8080
+              ├── /mem/    → Flask :5000
+              ├── /cpu/    → Flask :5002
+              └── /laptop/ → Flask :5004
+			  
+			  
+			  
+
+Client → nginx :8080
+              └── /           → Flask :5004（全部模块）
+                      /laptop/
+                      /ram/
+                      /search  ← 跨模块查询天然共享

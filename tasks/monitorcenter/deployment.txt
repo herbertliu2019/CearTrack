@@ -1,0 +1,67 @@
+
+
+
+
+部署：Linux
+sudo mkdir -p /opt/monitorcenter
+sudo cp -r monitorcentor/* /opt/monitorcenter/
+cd /opt/monitorcenter
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+python app.py
+
+
+本机没装 Python（目标是 Linux 部署）。代码已按 task 完成。
+
+## 完成总结
+
+**创建目录结构** `monitorcentor/`（项目内，部署到 `/opt/monitorcenter/`）:
+
+```
+monitorcentor/
+├── app.py                       # Flask 入口 + / 和 /search 路由
+├── config.py                    # BASE_DIR / HOST / PORT / LATEST_RETENTION_HOURS
+├── requirements.txt             # Flask>=3.0.0
+├── core/
+│   ├── __init__.py
+│   ├── envelope.py              # build_envelope(...)
+│   ├── module_registry.py       # register_modules() 自动发现模块
+│   └── storage.py               # get_date_subdir / get_latest_dir /
+│                                #   write_envelope / read_latest /
+│                                #   search_sn / list_history
+├── modules/
+│   ├── __init__.py
+│   └── base.py                  # TestModule ABC
+├── static/
+│   ├── css/dashboard.css        # 暗色占位样式
+│   └── vendor/
+│       ├── alpine.min.js        # 46KB (下载自 unpkg alpinejs@3)
+│       └── htmx.min.js          # 48KB (下载自 unpkg htmx.org@1.9.12)
+├── templates/
+│   ├── base.html                # 骨架 + 导航
+│   └── index.html               # 模块 tile 网格，空时显示 "No modules registered yet."
+└── data/.gitkeep                # 运行时由 storage.py 填充
+```
+
+## 关键实现细节
+
+- **全程 `pathlib.Path`**，无 `os.path` 字符串
+- **SN 净化** (`_safe_sn`): 只允许 `[A-Za-z0-9._-]`，其他字符替换成 `_`，防路径穿越
+- **`write_envelope`** 同时写 `latest/<sn>.json` 和 `history/YYYY/MM-DD/<sn>_<ts>.json`，并带 TODO 注释留给未来 `_index/` 实现
+- **`read_latest`** 自动按 mtime 清除 24h 以上旧文件（符合 `LATEST_RETENTION_HOURS`）
+- **`register_modules`** 扫描 `modules/*/module.py` 的 `blueprint` 属性，`/<name>/` 挂载；无模块时打印 "No modules registered"
+- **`/search?sn=xxx`** 跨所有已注册模块在 history/ 里 glob `<sn_safe>_*.json`，返回 `{"sn","count","results"}` JSON
+
+## 部署 / 验证
+
+Linux 上：
+```bash
+sudo mkdir -p /opt/monitorcenter
+sudo cp -r monitorcentor/* /opt/monitorcenter/
+cd /opt/monitorcenter
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+python app.py
+```
+
+然后访问 `http://localhost:5004` → 看到 "No modules registered yet." 的空 landing page。控制台会打印 "No modules registered"（目前 `modules/` 下没有任何子包，符合 task 01 预期 —— 实际模块在 task 02+ 才加）。
