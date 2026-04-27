@@ -2,6 +2,55 @@
 
 Cear Hardware Test & Traceability Platform — 回收公司硬件检测系统。
 
+
+CearTrack
+
+Cear Hardware Test & Traceability Platform — a hardware testing system for recycling companies.
+
+It consists of two independent but related subprojects:
+
+laptop_test.sh — A Live USB testing script for laptops.
+After running, it collects system/hardware/battery/storage/SMART/camera/audio/keyboard/network/physical condition data, automatically encodes the camera test image in Base64, and finally uploads the JSON to CearTrack.
+monitorcentor/ — A Flask-based multi-module test log collection platform (the CearTrack backend service).
+Each test module is in its own directory (currently only laptop, with future expansion for RAM / CPU / GPU / Wipe)
+File system JSON storage (data/<module>/latest/ + history/YYYY/MM-DD/)
+SQLite indexing layer supporting fuzzy search across serial numbers (including storage device SN)
+Alpine.js + HTMX frontend, no build tools required
+Three tabs: Today / Stats / Search; Stats supports this week / this month / custom date ranges
+Tech Stack
+Python 3.12 + Flask
+Alpine.js + HTMX (vendored locally, no npm/webpack)
+SQLite (used only as an index; the file system is the source of truth)
+Bash (laptop_test.sh)
+Layout
+laptop_test.sh                  # Client-side testing script
+monitorcentor/
+  app.py                        # Flask entry point
+  config.py                     # BASE_DIR / INDEX_DB_PATH / etc.
+  core/
+    storage.py                  # JSON file read/write + one record per SN
+    index_db.py                 # SQLite indexing layer
+    envelope.py                 # Standard envelope construction
+  modules/
+    base.py                     # TestModule abstract class
+    laptop/
+      module.py                 # /laptop/api/* endpoints
+      schema.json               # Frontend rendering schema
+      templates/module.html
+  static/
+    css/dashboard.css
+    js/{app.js,renderer.js}
+    vendor/{alpine.min.js,htmx.min.js}
+  templates/{base.html,index.html}
+tasks/                          # Task specifications + session log
+Deployment
+
+See deplayment.txt.
+Production path: /opt/monitorcenter/, using systemd + gunicorn.
+
+
+
+#########################################
 两个独立但关联的子项目：
 
 1. **`laptop_test.sh`** — 笔记本 Live USB 检测脚本。运行后采集系统/硬件/电池/存储/SMART/摄像头/音频/键盘/网络/外观等信息，自动 base64 编码摄像头测试图，最终上传 JSON 到 CearTrack。
