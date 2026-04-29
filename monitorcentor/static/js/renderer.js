@@ -11,11 +11,40 @@ function statusClass(value) {
 
 function renderField(field, data) {
   const value = getByPath(data, field.path);
-  const display = (value === null || value === undefined || value === "") ? "—" : value + (field.suffix || "");
+
+  let display;
+  if (value === null || value === undefined || value === "") {
+    display = `<span style="color:var(--text-secondary)">—</span>`;
+  } else if (Array.isArray(value)) {
+    if (value.length === 0) {
+      display = `<span style="color:var(--text-secondary)">—</span>`;
+    } else {
+      const lines = value.map(s => {
+        // Highlight lines containing error keywords
+        const isErr = /error|fail|critical|panic|oom|edac/i.test(s);
+        const color = isErr ? "color:var(--fail)" : "color:var(--text-primary)";
+        return `<span style="${color}">${escHtml(String(s))}</span>`;
+      }).join("\n");
+      display = `<pre style="margin:0;white-space:pre-wrap;word-break:break-all;
+        font-size:0.8em;background:var(--bg-primary);border:1px solid var(--border);
+        border-radius:4px;padding:6px 8px;grid-column:1/-1;">${lines}</pre>`;
+      return `
+        <div class="kv-label" style="grid-column:1/-1">${field.label}</div>
+        ${display}
+      `;
+    }
+  } else {
+    display = escHtml(String(value)) + (field.suffix || "");
+  }
+
   return `
     <div class="kv-label">${field.label}</div>
     <div class="kv-value">${display}</div>
   `;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 }
 
 function renderKeyValueSection(section, data) {
