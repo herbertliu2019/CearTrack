@@ -385,18 +385,69 @@ run_audio_test() {
 
   SPEAKER_QUALITY_RESULT="SKIPPED"
   MIC_RECORD_RESULT="SKIPPED"
+  AUDIO_CARD_USED=""
 
   # Speaker Test
   echo -e "\n  ${BOLD}[1/2] Speaker Test${NC}"
+
+  # --- Reset ALSA state so prior boot's mute/0% volume cannot follow us ---
+  alsactl init >/dev/null 2>&1 || true
+
+  # --- Pick the best playback card adaptively (brand-agnostic) ---
+  # Score: any card with "Master" or "Speaker" mixer control beats one without.
+  # Exclude: HDMI / DisplayPort / NVidia / Dock outputs (not internal speakers).
+  pick_speaker_card() {
+    local best="" fallback=""
+    while IFS= read -r line; do
+      # aplay -l line: "card N: ID [Long Name], device M: ..."
+      [[ "$line" =~ ^card[[:space:]]+([0-9]+): ]] || continue
+      local idx="${BASH_REMATCH[1]}"
+      local lc; lc=$(echo "$line" | tr '[:upper:]' '[:lower:]')
+      # Skip non-internal outputs
+      echo "$lc" | grep -qE "hdmi|displayport|nvidia|dock" && continue
+      # Prefer cards exposing analog speaker controls
+      if amixer -c "$idx" scontrols 2>/dev/null \
+           | grep -qE "'(Master|Speaker)'"; then
+        best="$idx"
+        break
+      fi
+      [[ -z "$fallback" ]] && fallback="$idx"
+    done < <(aplay -l 2>/dev/null | grep "^card ")
+    echo "${best:-$fallback}"
+  }
+
+  AUDIO_CARD_USED=$(pick_speaker_card)
+
+  # --- Unmute and set sane volume on whichever controls exist ---
+  if [[ -n "$AUDIO_CARD_USED" ]]; then
+    for ctl in "Master" "Speaker" "Headphone" "PCM" "Front" "Front Speaker"; do
+      amixer -c "$AUDIO_CARD_USED" sset "$ctl" unmute >/dev/null 2>&1 || true
+      amixer -c "$AUDIO_CARD_USED" sset "$ctl" 80% >/dev/null 2>&1 || true
+    done
+    # Some Realtek codecs auto-mute internal speakers when a (phantom) headphone
+    # is detected. Force Disabled so the speaker stays on during testing.
+    amixer -c "$AUDIO_CARD_USED" sset "Auto-Mute Mode" Disabled >/dev/null 2>&1 || true
+    echo "  Audio card selected: card $AUDIO_CARD_USED"
+  else
+    echo "  No usable audio card found — falling back to default device."
+  fi
+
+  # --- Play tone, forcing the chosen card to bypass default-device drift ---
   if command -v speaker-test &>/dev/null; then
     echo "  Playing test tone for 3 seconds..."
-    speaker-test -t sine -f 1000 -c 2 -l 1 &>/dev/null &
+    if [[ -n "$AUDIO_CARD_USED" ]]; then
+      speaker-test -D "plughw:${AUDIO_CARD_USED},0" -t sine -f 1000 -c 2 -l 1 &>/dev/null &
+    else
+      speaker-test -t sine -f 1000 -c 2 -l 1 &>/dev/null &
+    fi
     SPKR_PID=$!
     sleep 3
     kill "$SPKR_PID" 2>/dev/null
     wait "$SPKR_PID" 2>/dev/null
   else
     echo "  Generating tone via Python + aplay..."
+    APLAY_DEV=()
+    [[ -n "$AUDIO_CARD_USED" ]] && APLAY_DEV=(-D "plughw:${AUDIO_CARD_USED},0")
     python3 -c "
 import struct, math, wave, io, sys
 rate=44100; dur=2; freq=440
@@ -405,7 +456,7 @@ buf=io.BytesIO()
 w=wave.open(buf,'wb'); w.setnchannels(1); w.setsampwidth(2); w.setframerate(rate)
 w.writeframes(struct.pack('<'+'h'*len(samples),*samples)); w.close()
 sys.stdout.buffer.write(buf.getvalue())
-" 2>/dev/null | aplay -q 2>/dev/null
+" 2>/dev/null | aplay -q "${APLAY_DEV[@]}" 2>/dev/null
   fi
 
   read -rp "  Did you hear the speaker clearly? [p=pass / f=fail / s=skip]: " ans </dev/tty
@@ -417,12 +468,51 @@ sys.stdout.buffer.write(buf.getvalue())
 
   # Microphone Test
   echo -e "\n  ${BOLD}[2/2] Microphone Test${NC}"
+
+  # Pick the best capture card adaptively — same approach as speaker selection.
+  # Prefer a card whose mixer exposes any capture control name commonly used by
+  # internal mics (Realtek/Conexant/Cirrus/Intel SST all differ).
+  pick_mic_card() {
+    local best="" fallback=""
+    while IFS= read -r line; do
+      [[ "$line" =~ ^card[[:space:]]+([0-9]+): ]] || continue
+      local idx="${BASH_REMATCH[1]}"
+      local lc; lc=$(echo "$line" | tr '[:upper:]' '[:lower:]')
+      echo "$lc" | grep -qE "hdmi|displayport|nvidia|dock" && continue
+      if amixer -c "$idx" scontrols 2>/dev/null \
+           | grep -qE "'(Capture|Internal Mic|Mic|Front Mic|Dmic|Mic Boost)'"; then
+        best="$idx"
+        break
+      fi
+      [[ -z "$fallback" ]] && fallback="$idx"
+    done < <(arecord -l 2>/dev/null | grep "^card ")
+    echo "${best:-$fallback}"
+  }
+
+  MIC_CARD_USED=$(pick_mic_card)
+
+  # Unmute & set capture volume on whichever capture controls exist.
+  if [[ -n "$MIC_CARD_USED" ]]; then
+    for ctl in "Capture" "Internal Mic" "Mic" "Front Mic" "Dmic" "Mic Boost" "Internal Mic Boost"; do
+      amixer -c "$MIC_CARD_USED" sset "$ctl" cap >/dev/null 2>&1 || true
+      amixer -c "$MIC_CARD_USED" sset "$ctl" unmute >/dev/null 2>&1 || true
+      amixer -c "$MIC_CARD_USED" sset "$ctl" 80% >/dev/null 2>&1 || true
+    done
+    echo "  Mic card selected: card $MIC_CARD_USED"
+  else
+    echo "  No usable capture card found — falling back to default device."
+  fi
+
   REC_FILE="/tmp/mic_test_$$.wav"
   echo "  Recording 3 seconds... Please speak now."
-  if arecord -d 3 -f cd -q "$REC_FILE" 2>/dev/null; then
+  AREC_DEV=()
+  [[ -n "$MIC_CARD_USED" ]] && AREC_DEV=(-D "plughw:${MIC_CARD_USED},0")
+  if arecord "${AREC_DEV[@]}" -d 3 -f cd -q "$REC_FILE" 2>/dev/null; then
     if [[ -f "$REC_FILE" && -s "$REC_FILE" ]]; then
       echo "  Playing back the recording..."
-      aplay -q "$REC_FILE" 2>/dev/null
+      APLAY_DEV=()
+      [[ -n "$AUDIO_CARD_USED" ]] && APLAY_DEV=(-D "plughw:${AUDIO_CARD_USED},0")
+      aplay -q "${APLAY_DEV[@]}" "$REC_FILE" 2>/dev/null
       rm -f "$REC_FILE"
       read -rp "  Did you hear your voice clearly? [p=pass / f=fail / s=skip]: " ans </dev/tty
       case "$ans" in
@@ -526,19 +616,23 @@ while IFS= read -r disk; do
   [[ -z "$serial" ]] && serial=$(smartctl -i "$disk" 2>/dev/null | awk -F: '/Serial Number/{print $2; exit}' | xargs)
   [[ -z "$serial" ]] && serial="unknown"
 
-  smart_out=$(smartctl -H "$disk" 2>/dev/null)
-  if echo "$smart_out" | grep -qE "PASSED|OK"; then
+  # One smartctl -x call covers health, power-on hours, and all SSD metrics.
+  SMART_DETAIL=$(smartctl -x "$disk" 2>/dev/null)
+
+  if echo "$SMART_DETAIL" | grep -qE "PASSED|OK"; then
     smart="PASSED"
-  elif echo "$smart_out" | grep -q "FAILED"; then
+  elif echo "$SMART_DETAIL" | grep -q "FAILED"; then
     smart="FAILED"
     DISK_STATUS=$FAIL
   else
     smart="UNKNOWN"
   fi
 
-  power_hours=$(smartctl -a "$disk" 2>/dev/null | grep -iE "power.on.hours|Power_On_Hours" | awk '{print $NF}' | head -1)
+  power_hours=$(echo "$SMART_DETAIL" | grep -iE "power.on.hours|Power_On_Hours" \
+    | awk '{print $NF}' | head -1)
 
-  # SSD health: NVMe uses Percentage Used, SATA SSD uses Wear_Leveling_Count.
+  # SSD health: both NVMe and SATA SSD expose "Percentage Used" in -x output.
+  # NVMe: in SMART/Health log.  SATA: in Device Statistics (Endurance Indicator).
   # HDDs stay "unknown".
   SSD_HEALTH_PCT="unknown"
   SSD_GRADE="unknown"
@@ -546,9 +640,10 @@ while IFS= read -r disk; do
   SSD_DATA_WRITTEN="unknown"
 
   if [[ "$disk_type" == "SSD NVMe" ]]; then
-    SMART_DETAIL=$(smartctl -A "$disk" 2>/dev/null)
-    PCT_USED=$(echo "$SMART_DETAIL" | grep "Percentage Used" | grep -oP '\d+(?=%)' | head -1)
-    AVAIL_SPARE=$(echo "$SMART_DETAIL" | grep "Available Spare:" | grep -oP '\d+(?=%)' | head -1)
+    PCT_USED=$(echo "$SMART_DETAIL" | grep "Percentage Used" \
+      | grep -oP '\d+(?=%)' | head -1)
+    AVAIL_SPARE=$(echo "$SMART_DETAIL" | grep "Available Spare:" \
+      | grep -oP '\d+(?=%)' | head -1)
     SSD_DATA_WRITTEN=$(echo "$SMART_DETAIL" | grep "Data Units Written" \
       | cut -d: -f2 | xargs | cut -d'[' -f2 | tr -d ']' | xargs)
     [[ -z "$SSD_DATA_WRITTEN" ]] && SSD_DATA_WRITTEN="unknown"
@@ -559,19 +654,23 @@ while IFS= read -r disk; do
     [[ -n "$AVAIL_SPARE" ]] && SSD_AVAIL_SPARE="${AVAIL_SPARE}%"
 
   elif [[ "$disk_type" == "SSD" ]]; then
-    # SATA SSD: VALUE column of Wear_Leveling_Count (Samsung), with fallbacks
-    SMART_DETAIL=$(smartctl -A "$disk" 2>/dev/null)
+    # SATA SSD: prefer "Percentage Used Endurance Indicator" from Device Statistics
+    # (present on LITEON, Crucial, Intel, newer Samsung etc.).
+    # Fallback: Wear_Leveling_Count / Media_Wearout_Indicator VALUE column.
+    # Device Statistics line layout:
+    #   0x07  0x008  1               0  ---  Percentage Used Endurance Indicator
+    # Field $4 is the numeric value (percent used); $NF is "Indicator" (wrong).
+    PCT_USED=$(echo "$SMART_DETAIL" | awk '/Percentage Used Endurance Indicator/{print $4; exit}')
 
-    WLC_VALUE=$(echo "$SMART_DETAIL" | awk '/Wear_Leveling_Count/{print $4}' | head -1)
-    if [[ -z "$WLC_VALUE" ]]; then
-      WLC_VALUE=$(echo "$SMART_DETAIL" | awk '/Media_Wearout_Indicator/{print $4}' | head -1)
-    fi
-    if [[ -z "$WLC_VALUE" ]]; then
-      WLC_VALUE=$(echo "$SMART_DETAIL" | awk '/SSD_Life_Left/{print $4}' | head -1)
-    fi
-
-    if [[ -n "$WLC_VALUE" ]] && [[ "$WLC_VALUE" =~ ^[0-9]+$ ]]; then
-      SSD_HEALTH_PCT=$WLC_VALUE
+    if [[ -n "$PCT_USED" ]] && [[ "$PCT_USED" =~ ^[0-9]+$ ]]; then
+      SSD_HEALTH_PCT=$((100 - PCT_USED))
+    else
+      WLC_VALUE=$(echo "$SMART_DETAIL" | awk '/Wear_Leveling_Count/{print $4}' | head -1)
+      [[ -z "$WLC_VALUE" ]] && \
+        WLC_VALUE=$(echo "$SMART_DETAIL" | awk '/Media_Wearout_Indicator/{print $4}' | head -1)
+      [[ -z "$WLC_VALUE" ]] && \
+        WLC_VALUE=$(echo "$SMART_DETAIL" | awk '/SSD_Life_Left/{print $4}' | head -1)
+      [[ -n "$WLC_VALUE" && "$WLC_VALUE" =~ ^[0-9]+$ ]] && SSD_HEALTH_PCT=$WLC_VALUE
     fi
     SSD_AVAIL_SPARE="N/A"
     SSD_DATA_WRITTEN="N/A"
@@ -688,6 +787,24 @@ run_touchpad_test() {
   banner "TOUCHPAD — Auto Detection Test"
   TOUCHPAD_RESULT="NOT_FOUND"
 
+  # Use udevadm to find the best touchpad by kernel property ID_INPUT_TOUCHPAD=1.
+  # Priority: I2C/HID (HP ELAN/Synaptics) > RMI > PS/2 (Dell).
+  # Result exported so Python opens it directly instead of guessing.
+  _tp_best="" _tp_pri=0
+  for _tp_dev in /dev/input/event*; do
+    [[ -e "$_tp_dev" ]] || continue
+    _tp_info=$(udevadm info -q property -n "$_tp_dev" 2>/dev/null)
+    echo "$_tp_info" | grep -q "ID_INPUT_TOUCHPAD=1" || continue
+    if echo "$_tp_info" | grep -qE "ID_BUS=(i2c|hid)"; then
+      _tp_best="$_tp_dev"; break          # highest priority — take immediately
+    elif echo "$_tp_info" | grep -q "RMI"; then
+      [[ $_tp_pri -lt 2 ]] && { _tp_best="$_tp_dev"; _tp_pri=2; }
+    else
+      [[ $_tp_pri -lt 1 ]] && { _tp_best="$_tp_dev"; _tp_pri=1; }
+    fi
+  done
+  export _TP_PREFERRED_DEV="$_tp_best"
+
   python3 - <<'TPEVDEV_EOF'
 import sys, select, time
 
@@ -702,18 +819,45 @@ except ImportError:
     sys.exit(42)
 
 def find_touchpad():
-    devs = [evdev.InputDevice(p) for p in evdev.list_devices()]
-    for dev in devs:
+    import os
+    # 1. Try the udevadm-selected device (bash ranked I2C/HID > RMI > PS/2).
+    preferred = os.environ.get("_TP_PREFERRED_DEV", "").strip()
+    if preferred:
+        try:
+            dev = evdev.InputDevice(preferred)
+            caps = dev.capabilities()
+            abs_codes = [a[0] if isinstance(a, tuple) else a
+                         for a in caps.get(ecodes.EV_ABS, [])]
+            if ecodes.ABS_X in abs_codes and ecodes.ABS_Y in abs_codes:
+                return dev
+        except Exception:
+            pass
+
+    # 2. Generic evdev scan — capability check + phys bus preference.
+    #    dev.phys contains bus path: "i2c-SYNA.../input0" vs "isa0060/serio.../input0"
+    candidates = []
+    for p in evdev.list_devices():
+        try:
+            dev = evdev.InputDevice(p)
+        except Exception:
+            continue
         caps = dev.capabilities()
         keys      = caps.get(ecodes.EV_KEY, [])
         abs_axes  = caps.get(ecodes.EV_ABS, [])
         abs_codes = [a[0] if isinstance(a, tuple) else a for a in abs_axes]
-        if (ecodes.ABS_X    in abs_codes and
-                ecodes.ABS_Y    in abs_codes and
+        if (ecodes.ABS_X     in abs_codes and
+                ecodes.ABS_Y     in abs_codes and
                 ecodes.BTN_TOUCH in keys and
-                ecodes.KEY_A    not in keys):
+                ecodes.KEY_A     not in keys):
+            candidates.append(dev)
+
+    if not candidates:
+        return None
+    # Prefer I2C (phys path starts with "i2c-")
+    for dev in candidates:
+        if (dev.phys or "").startswith("i2c-"):
             return dev
-    return None
+    return candidates[0]
 
 tp = find_touchpad()
 if tp is None:
@@ -839,21 +983,47 @@ SNAP=""
 REAL_CAMS=()
 IPU_DETECTED=0
 
+# Non-camera v4l2 drivers to skip (GPU, ACPI display, TV tuners)
+_CAM_SKIP_DRIVERS="i915|acpi_video|pvrusb2|cx88|saa7134|em28xx"
+
 for dev in /dev/video*; do
   [[ -e "$dev" ]] || continue
+
   dev_info=$(v4l2-ctl --device="$dev" --info 2>/dev/null)
-  driver_lc=$(echo "$dev_info" | grep -iE "Driver name|Card type" | tr '[:upper:]' '[:lower:]')
-  if echo "$driver_lc" | grep -qE "ipu3|ipu6"; then
+
+  # Extract driver name (lowercase)
+  cam_driver=$(echo "$dev_info" | grep -i "Driver name" \
+    | cut -d: -f2 | xargs | tr '[:upper:]' '[:lower:]')
+
+  # Detect IPU3/IPU6 before anything else
+  card_lc=$(echo "$dev_info" | grep -i "Card type" | tr '[:upper:]' '[:lower:]')
+  if echo "$cam_driver$card_lc" | grep -qE "ipu3|ipu6"; then
     IPU_DETECTED=1
-    echo "$driver_lc" | grep -q "ipu6" && CAM_DRIVER_TYPE="ipu6" || CAM_DRIVER_TYPE="ipu3"
-  elif v4l2-ctl --device="$dev" --list-formats 2>/dev/null | grep -q "Video Capture"; then
-    REAL_CAMS+=("$dev")
-    cam_name=$(echo "$dev_info" | grep "Card type" | cut -d: -f2 | xargs)
-    ok "Found capture camera: $dev | ${cam_name:-unknown}"
-    if [[ "$CAM_DRIVER_TYPE" == "unknown" ]]; then
-      drv_lower=$(echo "$dev_info" | grep -i "Driver name" | cut -d: -f2 | xargs | tr '[:upper:]' '[:lower:]')
-      echo "$drv_lower" | grep -qE "uvcvideo|uvc" && CAM_DRIVER_TYPE="uvc"
-    fi
+    echo "$cam_driver$card_lc" | grep -q "ipu6" && CAM_DRIVER_TYPE="ipu6" || CAM_DRIVER_TYPE="ipu3"
+    continue
+  fi
+
+  # Skip non-camera drivers (GPU, ACPI display, TV tuners)
+  if [[ -n "$cam_driver" ]] && echo "$cam_driver" | grep -qE "$_CAM_SKIP_DRIVERS"; then
+    warn "Skipping $dev (driver: $cam_driver) — not a camera device"
+    continue
+  fi
+
+  # Must have at least one capture format
+  fmt_count=$(v4l2-ctl --device="$dev" --list-formats 2>/dev/null | grep -c "\[")
+  if [[ $fmt_count -eq 0 ]]; then
+    warn "Skipping $dev — no capture formats available"
+    continue
+  fi
+
+  # Real camera confirmed
+  cam_name=$(echo "$dev_info" | grep "Card type" | cut -d: -f2 | xargs)
+  REAL_CAMS+=("$dev")
+  ok "Camera found: $dev | ${cam_name:-unknown} | driver: ${cam_driver:-unknown}"
+
+  # Set driver type once
+  if [[ "$CAM_DRIVER_TYPE" == "unknown" ]]; then
+    echo "$cam_driver" | grep -qE "uvcvideo|uvc" && CAM_DRIVER_TYPE="uvc"
   fi
 done
 
@@ -864,22 +1034,22 @@ if [[ $IPU_DETECTED -eq 1 ]]; then
   CAM_DRIVER_NOTE="driver_init_failed"
   CAM_COUNT=$(ls /dev/video* 2>/dev/null | wc -l)
 elif [[ ${#REAL_CAMS[@]} -eq 0 ]]; then
-  # No /dev/video* found — check dmesg for hardware evidence
+  # All /dev/video* were filtered out or none exist — check dmesg for real camera hardware.
+  # Only match real camera sensor/driver keywords; exclude GPU/ACPI display terms.
   DMESG_CAM=$(dmesg 2>/dev/null | grep -iE \
-    "ipu|cio2|imgu|ov[0-9]+|hi[0-9]+|imx[0-9]+|camera|webcam|uvcvideo|OVTID|csi[0-9]" \
+    "ipu[36]|cio2|imgu|ov[0-9]+|hi[0-9]+|imx[0-9]+|uvcvideo|OVTID" \
+    | grep -viE "acpi.video|GFX0|display|shadowed ROM" \
     | head -5)
 
   if [[ -n "$DMESG_CAM" ]]; then
     CAM_STATUS="HARDWARE_DETECTED"
-    warn "No /dev/video* found, but camera hardware detected in kernel log:"
-    echo "$DMESG_CAM" | while read -r line; do
-      warn "  $line"
-    done
+    warn "Camera hardware in kernel log but no working device node:"
+    echo "$DMESG_CAM" | while read -r line; do warn "  $line"; done
     warn "Driver failed to initialize — verify camera in Windows/OEM OS."
     CAM_DRIVER_NOTE="driver_init_failed"
   else
     CAM_STATUS="NOT_FOUND"
-    err "No camera device found and no hardware evidence in kernel log."
+    ok "No camera hardware detected (confirmed)."
     CAM_DRIVER_NOTE="no_hardware"
   fi
 else
@@ -929,6 +1099,14 @@ else
 fi
 # Always ensure CAM_IMAGE_B64 is defined (empty string when no capture).
 CAM_IMAGE_B64="${CAM_IMAGE_B64:-}"
+
+# HARDWARE_DETECTED with zero video nodes means no real camera hardware
+# (e.g. GPU-only machines where dmesg matched a generic keyword).
+# Reclassify to NOT_FOUND so CearTrack displays correctly.
+if [[ "$CAM_STATUS" == "HARDWARE_DETECTED" && ${CAM_COUNT:-0} -eq 0 ]]; then
+  CAM_STATUS="NOT_FOUND"
+  CAM_DRIVER_NOTE="no_hardware"
+fi
 
 # ============================================================
 # 8. AUDIO
@@ -1149,7 +1327,9 @@ JSON=$(cat <<EOF
     "speaker_device_status": "$(esc "${AUDIO_CARDS:-0}")",
     "mic_device_status": "$(esc "${MIC_CARDS:-0}")",
     "speaker_quality_check": "$(esc "$SPEAKER_QUALITY_CHECK")",
-    "mic_record_check": "$(esc "$MIC_RECORD_CHECK")"
+    "mic_record_check": "$(esc "$MIC_RECORD_CHECK")",
+    "speaker_card_used": "$(esc "${AUDIO_CARD_USED:-}")",
+    "mic_card_used": "$(esc "${MIC_CARD_USED:-}")"
   },
   "keyboard": {
     "device_status": "$(esc "${KB_DEVICES:-0}")",

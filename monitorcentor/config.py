@@ -11,5 +11,5 @@ HOST = "0.0.0.0"
 PORT = 5004
 DEBUG = os.getenv("MONITORCENTER_DEBUG", "0") == "1"
 
-# Purge entries from latest/ older than this many hours
-LATEST_RETENTION_HOURS = 24
+# latest/ keeps only files whose mtime is today (local date).
+# Purged on app startup and by a daily midnight sweeper thread.
