@@ -11,8 +11,7 @@ from __future__ import annotations
 
 import json
 import re
-import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
@@ -126,17 +125,42 @@ def write_envelope(module_name: str, sn: str, envelope: dict) -> dict:
 # Read — latest/ with 24h TTL
 # ---------------------------------------------------------------------------
 
-def read_latest(module_name: str) -> list[dict]:
-    """Return all envelopes in latest/, purging anything older than
-    LATEST_RETENTION_HOURS by mtime.
+def purge_stale_latest(module_name: str) -> int:
+    """Delete any file in latest/ whose mtime is not today (local date).
+
+    Returns the number of files removed. Safe to call concurrently and
+    repeatedly — missing dirs / files are no-ops.
     """
     latest_dir = get_latest_dir(module_name)
-    cutoff = time.time() - config.LATEST_RETENTION_HOURS * 3600
+    today = date.today()
+    removed = 0
+    for p in latest_dir.glob("*.json"):
+        try:
+            if date.fromtimestamp(p.stat().st_mtime) != today:
+                p.unlink(missing_ok=True)
+                removed += 1
+        except OSError:
+            continue
+    return removed
+
+
+def purge_stale_latest_all() -> dict[str, int]:
+    """Purge non-today files in every module's latest/. Returns {module: count}."""
+    return {m: purge_stale_latest(m) for m in iter_modules_with_data()}
+
+
+def read_latest(module_name: str) -> list[dict]:
+    """Return all envelopes in latest/ whose mtime is today (local date).
+    Stale (non-today) files are purged on the way through, so the dashboard
+    never shows yesterday's results even if the midnight sweep was missed.
+    """
+    latest_dir = get_latest_dir(module_name)
+    today = date.today()
     out: list[dict] = []
 
     for p in sorted(latest_dir.glob("*.json")):
         try:
-            if p.stat().st_mtime < cutoff:
+            if date.fromtimestamp(p.stat().st_mtime) != today:
                 p.unlink(missing_ok=True)
                 continue
             out.append(json.loads(p.read_text(encoding="utf-8")))

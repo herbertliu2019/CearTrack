@@ -1,5 +1,8 @@
 """Monitorcenter Flask entrypoint."""
 
+import threading
+from datetime import datetime, timedelta
+
 from flask import Flask, jsonify, render_template, request
 
 import config
@@ -28,6 +31,32 @@ if index_db.count() == 0:
     n = index_db.rebuild_all(_extract_sns_for_module)
     if n:
         print(f"\u2713 Rebuilt SN index from {n} history envelope(s)")
+
+
+# Startup sweep: drop anything in <module>/latest/ that isn't from today.
+_startup_purged = {m: storage.purge_stale_latest(m) for m in MODULES}
+_n = sum(_startup_purged.values())
+if _n:
+    print(f"\u2713 Purged {_n} stale latest/ file(s) on startup: {_startup_purged}")
+
+
+def _midnight_sweeper():
+    """Background daemon: sleep until next local midnight, purge, repeat."""
+    while True:
+        now = datetime.now()
+        # 00:00:05 to make sure we're past midnight and mtime-date comparison settles.
+        nxt = (now + timedelta(days=1)).replace(hour=0, minute=0, second=5, microsecond=0)
+        threading.Event().wait((nxt - now).total_seconds())
+        try:
+            counts = {m: storage.purge_stale_latest(m) for m in MODULES}
+            n = sum(counts.values())
+            if n:
+                print(f"\u2713 Midnight sweep purged {n} latest/ file(s): {counts}")
+        except Exception as e:
+            print(f"Midnight sweep error: {e}")
+
+
+threading.Thread(target=_midnight_sweeper, name="latest-midnight-sweeper", daemon=True).start()
 
 
 @app.route("/")
