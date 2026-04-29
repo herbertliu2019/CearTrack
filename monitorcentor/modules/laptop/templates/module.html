@@ -16,6 +16,10 @@
       <div class="stat-value" x-text="stats.pass ?? 0" style="color: var(--pass)"></div>
     </div>
     <div class="stat-card">
+      <div class="stat-label">Warning</div>
+      <div class="stat-value" x-text="stats.warning ?? 0" style="color: var(--warn)"></div>
+    </div>
+    <div class="stat-card">
       <div class="stat-label">Failed</div>
       <div class="stat-value" x-text="stats.fail ?? 0" style="color: var(--fail)"></div>
     </div>
@@ -152,6 +156,10 @@
       <div class="stat-card">
         <div class="stat-label">Passed</div>
         <div class="stat-value" style="color:var(--pass)" x-text="statsData?.passed ?? 0"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Warning</div>
+        <div class="stat-value" style="color:var(--warn)" x-text="statsData?.warned ?? 0"></div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Failed</div>

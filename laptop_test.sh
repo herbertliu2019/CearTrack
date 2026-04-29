@@ -1222,11 +1222,13 @@ echo "  Scanning dmesg for hardware error signals..."
 # Driver noise to ignore — these are driver bugs, not hardware failures
 KH_IGNORE='nouveau|nvkm_|g84_bar_flush|gp102_acr_wpr_patch|ov[0-9]+.*probe.*failed|DMAR.*Passthrough|Bluetooth: hci.*command.*tx timeout|i915.*GPU HANG|WARNING: CPU.*at drivers/|Call Trace:| \? |RIP:|RSP:| Code:|Modules linked in:|end trace|Tainted:|irq/.*pciehp|rewind_stack_and_make_dead'
 
-# Real hardware error signals
-KH_FAIL_RE='mce:|Machine Check|Hardware Error|EDAC .* error|BadRAM|I/O error|Buffer I/O error|Medium Error|end_request: critical|ata[0-9]+: .*failed command|nvme.*IO timeout|blk_update_request: I/O error|critical medium error|AER:.*Uncorrected|AER:.*Fatal|PCIe Bus Error:.*severity=Fatal|thermal .*critical|Core temperature above threshold|Package temperature above threshold'
+# Real hardware error signals — only uncorrectable / fatal conditions
+# EDAC CE (correctable) is intentionally excluded here; it goes to WARN below.
+KH_FAIL_RE='mce:|Machine Check|Hardware Error|EDAC.*(UE|[Uu]ncorrectable)|BadRAM|I/O error|Buffer I/O error|Medium Error|end_request: critical|ata[0-9]+: .*failed command|nvme.*IO timeout|blk_update_request: I/O error|critical medium error|AER:.*Uncorrected|AER:.*Fatal|PCIe Bus Error:.*severity=Fatal|thermal .*critical|Core temperature above threshold|Package temperature above threshold'
 
-# Warning signals — marginal hardware but not conclusive
-KH_WARN_RE='device descriptor read/64, error -|device not accepting address|usb.*disabled by hub|ata[0-9]+.*SError|link is slow to respond'
+# Warning signals — marginal or correctable hardware events, not conclusive failures.
+# EDAC HANDLING / CE = ECC correctable error (hardware already fixed the bit flip).
+KH_WARN_RE='EDAC.*(HANDLING|CE\b|[Cc]orrected)|device descriptor read/64, error -|device not accepting address|usb.*disabled by hub|ata[0-9]+.*SError|link is slow to respond'
 
 DMESG_FILTERED=$(dmesg 2>/dev/null | grep -vE "$KH_IGNORE")
 
@@ -1364,8 +1366,20 @@ JSON=$(cat <<EOF
 EOF
 )
 
-FAIL_COUNT=$(echo "$JSON" | grep -o '"FAIL"' | wc -l)
-OVERALL=$([[ $FAIL_COUNT -gt 0 ]] && echo "FAIL" || echo "PASS")
+# Determine overall result directly from status variables — more reliable
+# than grepping the JSON string (avoids encoding / quoting edge cases).
+OVERALL="PASS"
+for _s in "$DISK_STATUS" "$BAT_STATUS" "$SCREEN_CHECK" "$CAM_STATUS" \
+          "$SPEAKER_QUALITY_RESULT" "$MIC_RECORD_RESULT" \
+          "$KB_KEYS_CHECK" "$TOUCHPAD_RESULT" \
+          "$INTERNET_STATUS" "$PORTS_PHYSICAL" \
+          "$HINGE" "$APPEARANCE" "$KERNEL_HEALTH"; do
+  if [[ "$_s" == "FAIL" ]]; then
+    OVERALL="FAIL"
+    break
+  fi
+  [[ "$_s" == "WARN" ]] && OVERALL="WARN"
+done
 JSON=$(echo "$JSON" | sed 's/"PENDING"/"'"$OVERALL"'"/')
 # Replace internet placeholders after OVERALL is computed so internet FAIL doesn't affect overall_result
 JSON=$(echo "$JSON" | sed "s/__INTERNET_TEST__/$INTERNET_STATUS/; s/__INTERNET_VIA__/$INTERNET_VIA/")
@@ -1436,6 +1450,8 @@ echo ""
 
 if [[ "$OVERALL" == "PASS" ]]; then
   echo -e "  ${GREEN}${BOLD}RESULT: ✓ PASS — Ready for resale${NC}"
+elif [[ "$OVERALL" == "WARN" ]]; then
+  echo -e "  ${YELLOW}${BOLD}RESULT: ⚠ WARNING — See report for details${NC}"
 else
   echo -e "  ${RED}${BOLD}RESULT: ✗ FAIL — Needs repair${NC}"
 fi
