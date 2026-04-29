@@ -1367,11 +1367,11 @@ EOF
 )
 
 FAIL_COUNT=$(echo "$JSON" | grep -o '"FAIL"' | wc -l)
-WARN_COUNT=$(echo "$JSON" | grep -oE '"WARN(ING)?"' | wc -l)
+WARN_COUNT=$(echo "$JSON" | grep -o '"WARN"' | wc -l)
 if [[ $FAIL_COUNT -gt 0 ]]; then
   OVERALL="FAIL"
 elif [[ $WARN_COUNT -gt 0 ]]; then
-  OVERALL="WARNING"
+  OVERALL="WARN"
 else
   OVERALL="PASS"
 fi

@@ -173,7 +173,7 @@ def api_stats():
     records = storage.read_latest(_module.name)
     total = len(records)
     pass_count = sum(1 for r in records if r.get("overall_result") == "PASS")
-    warn_count = sum(1 for r in records if r.get("overall_result") == "WARNING")
+    warn_count = sum(1 for r in records if r.get("overall_result") == "WARN")
     fail_count = sum(1 for r in records if r.get("overall_result") == "FAIL")
     return jsonify({
         "total_today": total,
@@ -239,7 +239,7 @@ def api_stats_range():
 
     total = len(records)
     passed  = sum(1 for r in records if r.get("overall_result") == "PASS")
-    warned  = sum(1 for r in records if r.get("overall_result") == "WARNING")
+    warned  = sum(1 for r in records if r.get("overall_result") == "WARN")
     failed  = sum(1 for r in records if r.get("overall_result") == "FAIL")
 
     brands: dict[str, int] = {}
