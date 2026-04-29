@@ -55,7 +55,18 @@
         {"path": "payload.network.internet_test", "label": "Internet"},
         {"path": "payload.ports.physical_check", "label": "Ports"},
         {"path": "payload.appearance.hinge_check", "label": "Hinge"},
-        {"path": "payload.appearance.scratch_check", "label": "Scratches"}
+        {"path": "payload.appearance.scratch_check", "label": "Scratches"},
+        {"path": "payload.kernel_health.status", "label": "Kernel"}
+      ]
+    },
+    {
+      "title": "Kernel Health",
+      "type": "key_value",
+      "fields": [
+        {"path": "payload.kernel_health.status",          "label": "Status"},
+        {"path": "payload.kernel_health.fail_count",      "label": "Fail Signals"},
+        {"path": "payload.kernel_health.warn_count",      "label": "Warn Signals"},
+        {"path": "payload.kernel_health.matched_signals", "label": "Matched Log Lines"}
       ]
     }
   ]

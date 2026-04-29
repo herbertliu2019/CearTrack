@@ -260,16 +260,17 @@ def api_stats_range():
             continue
         payload = r.get("payload", {})
         checks = [
-            ("Screen",     payload.get("screen", {}).get("dead_pixel_check")),
-            ("Camera",     payload.get("camera", {}).get("device_status")),
-            ("Speaker",    payload.get("audio", {}).get("speaker_quality_check")),
-            ("Microphone", payload.get("audio", {}).get("mic_record_check")),
-            ("Keyboard",   payload.get("keyboard", {}).get("keys_check")),
-            ("Touchpad",   payload.get("keyboard", {}).get("touchpad_check")),
-            ("Battery",    payload.get("battery", {}).get("status")),
-            ("Network",    payload.get("network", {}).get("internet_test")),
-            ("Ports",      payload.get("ports", {}).get("physical_check")),
-            ("Appearance", payload.get("appearance", {}).get("scratch_check")),
+            ("Screen",        payload.get("screen", {}).get("dead_pixel_check")),
+            ("Camera",        payload.get("camera", {}).get("device_status")),
+            ("Speaker",       payload.get("audio", {}).get("speaker_quality_check")),
+            ("Microphone",    payload.get("audio", {}).get("mic_record_check")),
+            ("Keyboard",      payload.get("keyboard", {}).get("keys_check")),
+            ("Touchpad",      payload.get("keyboard", {}).get("touchpad_check")),
+            ("Battery",       payload.get("battery", {}).get("status")),
+            ("Network",       payload.get("network", {}).get("internet_test")),
+            ("Ports",         payload.get("ports", {}).get("physical_check")),
+            ("Appearance",    payload.get("appearance", {}).get("scratch_check")),
+            ("Kernel Health", payload.get("kernel_health", {}).get("status")),
         ]
         for label, val in checks:
             if val == "FAIL":

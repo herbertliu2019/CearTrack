@@ -104,11 +104,12 @@ function dashboardApp(moduleName) {
       const p = record.payload || {};
       return [
         { label: "Screen", value: p.screen?.dead_pixel_check },
-        { label: "Cam", value: p.camera?.device_status },
-        { label: "Audio", value: p.audio?.speaker_quality_check },
-        { label: "KB", value: p.keyboard?.keys_check },
-        { label: "Net", value: p.network?.internet_test },
-        { label: "Batt", value: p.battery?.status },
+        { label: "Cam",    value: p.camera?.device_status },
+        { label: "Audio",  value: p.audio?.speaker_quality_check },
+        { label: "KB",     value: p.keyboard?.keys_check },
+        { label: "Net",    value: p.network?.internet_test },
+        { label: "Batt",   value: p.battery?.status },
+        { label: "Kernel", value: p.kernel_health?.status },
       ];
     },
 
