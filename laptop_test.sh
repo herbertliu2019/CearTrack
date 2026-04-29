@@ -1366,15 +1366,20 @@ JSON=$(cat <<EOF
 EOF
 )
 
-FAIL_COUNT=$(echo "$JSON" | grep -o '"FAIL"' | wc -l)
-WARN_COUNT=$(echo "$JSON" | grep -o '"WARN"' | wc -l)
-if [[ $FAIL_COUNT -gt 0 ]]; then
-  OVERALL="FAIL"
-elif [[ $WARN_COUNT -gt 0 ]]; then
-  OVERALL="WARN"
-else
-  OVERALL="PASS"
-fi
+# Determine overall result directly from status variables — more reliable
+# than grepping the JSON string (avoids encoding / quoting edge cases).
+OVERALL="PASS"
+for _s in "$DISK_STATUS" "$BAT_STATUS" "$SCREEN_CHECK" "$CAM_STATUS" \
+          "$SPEAKER_QUALITY_RESULT" "$MIC_RECORD_RESULT" \
+          "$KB_KEYS_CHECK" "$TOUCHPAD_RESULT" \
+          "$INTERNET_STATUS" "$PORTS_PHYSICAL" \
+          "$HINGE" "$APPEARANCE" "$KERNEL_HEALTH"; do
+  if [[ "$_s" == "FAIL" ]]; then
+    OVERALL="FAIL"
+    break
+  fi
+  [[ "$_s" == "WARN" ]] && OVERALL="WARN"
+done
 JSON=$(echo "$JSON" | sed 's/"PENDING"/"'"$OVERALL"'"/')
 # Replace internet placeholders after OVERALL is computed so internet FAIL doesn't affect overall_result
 JSON=$(echo "$JSON" | sed "s/__INTERNET_TEST__/$INTERNET_STATUS/; s/__INTERNET_VIA__/$INTERNET_VIA/")
