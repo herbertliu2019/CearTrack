@@ -103,8 +103,9 @@ main { max-width: 1800px; margin: 0 auto; }
   transition: transform 0.15s;
   border-top: 4px solid var(--border);
 }
-.result-card.pass { border-top-color: var(--pass); }
-.result-card.fail { border-top-color: var(--fail); }
+.result-card.pass    { border-top-color: var(--pass); }
+.result-card.fail    { border-top-color: var(--fail); }
+.result-card.warning { border-top-color: var(--warn); }
 
 .card-summary { cursor: pointer; }
 .card-summary:hover { background: rgba(255,255,255,0.02); }
@@ -125,8 +126,9 @@ main { max-width: 1800px; margin: 0 auto; }
   font-weight: 600;
   letter-spacing: 0.05em;
 }
-.badge.pass { background: rgba(76,175,80,0.2); color: var(--pass); }
-.badge.fail { background: rgba(231,76,60,0.2); color: var(--fail); }
+.badge.pass    { background: rgba(76,175,80,0.2);  color: var(--pass); }
+.badge.fail    { background: rgba(231,76,60,0.2);  color: var(--fail); }
+.badge.warning { background: rgba(241,196,15,0.2); color: var(--warn); }
 
 .card-body { padding: 10px 16px; border-top: 1px solid var(--border); }
 .card-spec { color: var(--text-secondary); font-size: 0.85em; margin: 2px 0; }

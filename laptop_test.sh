@@ -1367,7 +1367,14 @@ EOF
 )
 
 FAIL_COUNT=$(echo "$JSON" | grep -o '"FAIL"' | wc -l)
-OVERALL=$([[ $FAIL_COUNT -gt 0 ]] && echo "FAIL" || echo "PASS")
+WARN_COUNT=$(echo "$JSON" | grep -oE '"WARN(ING)?"' | wc -l)
+if [[ $FAIL_COUNT -gt 0 ]]; then
+  OVERALL="FAIL"
+elif [[ $WARN_COUNT -gt 0 ]]; then
+  OVERALL="WARNING"
+else
+  OVERALL="PASS"
+fi
 JSON=$(echo "$JSON" | sed 's/"PENDING"/"'"$OVERALL"'"/')
 # Replace internet placeholders after OVERALL is computed so internet FAIL doesn't affect overall_result
 JSON=$(echo "$JSON" | sed "s/__INTERNET_TEST__/$INTERNET_STATUS/; s/__INTERNET_VIA__/$INTERNET_VIA/")
