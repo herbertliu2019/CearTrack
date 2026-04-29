@@ -1450,6 +1450,8 @@ echo ""
 
 if [[ "$OVERALL" == "PASS" ]]; then
   echo -e "  ${GREEN}${BOLD}RESULT: ✓ PASS — Ready for resale${NC}"
+elif [[ "$OVERALL" == "WARN" ]]; then
+  echo -e "  ${YELLOW}${BOLD}RESULT: ⚠ WARNING — See report for details${NC}"
 else
   echo -e "  ${RED}${BOLD}RESULT: ✗ FAIL — Needs repair${NC}"
 fi

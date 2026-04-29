@@ -68,6 +68,16 @@ class LaptopModule(TestModule):
             summary = f"{len(failed)} check(s) failed: {', '.join(failed[:3])}"
             if len(failed) > 3:
                 summary += f" (+{len(failed) - 3} more)"
+        elif overall == "WARN":
+            warned = []
+            for section_name, section in payload.items():
+                if isinstance(section, dict):
+                    for k, v in section.items():
+                        if isinstance(v, str) and v == "WARN":
+                            warned.append(f"{section_name}.{k}")
+            summary = f"{len(warned)} warning(s): {', '.join(warned[:3])}"
+            if len(warned) > 3:
+                summary += f" (+{len(warned) - 3} more)"
         elif warnings:
             summary = f"PASS with {len(warnings)} warning(s)"
         else:
