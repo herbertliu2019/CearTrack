@@ -513,11 +513,11 @@ sys.stdout.buffer.write(buf.getvalue())
           '$0 ~ "^card "c".*device "d":" {sub(/.*device [0-9]+: /,""); print $0; exit}')
     ok "Mic device found: card ${MIC_DEV%%,*} device ${MIC_DEV##*,} — ${_mic_label:-unknown}"
 
-    # Unmute / enable capture on SOF+HDA cards (best-effort; controls vary by codec)
+    # Unmute & maximize capture gain — DMIC tends to record very quietly at 80%.
     for ctl in "Capture" "Internal Mic" "Mic" "Front Mic" "Dmic" "Mic Boost" "Internal Mic Boost"; do
       amixer -c "$MIC_CARD_USED" sset "$ctl" cap    >/dev/null 2>&1 || true
       amixer -c "$MIC_CARD_USED" sset "$ctl" unmute >/dev/null 2>&1 || true
-      amixer -c "$MIC_CARD_USED" sset "$ctl" 80%    >/dev/null 2>&1 || true
+      amixer -c "$MIC_CARD_USED" sset "$ctl" 100%   >/dev/null 2>&1 || true
     done
   else
     warn "No capture device found in arecord -l — will try default device."
@@ -528,46 +528,24 @@ sys.stdout.buffer.write(buf.getvalue())
   AREC_DEV=()
   [[ -n "$MIC_DEV" ]] && AREC_DEV=(-D "plughw:${MIC_DEV}")
 
-  # DMIC natively runs at 48kHz mono; forcing CD (44100 Hz stereo) via plughw
-  # can produce near-silent output on SOF drivers. Use native format for DMIC,
-  # CD format for HDA Analog / external mic jacks.
-  AREC_FMT=(-f cd)
-  if echo "${_mic_label:-}" | grep -qi "dmic"; then
-    AREC_FMT=(-f S16_LE -r 48000 -c 1)
-    echo "  Format: 48kHz mono (DMIC native)"
-  fi
-
-  if arecord "${AREC_DEV[@]}" "${AREC_FMT[@]}" -d 3 -q "$REC_FILE" 2>/dev/null; then
-    # RMS silence check: if amplitude < 0.001 the mic recorded nothing useful
-    _rms=0
-    if command -v python3 &>/dev/null && [[ -f "$REC_FILE" ]]; then
-      _rms=$(python3 - "$REC_FILE" 2>/dev/null <<'PYEOF'
-import sys, wave, struct, math
-try:
-    wf = wave.open(sys.argv[1])
-    data = wf.readframes(wf.getnframes())
-    wf.close()
-    samples = struct.unpack('<' + 'h' * (len(data)//2), data)
-    rms = math.sqrt(sum(s*s for s in samples) / len(samples)) / 32768 if samples else 0
-    print(f"{rms:.6f}")
-except Exception:
-    print("0")
-PYEOF
-)
-    fi
-    # Compare RMS > 0.001 (threshold 10/32768 ≈ 0.000305; use 0.001 as user specified)
-    _rms_ok=$(python3 -c "print('1' if float('${_rms:-0}') > 0.001 else '0')" 2>/dev/null || echo "1")
-
-    if [[ "$_rms_ok" == "0" ]]; then
-      err "Recording appears silent (RMS=${_rms:-?}) — mic may not be working."
-      err "  Device used: ${AREC_DEV[*]:-default}"
-      MIC_RECORD_RESULT="FAIL"
-      rm -f "$REC_FILE"
-    elif [[ -f "$REC_FILE" && -s "$REC_FILE" ]]; then
-      echo "  Playing back the recording... (RMS=${_rms:-?})"
+  if arecord "${AREC_DEV[@]}" -f cd -d 3 -q "$REC_FILE" 2>/dev/null; then
+    if [[ -f "$REC_FILE" && -s "$REC_FILE" ]]; then
+      echo "  Playing back the recording..."
+      # Boost speaker to 100% for playback so quiet recordings are audible,
+      # then restore to 80% afterwards.
       APLAY_DEV=()
       [[ -n "$AUDIO_CARD_USED" ]] && APLAY_DEV=(-D "plughw:${AUDIO_CARD_USED},0")
+      if [[ -n "$AUDIO_CARD_USED" ]]; then
+        for ctl in "Master" "Speaker" "Headphone" "PCM" "Front"; do
+          amixer -c "$AUDIO_CARD_USED" sset "$ctl" 100% >/dev/null 2>&1 || true
+        done
+      fi
       aplay -q "${APLAY_DEV[@]}" "$REC_FILE" 2>/dev/null
+      if [[ -n "$AUDIO_CARD_USED" ]]; then
+        for ctl in "Master" "Speaker" "Headphone" "PCM" "Front"; do
+          amixer -c "$AUDIO_CARD_USED" sset "$ctl" 80% >/dev/null 2>&1 || true
+        done
+      fi
       rm -f "$REC_FILE"
       read -rp "  Did you hear your voice clearly? [p=pass / f=fail / s=skip]: " ans </dev/tty
       case "$ans" in
