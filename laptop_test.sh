@@ -469,47 +469,93 @@ sys.stdout.buffer.write(buf.getvalue())
   # Microphone Test
   echo -e "\n  ${BOLD}[2/2] Microphone Test${NC}"
 
-  # Pick the best capture card adaptively — same approach as speaker selection.
-  # Prefer a card whose mixer exposes any capture control name commonly used by
-  # internal mics (Realtek/Conexant/Cirrus/Intel SST all differ).
-  pick_mic_card() {
-    local best="" fallback=""
+  # Discover capture devices via arecord -l and pick the best card+device pair.
+  # Priority: DMIC (not DMIC16kHz) > HDA Analog > any other non-HDMI device.
+  # Returns "CARD,DEVICE" string, e.g. "0,6".
+  pick_mic_device() {
+    local dmic_cd="" analog_cd="" fallback_cd=""
     while IFS= read -r line; do
-      [[ "$line" =~ ^card[[:space:]]+([0-9]+): ]] || continue
-      local idx="${BASH_REMATCH[1]}"
-      local lc; lc=$(echo "$line" | tr '[:upper:]' '[:lower:]')
-      echo "$lc" | grep -qE "hdmi|displayport|nvidia|dock" && continue
-      if amixer -c "$idx" scontrols 2>/dev/null \
-           | grep -qE "'(Capture|Internal Mic|Mic|Front Mic|Dmic|Mic Boost)'"; then
-        best="$idx"
-        break
+      # arecord -l lines: "card N: ID [Long Name], device M: NAME [desc]"
+      [[ "$line" =~ ^card[[:space:]]+([0-9]+).*device[[:space:]]+([0-9]+):[[:space:]]*(.*) ]] || continue
+      local cidx="${BASH_REMATCH[1]}"
+      local didx="${BASH_REMATCH[2]}"
+      local dname_lc; dname_lc=$(echo "${BASH_REMATCH[3]}" | tr '[:upper:]' '[:lower:]')
+      # Skip HDMI/DisplayPort outputs (appear in capture list on some cards)
+      echo "$dname_lc" | grep -qE "hdmi|displayport" && continue
+      # DMIC16kHz — lower quality, only use as last resort
+      if echo "$dname_lc" | grep -q "dmic16khz"; then
+        [[ -z "$fallback_cd" ]] && fallback_cd="${cidx},${didx}"
+        continue
       fi
-      [[ -z "$fallback" ]] && fallback="$idx"
+      # Prefer DMIC (broadband) — typical for SOF/Intel SST laptops
+      if echo "$dname_lc" | grep -q "dmic"; then
+        [[ -z "$dmic_cd" ]] && dmic_cd="${cidx},${didx}"
+        continue
+      fi
+      # HDA Analog — Realtek/Conexant external mic jack
+      if echo "$dname_lc" | grep -qE "analog|hda analog"; then
+        [[ -z "$analog_cd" ]] && analog_cd="${cidx},${didx}"
+        continue
+      fi
+      [[ -z "$fallback_cd" ]] && fallback_cd="${cidx},${didx}"
     done < <(arecord -l 2>/dev/null | grep "^card ")
-    echo "${best:-$fallback}"
+    # Return best available: DMIC > Analog > fallback
+    echo "${dmic_cd:-${analog_cd:-$fallback_cd}}"
   }
 
-  MIC_CARD_USED=$(pick_mic_card)
+  MIC_DEV=$(pick_mic_device)   # e.g. "0,6"
+  MIC_CARD_USED="${MIC_DEV%%,*}"
 
-  # Unmute & set capture volume on whichever capture controls exist.
-  if [[ -n "$MIC_CARD_USED" ]]; then
+  if [[ -n "$MIC_DEV" ]]; then
+    # Show operator what was found
+    _mic_label=$(arecord -l 2>/dev/null \
+      | awk -v c="${MIC_DEV%%,*}" -v d="${MIC_DEV##*,}" \
+          '$0 ~ "^card "c".*device "d":" {sub(/.*device [0-9]+: /,""); print $0; exit}')
+    ok "Mic device found: card ${MIC_DEV%%,*} device ${MIC_DEV##*,} — ${_mic_label:-unknown}"
+
+    # Unmute / enable capture on SOF+HDA cards (best-effort; controls vary by codec)
     for ctl in "Capture" "Internal Mic" "Mic" "Front Mic" "Dmic" "Mic Boost" "Internal Mic Boost"; do
-      amixer -c "$MIC_CARD_USED" sset "$ctl" cap >/dev/null 2>&1 || true
+      amixer -c "$MIC_CARD_USED" sset "$ctl" cap    >/dev/null 2>&1 || true
       amixer -c "$MIC_CARD_USED" sset "$ctl" unmute >/dev/null 2>&1 || true
-      amixer -c "$MIC_CARD_USED" sset "$ctl" 80% >/dev/null 2>&1 || true
+      amixer -c "$MIC_CARD_USED" sset "$ctl" 80%    >/dev/null 2>&1 || true
     done
-    echo "  Mic card selected: card $MIC_CARD_USED"
   else
-    echo "  No usable capture card found — falling back to default device."
+    warn "No capture device found in arecord -l — will try default device."
   fi
 
   REC_FILE="/tmp/mic_test_$$.wav"
   echo "  Recording 3 seconds... Please speak now."
   AREC_DEV=()
-  [[ -n "$MIC_CARD_USED" ]] && AREC_DEV=(-D "plughw:${MIC_CARD_USED},0")
+  [[ -n "$MIC_DEV" ]] && AREC_DEV=(-D "plughw:${MIC_DEV}")
+
   if arecord "${AREC_DEV[@]}" -d 3 -f cd -q "$REC_FILE" 2>/dev/null; then
-    if [[ -f "$REC_FILE" && -s "$REC_FILE" ]]; then
-      echo "  Playing back the recording..."
+    # RMS silence check: if amplitude < 0.001 the mic recorded nothing useful
+    _rms=0
+    if command -v python3 &>/dev/null && [[ -f "$REC_FILE" ]]; then
+      _rms=$(python3 - "$REC_FILE" 2>/dev/null <<'PYEOF'
+import sys, wave, struct, math
+try:
+    wf = wave.open(sys.argv[1])
+    data = wf.readframes(wf.getnframes())
+    wf.close()
+    samples = struct.unpack('<' + 'h' * (len(data)//2), data)
+    rms = math.sqrt(sum(s*s for s in samples) / len(samples)) / 32768 if samples else 0
+    print(f"{rms:.6f}")
+except Exception:
+    print("0")
+PYEOF
+)
+    fi
+    # Compare RMS > 0.001 (threshold 10/32768 ≈ 0.000305; use 0.001 as user specified)
+    _rms_ok=$(python3 -c "print('1' if float('${_rms:-0}') > 0.001 else '0')" 2>/dev/null || echo "1")
+
+    if [[ "$_rms_ok" == "0" ]]; then
+      err "Recording appears silent (RMS=${_rms:-?}) — mic may not be working."
+      err "  Device used: ${AREC_DEV[*]:-default}"
+      MIC_RECORD_RESULT="FAIL"
+      rm -f "$REC_FILE"
+    elif [[ -f "$REC_FILE" && -s "$REC_FILE" ]]; then
+      echo "  Playing back the recording... (RMS=${_rms:-?})"
       APLAY_DEV=()
       [[ -n "$AUDIO_CARD_USED" ]] && APLAY_DEV=(-D "plughw:${AUDIO_CARD_USED},0")
       aplay -q "${APLAY_DEV[@]}" "$REC_FILE" 2>/dev/null
