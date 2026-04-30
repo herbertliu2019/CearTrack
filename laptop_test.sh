@@ -513,11 +513,12 @@ sys.stdout.buffer.write(buf.getvalue())
           '$0 ~ "^card "c".*device "d":" {sub(/.*device [0-9]+: /,""); print $0; exit}')
     ok "Mic device found: card ${MIC_DEV%%,*} device ${MIC_DEV##*,} — ${_mic_label:-unknown}"
 
-    # Unmute & maximize capture gain — DMIC tends to record very quietly at 80%.
+    # Only unmute and enable capture — do not override volume levels.
+    # Setting Mic Boost + Capture both to 100% causes clipping distortion.
+    # System defaults after alsactl init are sufficient.
     for ctl in "Capture" "Internal Mic" "Mic" "Front Mic" "Dmic" "Mic Boost" "Internal Mic Boost"; do
       amixer -c "$MIC_CARD_USED" sset "$ctl" cap    >/dev/null 2>&1 || true
       amixer -c "$MIC_CARD_USED" sset "$ctl" unmute >/dev/null 2>&1 || true
-      amixer -c "$MIC_CARD_USED" sset "$ctl" 100%   >/dev/null 2>&1 || true
     done
   else
     warn "No capture device found in arecord -l — will try default device."
@@ -531,21 +532,9 @@ sys.stdout.buffer.write(buf.getvalue())
   if arecord "${AREC_DEV[@]}" -f cd -d 3 -q "$REC_FILE" 2>/dev/null; then
     if [[ -f "$REC_FILE" && -s "$REC_FILE" ]]; then
       echo "  Playing back the recording..."
-      # Boost speaker to 100% for playback so quiet recordings are audible,
-      # then restore to 80% afterwards.
       APLAY_DEV=()
       [[ -n "$AUDIO_CARD_USED" ]] && APLAY_DEV=(-D "plughw:${AUDIO_CARD_USED},0")
-      if [[ -n "$AUDIO_CARD_USED" ]]; then
-        for ctl in "Master" "Speaker" "Headphone" "PCM" "Front"; do
-          amixer -c "$AUDIO_CARD_USED" sset "$ctl" 100% >/dev/null 2>&1 || true
-        done
-      fi
       aplay -q "${APLAY_DEV[@]}" "$REC_FILE" 2>/dev/null
-      if [[ -n "$AUDIO_CARD_USED" ]]; then
-        for ctl in "Master" "Speaker" "Headphone" "PCM" "Front"; do
-          amixer -c "$AUDIO_CARD_USED" sset "$ctl" 80% >/dev/null 2>&1 || true
-        done
-      fi
       rm -f "$REC_FILE"
       read -rp "  Did you hear your voice clearly? [p=pass / f=fail / s=skip]: " ans </dev/tty
       case "$ans" in
