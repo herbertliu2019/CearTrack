@@ -581,14 +581,41 @@ PYEOF
 # INSTALL DEPENDENCIES
 # ============================================================
 banner "Checking and Installing Dependencies"
-PKGS=(dmidecode smartmontools util-linux pciutils usbutils curl jq alsa-utils v4l-utils iw ethtool bc fswebcam ffmpeg libcamera-tools python3-evdev)
+PKGS=(python3 dmidecode smartmontools util-linux pciutils usbutils \
+      curl jq alsa-utils v4l-utils iw ethtool bc \
+      fswebcam ffmpeg libcamera-tools python3-evdev)
+
+# Collect which packages are missing first
+MISSING=()
 for pkg in "${PKGS[@]}"; do
-  if ! dpkg -s "$pkg" &>/dev/null 2>&1; then
-    warn "Installing $pkg ..."
-    apt-get install -y -q "$pkg" 2>/dev/null
-  fi
+  dpkg -s "$pkg" &>/dev/null 2>&1 || MISSING+=("$pkg")
 done
-ok "All dependencies are ready."
+
+if [[ ${#MISSING[@]} -eq 0 ]]; then
+  ok "All dependencies already installed."
+else
+  warn "${#MISSING[@]} package(s) missing: ${MISSING[*]}"
+  echo "  Running apt-get update..."
+  apt-get update -qq 2>/dev/null || warn "apt-get update failed — network may be unavailable."
+
+  FAILED=()
+  for pkg in "${MISSING[@]}"; do
+    echo -n "  Installing $pkg ... "
+    if apt-get install -y -q "$pkg" &>/dev/null 2>&1; then
+      echo -e "${GREEN}OK${NC}"
+    else
+      echo -e "${RED}FAILED${NC}"
+      FAILED+=("$pkg")
+    fi
+  done
+
+  if [[ ${#FAILED[@]} -eq 0 ]]; then
+    ok "All dependencies installed successfully."
+  else
+    warn "Could not install: ${FAILED[*]}"
+    warn "Some tests may be skipped or limited."
+  fi
+fi
 
 # ============================================================
 # 1. SYSTEM INFO
