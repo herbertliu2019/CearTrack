@@ -528,7 +528,16 @@ sys.stdout.buffer.write(buf.getvalue())
   AREC_DEV=()
   [[ -n "$MIC_DEV" ]] && AREC_DEV=(-D "plughw:${MIC_DEV}")
 
-  if arecord "${AREC_DEV[@]}" -d 3 -f cd -q "$REC_FILE" 2>/dev/null; then
+  # DMIC natively runs at 48kHz mono; forcing CD (44100 Hz stereo) via plughw
+  # can produce near-silent output on SOF drivers. Use native format for DMIC,
+  # CD format for HDA Analog / external mic jacks.
+  AREC_FMT=(-f cd)
+  if echo "${_mic_label:-}" | grep -qi "dmic"; then
+    AREC_FMT=(-f S16_LE -r 48000 -c 1)
+    echo "  Format: 48kHz mono (DMIC native)"
+  fi
+
+  if arecord "${AREC_DEV[@]}" "${AREC_FMT[@]}" -d 3 -q "$REC_FILE" 2>/dev/null; then
     # RMS silence check: if amplitude < 0.001 the mic recorded nothing useful
     _rms=0
     if command -v python3 &>/dev/null && [[ -f "$REC_FILE" ]]; then
