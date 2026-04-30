@@ -1,0 +1,3 @@
+# Force LF line endings for all text files — scripts must run on Linux
+* text=auto eol=lf
+*.sh text eol=lf
