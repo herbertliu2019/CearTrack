@@ -1,0 +1,19 @@
+# Runtime data — never commit
+data/
+test_wipe_data/
+
+# SQLite databases
+*.db
+*.sqlite
+
+# Backup files
+*.py_bk*
+*.html_bk*
+*_bk[0-9]*
+
+# Temp / editor
+*~
+*.swp
+__pycache__/
+*.pyc
+*index - Copy*

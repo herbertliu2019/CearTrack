@@ -79,6 +79,53 @@ def search():
     return jsonify({"sn": sn, "count": len(results), "results": results})
 
 
+def _search_wipe_sqlite(sn: str) -> list[dict]:
+    """Search wipe SQLite DB by drive_sn or system_sn. Skips silently if DB not found."""
+    import sqlite3
+    from pathlib import Path
+    db_path_str = app.config.get("WIPE_DB")
+    if not db_path_str:
+        return []
+    db_path = Path(db_path_str)
+    if not db_path.exists():
+        return []
+    try:
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        pattern = f"%{sn.upper()}%"
+        rows = conn.execute(
+            "SELECT * FROM wipe_records "
+            "WHERE UPPER(drive_sn) LIKE ? OR UPPER(system_sn) LIKE ? "
+            "ORDER BY wipe_datetime DESC",
+            (pattern, pattern),
+        ).fetchall()
+        conn.close()
+        results = []
+        for row in rows:
+            r = dict(row)
+            raw_result = (r.get("result") or "").upper()
+            overall = "PASS" if raw_result == "PASSED" else ("FAIL" if raw_result == "FAILED" else raw_result)
+            parts = [r.get("drive_model") or "—"]
+            if r.get("capacity"):
+                parts.append(r["capacity"])
+            if r.get("health_score") is not None:
+                parts.append(f"Health {r['health_score']}%")
+            if r.get("grade"):
+                parts.append(f"Grade {r['grade']}")
+            results.append({
+                "module":         "wipe",
+                "sn":             r.get("drive_sn", sn),
+                "system_sn":      r.get("system_sn", ""),
+                "timestamp":      r.get("wipe_datetime") or r.get("wipe_date", ""),
+                "overall_result": overall,
+                "summary":        " | ".join(parts),
+            })
+        return results
+    except Exception as e:
+        print(f"Wipe SQLite search error: {e}")
+        return []
+
+
 @app.route("/api/search")
 def api_search():
     """Cross-module SN search — returns a flat list of envelopes.
@@ -97,6 +144,9 @@ def api_search():
         except Exception as e:
             print(f"Search error for {m}: {e}")
 
+    # Wipe uses SQLite instead of JSON files — query separately
+    results.extend(_search_wipe_sqlite(sn))
+
     results.sort(key=lambda r: r.get("timestamp", ""), reverse=True)
     return jsonify(results)
 
@@ -107,6 +157,9 @@ def admin_rebuild_index():
     n = index_db.rebuild_all(_extract_sns_for_module)
     return jsonify({"rebuilt": n, "total": index_db.count()})
 
+
+from modules.wipe.integration import register_wipe_module
+register_wipe_module(app)
 
 if __name__ == "__main__":
     app.run(host=config.HOST, port=config.PORT, debug=config.DEBUG)

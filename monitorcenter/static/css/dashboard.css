@@ -324,6 +324,49 @@ main { max-width: 1800px; margin: 0 auto; }
   margin-bottom: 0;
 }
 
+/* Date input — bright cyan calendar icon */
+input[type="date"] {
+  color-scheme: dark;
+}
+input[type="date"]::-webkit-calendar-picker-indicator {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  filter: invert(1) sepia(1) saturate(5) hue-rotate(160deg);
+  opacity: 0.9;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+/* Indigo scan action button */
+.btn-scan-wiped {
+  -webkit-appearance: none;
+  appearance: none;
+  background: #6366f1;
+  color: #ffffff;
+  border: none;
+  padding: 11px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.92em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  box-shadow: 0 0 16px rgba(99,102,241,0.45);
+  transition: all 0.2s;
+}
+.btn-scan-wiped:hover {
+  background: #4f46e5;
+  box-shadow: 0 0 24px rgba(99,102,241,0.65);
+}
+.btn-scan-wiped:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 /* Stats record list */
 .stats-record-row {
   display: flex;
