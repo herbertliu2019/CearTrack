@@ -6,7 +6,7 @@ from flask import Blueprint, current_app, jsonify, render_template, request
 from modules.wipe.db import (
     get_conn, get_scan_status, upsert_scan_status,
     query_by_sn, query_period, query_today,
-    stats_summary, by_manufacturer, fail_reasons,
+    stats_summary, by_manufacturer, fail_reasons, by_device_type,
 )
 from modules.wipe.scanner import WipeScanner
 
@@ -28,7 +28,11 @@ def api_today():
     conn = get_conn(_db_path())
     records = query_today(conn)
     conn.close()
-    return jsonify({"stats": stats_summary(records), "records": records})
+    return jsonify({
+        "stats": stats_summary(records),
+        "by_device_type": by_device_type(records),
+        "records": records,
+    })
 
 
 @wipe_bp.get("/api/stats")
@@ -77,6 +81,7 @@ def api_stats():
         "end": end,
         "stats": stats_summary(records),
         "daily": daily,
+        "by_device_type": by_device_type(records),
         "by_manufacturer": by_manufacturer(records),
         "fail_reasons": fail_reasons(records),
         "records": records,

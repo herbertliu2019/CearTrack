@@ -10,6 +10,11 @@ test_wipe_data/
 *.py_bk*
 *.html_bk*
 *_bk[0-9]*
+*.js_bk*
+*.html_
+
+# Test logs
+test_logs/
 
 # Temp / editor
 *~

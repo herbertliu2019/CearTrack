@@ -153,13 +153,6 @@ def stats_summary(records: list[dict]) -> dict:
     total = len(records)
     passed = sum(1 for r in records if r.get("result") == "PASSED")
     failed = sum(1 for r in records if r.get("result") == "FAILED")
-    warning = sum(
-        1 for r in records
-        if r.get("result") == "PASSED" and (
-            (r.get("health_score") is not None and r["health_score"] < 70) or
-            (r.get("ssd_life") is not None and r["ssd_life"] < 50)
-        )
-    )
     durations = [r["duration_min"] for r in records if r.get("duration_min") is not None]
     avg_duration = round(sum(durations) / len(durations), 2) if durations else None
     pass_rate = round(passed / total * 100, 1) if total else 0.0
@@ -167,10 +160,23 @@ def stats_summary(records: list[dict]) -> dict:
         "total": total,
         "passed": passed,
         "failed": failed,
-        "warning": warning,
         "pass_rate": pass_rate,
         "avg_duration": avg_duration,
     }
+
+
+def by_device_type(records: list[dict]) -> dict:
+    """Classify drives into HDD / SSD / NVMe based on device_type field."""
+    counts: dict[str, int] = {"HDD": 0, "SSD": 0, "NVMe": 0}
+    for r in records:
+        dt = (r.get("device_type") or "").upper()
+        if "NVME" in dt:
+            counts["NVMe"] += 1
+        elif "SSD" in dt:
+            counts["SSD"] += 1
+        else:
+            counts["HDD"] += 1
+    return counts
 
 
 def by_manufacturer(records: list[dict]) -> list[dict]:

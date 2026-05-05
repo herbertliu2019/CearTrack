@@ -145,7 +145,7 @@
     </div>
 
     <!-- KPI strip -->
-    <div class="stats-strip" style="grid-template-columns:repeat(5,1fr);margin-bottom:24px;">
+    <div class="stats-strip" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px;">
       <div class="stat-card">
         <div class="stat-label">Total</div>
         <div class="stat-value" x-text="today.stats.total ?? 0"></div>
@@ -153,10 +153,6 @@
       <div class="stat-card">
         <div class="stat-label">Passed</div>
         <div class="stat-value" style="color:var(--pass);" x-text="today.stats.passed ?? 0"></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Warning</div>
-        <div class="stat-value" style="color:var(--warn);" x-text="today.stats.warning ?? 0"></div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Failed</div>
@@ -167,6 +163,9 @@
         <div class="stat-value" x-text="(today.stats.pass_rate ?? 0) + '%'"></div>
       </div>
     </div>
+
+    <!-- By Device Type -->
+    <div x-html="renderDeviceTypeBar(today.by_device_type)" style="margin-bottom:20px;"></div>
 
     <!-- Today's records -->
     <div style="display:flex;flex-direction:column;gap:8px;">
@@ -188,14 +187,6 @@
             </div>
             <div style="display:flex;gap:10px;padding:6px 16px;
                         border-top:1px solid var(--border);flex-wrap:wrap;">
-              <span x-show="r.health_score !== null" style="font-size:0.78em;color:var(--text-secondary);">
-                Health <span :style="r.health_score < 70 ? 'color:var(--warn)' : 'color:var(--pass)'"
-                             x-text="r.health_score + '%'"></span>
-              </span>
-              <span x-show="r.ssd_life !== null" style="font-size:0.78em;color:var(--text-secondary);">
-                SSD <span :style="r.ssd_life < 50 ? 'color:var(--warn)' : 'color:var(--pass)'"
-                          x-text="r.ssd_life + '%'"></span>
-              </span>
               <span x-show="r.duration_min !== null" style="font-size:0.78em;color:var(--text-secondary);">
                 ⏱ <span x-text="r.duration_min + ' min'"></span>
               </span>
@@ -242,18 +233,19 @@
     </div>
 
     <!-- KPI strip -->
-    <div class="stats-strip" style="grid-template-columns:repeat(5,1fr);margin-bottom:24px;">
+    <div class="stats-strip" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px;">
       <div class="stat-card"><div class="stat-label">Total</div>
         <div class="stat-value" x-text="week.stats?.total ?? 0"></div></div>
       <div class="stat-card"><div class="stat-label">Passed</div>
         <div class="stat-value" style="color:var(--pass);" x-text="week.stats?.passed ?? 0"></div></div>
-      <div class="stat-card"><div class="stat-label">Warning</div>
-        <div class="stat-value" style="color:var(--warn);" x-text="week.stats?.warning ?? 0"></div></div>
       <div class="stat-card"><div class="stat-label">Failed</div>
         <div class="stat-value" style="color:var(--fail);" x-text="week.stats?.failed ?? 0"></div></div>
       <div class="stat-card"><div class="stat-label">Pass Rate</div>
         <div class="stat-value" x-text="(week.stats?.pass_rate ?? 0) + '%'"></div></div>
     </div>
+
+    <!-- By Device Type -->
+    <div x-html="renderDeviceTypeBar(week.by_device_type)" style="margin-bottom:20px;"></div>
 
     <!-- By Manufacturer + Fail Reasons -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
@@ -349,18 +341,19 @@
     </div>
 
     <!-- KPI strip -->
-    <div class="stats-strip" style="grid-template-columns:repeat(5,1fr);margin-bottom:24px;">
+    <div class="stats-strip" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px;">
       <div class="stat-card"><div class="stat-label">Total</div>
         <div class="stat-value" x-text="month.stats?.total ?? 0"></div></div>
       <div class="stat-card"><div class="stat-label">Passed</div>
         <div class="stat-value" style="color:var(--pass);" x-text="month.stats?.passed ?? 0"></div></div>
-      <div class="stat-card"><div class="stat-label">Warning</div>
-        <div class="stat-value" style="color:var(--warn);" x-text="month.stats?.warning ?? 0"></div></div>
       <div class="stat-card"><div class="stat-label">Failed</div>
         <div class="stat-value" style="color:var(--fail);" x-text="month.stats?.failed ?? 0"></div></div>
       <div class="stat-card"><div class="stat-label">Pass Rate</div>
         <div class="stat-value" x-text="(month.stats?.pass_rate ?? 0) + '%'"></div></div>
     </div>
+
+    <!-- By Device Type -->
+    <div x-html="renderDeviceTypeBar(month.by_device_type)" style="margin-bottom:20px;"></div>
 
     <!-- By Manufacturer + Fail Reasons -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
@@ -475,18 +468,19 @@
                 x-text="fmtRange(customFrom, customTo) + '  (' + (custom.stats?.total ?? 0) + ' records)'"></span>
         </div>
 
-        <div class="stats-strip" style="grid-template-columns:repeat(5,1fr);margin-bottom:24px;">
+        <div class="stats-strip" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px;">
           <div class="stat-card"><div class="stat-label">Total</div>
             <div class="stat-value" x-text="custom.stats?.total ?? 0"></div></div>
           <div class="stat-card"><div class="stat-label">Passed</div>
             <div class="stat-value" style="color:var(--pass);" x-text="custom.stats?.passed ?? 0"></div></div>
-          <div class="stat-card"><div class="stat-label">Warning</div>
-            <div class="stat-value" style="color:var(--warn);" x-text="custom.stats?.warning ?? 0"></div></div>
           <div class="stat-card"><div class="stat-label">Failed</div>
             <div class="stat-value" style="color:var(--fail);" x-text="custom.stats?.failed ?? 0"></div></div>
           <div class="stat-card"><div class="stat-label">Pass Rate</div>
             <div class="stat-value" x-text="(custom.stats?.pass_rate ?? 0) + '%'"></div></div>
         </div>
+
+        <!-- By Device Type -->
+        <div x-html="renderDeviceTypeBar(custom.by_device_type)" style="margin-bottom:20px;"></div>
 
         <!-- By Manufacturer + Fail Reasons -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
@@ -587,10 +581,10 @@ function wipeApp() {
     searchResults: [],
     searched:      false,
 
-    today:  { stats: {}, records: [] },
-    week:   { stats: null, by_manufacturer: [], fail_reasons: [], daily: [], start: null, end: null },
-    month:  { stats: null, by_manufacturer: [], fail_reasons: [], daily: [] },
-    custom: { stats: null, by_manufacturer: [], fail_reasons: [], daily: [] },
+    today:  { stats: {}, records: [], by_device_type: null },
+    week:   { stats: null, by_manufacturer: [], fail_reasons: [], daily: [], by_device_type: null, start: null, end: null },
+    month:  { stats: null, by_manufacturer: [], fail_reasons: [], daily: [], by_device_type: null },
+    custom: { stats: null, by_manufacturer: [], fail_reasons: [], daily: [], by_device_type: null },
 
     customFrom:  '',
     customTo:    '',
@@ -728,6 +722,74 @@ function wipeApp() {
       return fmt(start) + ' – ' + fmt(end);
     },
 
+    renderDeviceTypeBar(dt) {
+      if (!dt) return '';
+      const total = (dt.HDD || 0) + (dt.SSD || 0) + (dt.NVMe || 0);
+      if (total === 0) return '';
+
+      // ── Inline SVG line icons ──────────────────────────────────────
+      const hddSvg = '<svg width="38" height="38" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">'
+        + '<rect x="4" y="9" width="30" height="20" rx="2.5" stroke="#60a5fa" stroke-width="1.6"/>'
+        + '<circle cx="17" cy="19" r="6.5" stroke="#60a5fa" stroke-width="1.5"/>'
+        + '<circle cx="17" cy="19" r="2.2" fill="#60a5fa" fill-opacity="0.45"/>'
+        + '<line x1="22.5" y1="13.5" x2="29" y2="11" stroke="#60a5fa" stroke-width="1.5" stroke-linecap="round"/>'
+        + '<circle cx="22" cy="14" r="2.2" fill="#60a5fa" fill-opacity="0.65"/>'
+        + '<circle cx="30" cy="12.5" r="1.3" fill="#60a5fa" fill-opacity="0.45"/>'
+        + '<circle cx="30" cy="25.5" r="1.3" fill="#60a5fa" fill-opacity="0.45"/>'
+        + '</svg>';
+
+      const ssdSvg = '<svg width="38" height="38" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">'
+        + '<rect x="4" y="7" width="30" height="24" rx="2.5" stroke="#34d399" stroke-width="1.6"/>'
+        + '<rect x="7.5" y="11" width="8" height="7" rx="1.2" stroke="#34d399" stroke-width="1.3" fill="#34d399" fill-opacity="0.12"/>'
+        + '<rect x="18" y="11" width="8" height="7" rx="1.2" stroke="#34d399" stroke-width="1.3" fill="#34d399" fill-opacity="0.12"/>'
+        + '<rect x="7.5" y="21" width="18.5" height="5" rx="1.2" stroke="#34d399" stroke-width="1.3" fill="#34d399" fill-opacity="0.18"/>'
+        + '<line x1="29" y1="22" x2="29" y2="25" stroke="#34d399" stroke-width="1.6" stroke-linecap="round"/>'
+        + '<line x1="31.5" y1="22" x2="31.5" y2="25" stroke="#34d399" stroke-width="1.6" stroke-linecap="round"/>'
+        + '</svg>';
+
+      const nvmeSvg = '<svg width="38" height="38" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">'
+        + '<rect x="14" y="3" width="10" height="26" rx="2" stroke="#a78bfa" stroke-width="1.6"/>'
+        + '<rect x="16.5" y="6.5" width="5" height="5.5" rx="1" stroke="#a78bfa" stroke-width="1.3" fill="#a78bfa" fill-opacity="0.15"/>'
+        + '<rect x="16.5" y="14" width="5" height="5.5" rx="1" stroke="#a78bfa" stroke-width="1.3" fill="#a78bfa" fill-opacity="0.15"/>'
+        + '<rect x="17.5" y="28.5" width="3" height="6" rx="0.8" stroke="#a78bfa" stroke-width="1.3"/>'
+        + '<line x1="5"  y1="10" x2="12.5" y2="10" stroke="#a78bfa" stroke-width="1.2" stroke-linecap="round" opacity="0.45"/>'
+        + '<line x1="3"  y1="14.5" x2="12.5" y2="14.5" stroke="#a78bfa" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>'
+        + '<line x1="5"  y1="19" x2="12.5" y2="19" stroke="#a78bfa" stroke-width="1.2" stroke-linecap="round" opacity="0.45"/>'
+        + '</svg>';
+
+      const badge = (label, count, color, svg) => {
+        const pct = Math.round(count / total * 100);
+        return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:80px;">'
+          + svg
+          + '<div style="font-size:1.25em;font-weight:700;color:' + color + ';">' + count + '</div>'
+          + '<div style="font-size:0.7em;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-secondary);">' + label + '</div>'
+          + '<div style="font-size:0.72em;color:' + color + ';opacity:0.8;">' + pct + '%</div>'
+          + '</div>';
+      };
+
+      const hddW  = total ? Math.round((dt.HDD  || 0) / total * 100) : 0;
+      const ssdW  = total ? Math.round((dt.SSD  || 0) / total * 100) : 0;
+      const nvmeW = total ? Math.round((dt.NVMe || 0) / total * 100) : 0;
+      return '<div class="detail-panel" style="padding:14px 20px;">'
+        + '<div style="font-size:0.75em;font-weight:700;text-transform:uppercase;'
+        +   'letter-spacing:0.06em;color:var(--text-secondary);margin-bottom:14px;">By Device Type</div>'
+        + '<div style="display:flex;align-items:center;gap:24px;">'
+        +   '<div style="display:flex;gap:32px;align-items:center;">'
+        +     badge('HDD',  dt.HDD  || 0, '#60a5fa', hddSvg)
+        +     badge('SSD',  dt.SSD  || 0, '#34d399', ssdSvg)
+        +     badge('NVMe', dt.NVMe || 0, '#a78bfa', nvmeSvg)
+        +   '</div>'
+        +   '<div style="flex:1;min-width:120px;">'
+        +     '<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;background:rgba(255,255,255,0.05);">'
+        +       (hddW  ? '<div style="width:' + hddW  + '%;background:#60a5fa;transition:width .5s;" title="HDD '  + hddW  + '%"></div>' : '')
+        +       (ssdW  ? '<div style="width:' + ssdW  + '%;background:#34d399;transition:width .5s;" title="SSD '  + ssdW  + '%"></div>' : '')
+        +       (nvmeW ? '<div style="width:' + nvmeW + '%;background:#a78bfa;transition:width .5s;" title="NVMe ' + nvmeW + '%"></div>' : '')
+        +     '</div>'
+        +   '</div>'
+        + '</div>'
+        + '</div>';
+    },
+
     renderWipeDetail(r) {
       const kv = (label, val) => val != null && val !== ''
         ? `<div class="kv-label">${label}</div><div class="kv-value">${val}</div>`
@@ -743,9 +805,9 @@ function wipeApp() {
             ${kv('Device Type',   r.device_type)}
             ${kv('Protocol',      r.protocol)}
             ${kv('Firmware',      r.firmware)}
-            ${kv('Health Score',  r.health_score != null ? r.health_score + '%' : null)}
+            ${kv('Health Score',  (r.health_score != null && r.health_score !== 0) ? r.health_score + '%' : null)}
             ${kv('Grade',         r.grade)}
-            ${kv('SSD Life',      r.ssd_life     != null ? r.ssd_life     + '%' : null)}
+            ${kv('SSD Life',      (r.ssd_life != null && r.ssd_life !== 0) ? r.ssd_life + '%' : null)}
             ${kv('Power On Hrs',  r.power_on_hrs)}
           </div>
         </div>
