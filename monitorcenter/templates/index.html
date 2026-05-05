@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}CearTrack{% endblock %}
+{% block content %}
+<script src="{{ url_for('static', filename='js/renderer.js') }}"></script>
+
+<div x-data="landingApp()" x-init="init()">
+
+  <div style="text-align: center; padding: 40px 0; border-bottom: 1px solid var(--border); margin-bottom: 30px;">
+    <h1 style="font-size: 2em; color: var(--accent);">CearTrack</h1>
+    <p style="color: var(--text-secondary); margin-top: 8px;">
+      Cear Hardware Test &amp; Traceability Platform
+    </p>
+  </div>
+
+  <!-- Global search -->
+  <div style="max-width: 600px; margin: 0 auto 40px;">
+    <div class="search-box">
+      <input type="text" x-model="globalSearch" @keydown.enter="runGlobalSearch()"
+             placeholder="Search by SN / Service Tag across all modules...">
+      <button @click="runGlobalSearch()">Search</button>
+    </div>
+
+    <div x-show="globalResults.length > 0" style="margin-top: 20px;">
+      <div style="font-size:0.85em;color:var(--text-secondary);margin-bottom:10px;"
+           x-text="globalResults.length + ' record(s) found'"></div>
+
+      <template x-for="r in globalResults" :key="r.module + r.sn + r.timestamp">
+        <div class="detail-panel" style="padding:0;margin-bottom:8px;overflow:hidden;">
+
+          <!-- Header row — click to expand -->
+          <div style="display:flex;justify-content:space-between;align-items:center;
+                      padding:12px 16px;cursor:pointer;"
+               @click="toggleExpand(r.module + r.sn + r.timestamp, r.module)">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <span style="color:var(--accent);font-weight:700;font-size:0.8em;
+                           text-transform:uppercase;letter-spacing:0.06em;"
+                    x-text="r.module"></span>
+              <span style="font-family:monospace;font-weight:600;" x-text="r.sn"></span>
+              <template x-if="r.system_sn && r.system_sn !== r.sn">
+                <span style="color:var(--text-secondary);font-size:0.82em;"
+                      x-text="'sys: ' + r.system_sn"></span>
+              </template>
+              <span :class="'badge ' + (r.overall_result === 'PASS' ? 'pass' : r.overall_result === 'FAIL' ? 'fail' : 'warn')"
+                    x-text="r.overall_result"></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
+              <span style="color:var(--text-secondary);font-size:0.82em;"
+                    x-text="(r.timestamp ?? '').slice(0,10)"></span>
+              <span style="color:var(--text-secondary);font-size:0.9em;"
+                    x-text="expandedKey === r.module + r.sn + r.timestamp ? '▲' : '▼'"></span>
+            </div>
+          </div>
+
+          <!-- Summary -->
+          <div style="padding:0 16px 10px;color:var(--text-secondary);font-size:0.85em;"
+               x-text="r.summary"></div>
+
+          <!-- Expanded details -->
+          <template x-if="expandedKey === r.module + r.sn + r.timestamp">
+            <div style="border-top:1px solid var(--border);padding:12px 16px;">
+              <div x-html="renderDetails(r)"></div>
+            </div>
+          </template>
+
+        </div>
+      </template>
+    </div>
+
+    <div x-show="globalSearch && globalResults.length === 0 && searched"
+         style="margin-top: 20px; color: var(--text-secondary); text-align: center;">
+      No records found for <span x-text="globalSearch"></span>.
+    </div>
+  </div>
+
+  <!-- Module tiles -->
+  <h2 style="margin-bottom: 12px;">Test Modules</h2>
+  <div class="module-grid">
+    {% for m in modules %}
+    <a href="/{{ m }}/" class="module-tile">
+      <h3>{{ m|capitalize }}</h3>
+      <div x-data="{stats:{}}" x-init="fetch('/{{ m }}/api/stats').then(r=>r.json()).then(d=>stats=d).catch(()=>{})">
+        <div style="color: var(--text-secondary); font-size: 0.85em; margin-top: 10px;">
+          <span x-text="stats.total_today ?? 0"></span> tested today
+        </div>
+        <div style="color: var(--pass); font-size: 0.85em;">
+          <span x-text="stats.pass_rate ?? 0"></span>% pass
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+
+    <!-- Wipe module (registered separately, not in auto-discovery) -->
+    <a href="/wipe/" class="module-tile">
+      <h3>Wipe</h3>
+      <div x-data="{stats:{}}" x-init="fetch('/wipe/api/today').then(r=>r.json()).then(d=>stats=d.stats).catch(()=>{})">
+        <div style="color: var(--text-secondary); font-size: 0.85em; margin-top: 10px;">
+          <span x-text="stats.total ?? 0"></span> tested today
+        </div>
+        <div style="color: var(--pass); font-size: 0.85em;">
+          <span x-text="stats.pass_rate ?? 0"></span>% pass
+        </div>
+      </div>
+    </a>
+
+    <!-- Placeholder for future modules -->
+    <div class="module-tile" style="opacity: 0.4; cursor: not-allowed;">
+      <h3>CPU</h3>
+      <div style="color: var(--text-secondary); margin-top: 10px;">Coming soon</div>
+    </div>
+    <div class="module-tile" style="opacity: 0.4; cursor: not-allowed;">
+      <h3>GPU</h3>
+      <div style="color: var(--text-secondary); margin-top: 10px;">Coming soon</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function landingApp() {
+  return {
+    globalSearch: "",
+    globalResults: [],
+    searched: false,
+    expandedKey: null,
+    schemas: {},
+
+    init() {},
+
+    async runGlobalSearch() {
+      this.searched = true;
+      this.expandedKey = null;
+      if (!this.globalSearch.trim()) { this.globalResults = []; return; }
+      const r = await fetch(`/api/search?sn=${encodeURIComponent(this.globalSearch.trim())}`);
+      this.globalResults = await r.json();
+    },
+
+    async toggleExpand(key, module) {
+      if (this.expandedKey === key) {
+        this.expandedKey = null;
+        return;
+      }
+      this.expandedKey = key;
+      // Lazy-load schema for schema-driven modules (e.g. laptop)
+      if (module && !this.schemas[module]) {
+        try {
+          const r = await fetch(`/${module}/api/schema`);
+          if (r.ok) this.schemas[module] = await r.json();
+        } catch (e) {}
+      }
+    },
+
+    renderDetails(r) {
+      const schema = this.schemas[r.module];
+      if (schema && r.payload) {
+        return renderPayload(schema, r);
+      }
+      // Wipe / fallback: simple key-value table
+      const p = r.payload || {};
+      const rows = [
+        ['Drive Model',    p.drive_model],
+        ['Capacity',       p.capacity],
+        ['Device Type',    p.device_type],
+        ['Serial Number',  p.drive_sn],
+        ['Method',         p.method],
+        ['Result',         p.result],
+        ['Health Score',   p.health_score != null ? p.health_score + '%' : null],
+        ['Grade',          p.grade],
+        ['SSD Life',       p.ssd_life    != null ? p.ssd_life + '%'    : null],
+        ['Power On Hours', p.power_on_hrs != null ? p.power_on_hrs + 'h' : null],
+        ['Duration',       p.duration_min != null ? p.duration_min + ' min' : null],
+        ['System',         [p.sys_manufacturer, p.sys_model].filter(Boolean).join(' ') || null],
+        ['System SN',      p.system_sn],
+        ['Wipe Date',      p.wipe_date],
+      ].filter(([, v]) => v != null && v !== '');
+
+      if (!rows.length) return '<div style="color:var(--text-secondary);font-size:0.88em;">No details available</div>';
+
+      return `<div class="kv-grid">${
+        rows.map(([label, val]) =>
+          `<div class="kv-label">${label}</div><div class="kv-value">${val}</div>`
+        ).join('')
+      }</div>`;
+    },
+  };
+}
+</script>
+{% endblock %}

@@ -1,0 +1,6 @@
+{
+  "log_root": "/mnt/win_logs",
+  "db_path": "/opt/monitorcenter/data/wipe_index.db",
+  "win_share_root": "\\\\04 Data Wiping\\EPS",
+  "poll_interval": 600
+}

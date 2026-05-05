@@ -289,6 +289,20 @@ def api_stats_range():
             if val == "FAIL":
                 fail_reasons[label] = fail_reasons.get(label, 0) + 1
 
+    from collections import defaultdict
+    daily_map = defaultdict(lambda: {'total': 0, 'passed': 0, 'failed': 0})
+    for r in records:
+        day = r.get('timestamp', '')[:10]
+        daily_map[day]['total'] += 1
+        if r.get('overall_result') == 'PASS':
+            daily_map[day]['passed'] += 1
+        else:
+            daily_map[day]['failed'] += 1
+    daily = [
+        {'date': d, 'total': v['total'], 'passed': v['passed'], 'failed': v['failed']}
+        for d, v in sorted(daily_map.items())
+    ]
+
     brands_sorted = sorted(brands.items(), key=lambda x: x[1], reverse=True)
     fail_reasons_sorted = sorted(fail_reasons.items(), key=lambda x: x[1], reverse=True)
 
@@ -315,5 +329,6 @@ def api_stats_range():
         "pass_rate":    round(passed / total * 100, 1) if total else 0,
         "brands":       brands_sorted,
         "fail_reasons": fail_reasons_sorted,
+        "daily":        daily,
         "records":      record_list,
     })

@@ -26,7 +26,7 @@
       "title": "Storage",
       "type": "list",
       "path": "payload.storage",
-      "item_template": "{model} ({size}, {type}) — SMART: {smart} | Power-on: {power_on_hours}h | Written: {ssd_data_written} | Health: {ssd_health_percent}% Grade {ssd_grade}"
+      "item_template": "{model} ({size}, {type}) — SN: {serial} | SMART: {smart} | Power-on: {power_on_hours}h | Written: {ssd_data_written} | Health: {ssd_health_percent}% Grade {ssd_grade}"
     },
     {
       "title": "Camera",
