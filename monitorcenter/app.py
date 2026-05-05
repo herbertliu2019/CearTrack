@@ -119,6 +119,7 @@ def _search_wipe_sqlite(sn: str) -> list[dict]:
                 "timestamp":      r.get("wipe_datetime") or r.get("wipe_date", ""),
                 "overall_result": overall,
                 "summary":        " | ".join(parts),
+                "payload":        r,
             })
         return results
     except Exception as e:
