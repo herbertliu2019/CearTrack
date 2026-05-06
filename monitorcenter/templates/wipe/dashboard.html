@@ -7,9 +7,13 @@
   <!-- ── Scan Progress Banner ─────────────────────────────────────── -->
   <div x-show="scanBanner.visible"
        style="position:fixed;top:0;left:0;right:0;z-index:999;
-              background:#0d1a2e;border-bottom:2px solid #6366f1;
-              padding:10px 24px;display:flex;align-items:center;gap:16px;font-size:0.9em;">
-    <span style="color:#6366f1;font-weight:700;letter-spacing:0.05em;">⟳ SCANNING</span>
+              background:#0d1a2e;padding:10px 24px;display:flex;align-items:center;gap:16px;font-size:0.9em;"
+       :style="scanBanner.force
+         ? 'border-bottom:2px solid #f59e0b;'
+         : 'border-bottom:2px solid #6366f1;'">
+    <span style="font-weight:700;letter-spacing:0.05em;"
+          :style="scanBanner.force ? 'color:#f59e0b;' : 'color:#6366f1;'"
+          x-text="scanBanner.force ? '⟳ FORCE RESCANNING' : '⟳ SCANNING'"></span>
     <span style="color:var(--text-primary);"
           x-text="scanBanner.done + ' / ' + scanBanner.total + ' files...'"></span>
     <div style="flex:1;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;">
@@ -64,10 +68,11 @@
 
     <!-- SCAN WIPED DATA button -->
     <div style="position:relative;flex-shrink:0;" x-data="{tip:false}">
-      <button @click="triggerFullScan()"
+      <button @click="triggerFullScan($event)"
               @mouseenter="tip=true" @mouseleave="tip=false"
               :disabled="scanBanner.visible"
-              class="btn-scan-wiped">
+              class="btn-scan-wiped"
+              title="Click: scan new files only&#10;Shift+Click: force rescan all + remove deleted">
         ⟳ SCAN WIPED DATA
       </button>
       <div x-show="tip"
@@ -76,11 +81,15 @@
                   padding:12px 16px;width:280px;font-size:0.8em;line-height:1.6;
                   color:var(--text-primary);box-shadow:0 4px 24px rgba(0,0,0,0.6);">
         <strong style="color:#6366f1;display:block;margin-bottom:6px;">⟳ SCAN WIPED DATA</strong>
-        Scans all historical log files from the configured share and adds new records to the
-        wipe database. Already-indexed files are skipped — no duplicates.
+        Scans all log files and adds new records to the database.
+        Already-indexed files are skipped — no duplicates.
         <em style="color:var(--text-secondary);display:block;margin-top:8px;">
           ⚠ May take several minutes for large archives.
         </em>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08);">
+          <strong style="color:#f59e0b;display:block;margin-bottom:4px;">⚡ Shift+Click — Force Rescan</strong>
+          Re-parses every file and removes records for deleted logs.
+        </div>
       </div>
     </div>
   </div>
@@ -606,7 +615,7 @@ function wipeApp() {
     lastScanned: '',
     detailOpen:  null,
     copied:      null,
-    scanBanner:  { visible: false, done: 0, total: 0 },
+    scanBanner:  { visible: false, done: 0, total: 0, force: false },
     scanState:   { poller_running: false, last_scan_at: null, next_scan_at: null, interval: 1800 },
     _scanPoll:   null,
 
@@ -682,16 +691,22 @@ function wipeApp() {
       this.searched      = false;
     },
 
-    async triggerFullScan() {
+    async triggerFullScan(evt) {
+      const force = evt && evt.shiftKey;
+      if (force) {
+        if (!confirm('Force rescan will re-parse ALL log files and remove records for deleted logs.\n\nThis may take several minutes. Continue?')) return;
+      }
       let r;
       try {
-        r = await fetch('/wipe/api/scan', { method: 'POST' }).then(res => res.json());
+        const url = '/wipe/api/scan' + (force ? '?force=1' : '');
+        r = await fetch(url, { method: 'POST' }).then(res => res.json());
       } catch (e) {
         alert('Failed to reach server: ' + e.message);
         return;
       }
       if (r.status === 'started') {
         this.scanBanner.visible = true;
+        this.scanBanner.force   = force;
         this.scanBanner.done    = 0;
         this._startScanPoll();
       } else if (r.status === 'already_running') {

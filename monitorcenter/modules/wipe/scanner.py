@@ -5,8 +5,8 @@ from pathlib import Path
 
 from modules.wipe.parser import parse_log
 from modules.wipe.db import (
-    init_db, get_conn, insert_record,
-    upsert_scan_status,
+    init_db, get_conn, insert_record, upsert_record,
+    upsert_scan_status, purge_missing_logs,
 )
 
 MONTH_DIRS = {
@@ -52,6 +52,7 @@ class WipeScanner:
         return sorted(month_dir.glob("*.log"))
 
     def _process_files(self, files: list[Path], scan_type: str,
+                       force: bool = False,
                        progress_every: int = 0) -> dict:
         conn = get_conn(self.db_path)
         total = len(files)
@@ -76,10 +77,14 @@ class WipeScanner:
                 record["log_path"] = str(f)
                 record["win_path"] = self.make_win_path(f)
                 record["indexed_at"] = now_str
-                if insert_record(conn, record):
+                if force:
+                    upsert_record(conn, record)
                     inserted += 1
                 else:
-                    skipped += 1
+                    if insert_record(conn, record):
+                        inserted += 1
+                    else:
+                        skipped += 1
 
             if i % 100 == 0:
                 upsert_scan_status(conn, running=1, total=total, done=i,
@@ -98,6 +103,18 @@ class WipeScanner:
 
     def run_poll(self) -> dict:
         return self._process_files(self.collect_current_month(), "poll")
+
+    def run_force(self) -> dict:
+        """Re-parse every log file and remove DB records for deleted files."""
+        files = self.collect_all()
+        existing_paths = {str(f) for f in files}
+        # purge records whose source file is gone
+        conn = get_conn(self.db_path)
+        purged = purge_missing_logs(conn, existing_paths)
+        conn.close()
+        result = self._process_files(files, "force", force=True)
+        result["purged"] = purged
+        return result
 
 
 if __name__ == "__main__":

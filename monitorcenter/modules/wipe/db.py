@@ -121,6 +121,23 @@ def insert_record(conn: sqlite3.Connection, record: dict) -> bool:
     return cur.rowcount == 1
 
 
+def upsert_record(conn: sqlite3.Connection, record: dict) -> None:
+    """Delete existing row for log_path then insert fresh (force-rescan mode)."""
+    conn.execute("DELETE FROM wipe_records WHERE log_path = ?", (record["log_path"],))
+    insert_record(conn, record)
+
+
+def purge_missing_logs(conn: sqlite3.Connection, existing_paths: set[str]) -> int:
+    """Delete DB rows whose log file no longer exists on disk. Returns deleted count."""
+    rows = conn.execute("SELECT log_path FROM wipe_records").fetchall()
+    to_delete = [r[0] for r in rows if r[0] not in existing_paths]
+    if to_delete:
+        conn.executemany("DELETE FROM wipe_records WHERE log_path = ?",
+                         [(p,) for p in to_delete])
+        conn.commit()
+    return len(to_delete)
+
+
 def _rows_to_dicts(rows) -> list[dict]:
     return [dict(r) for r in rows]
 

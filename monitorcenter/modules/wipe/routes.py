@@ -126,11 +126,16 @@ def api_scan():
     cfg = current_app.config["WIPE_CFG"]
     scanner = WipeScanner(cfg["log_root"], db_path, cfg["win_share_root"])
 
+    force = request.args.get("force", "0") == "1"
+
     def _run():
-        scanner.run_full()
+        if force:
+            scanner.run_force()
+        else:
+            scanner.run_full()
 
     threading.Thread(target=_run, daemon=True, name="wipe-full-scan").start()
-    return jsonify({"status": "started"})
+    return jsonify({"status": "started", "force": force})
 
 
 @wipe_bp.get("/api/scan/status")
