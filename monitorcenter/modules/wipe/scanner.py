@@ -32,11 +32,10 @@ class WipeScanner:
         return self.win_share_root + rel
 
     def collect_all(self) -> list[Path]:
-        logs_root = self.log_root / "logs"
         files = []
-        if not logs_root.exists():
+        if not self.log_root.exists():
             return files
-        for year_dir in sorted(logs_root.iterdir()):
+        for year_dir in sorted(self.log_root.iterdir()):
             if not year_dir.is_dir() or not year_dir.name.isdigit() or len(year_dir.name) != 4:
                 continue
             for month_dir in sorted(year_dir.iterdir()):
@@ -47,7 +46,7 @@ class WipeScanner:
 
     def collect_current_month(self) -> list[Path]:
         now = datetime.now()
-        month_dir = self.log_root / "logs" / str(now.year) / MONTH_DIRS[now.month]
+        month_dir = self.log_root / str(now.year) / MONTH_DIRS[now.month]
         if not month_dir.exists():
             return []
         return sorted(month_dir.glob("*.log"))
