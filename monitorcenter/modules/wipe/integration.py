@@ -15,4 +15,5 @@ def register_wipe_module(app):
     app.config["WIPE_DB"] = cfg["db_path"]
     app.config["WIPE_CFG"] = cfg
     app.register_blueprint(wipe_bp)
-    start_poll_scheduler(cfg)
+    if not app.testing:
+        start_poll_scheduler(cfg)

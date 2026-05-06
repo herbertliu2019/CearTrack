@@ -33,9 +33,9 @@ def register_modules(app) -> dict[str, Any]:
             if hasattr(mod, "blueprint"):
                 app.register_blueprint(mod.blueprint, url_prefix=f"/{name}")
                 registered[name] = getattr(mod, "_module", None)
-                print(f"\u2713 Registered module: {name}")
+                print(f"[OK] Registered module: {name}")
         except Exception as e:
-            print(f"\u2717 Failed to register {name}: {e}")
+            print(f"[--] Skipped module: {name}: {e}")
 
     if not registered:
         print("No modules registered")

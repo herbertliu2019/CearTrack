@@ -1,9 +1,12 @@
 import os
 from pathlib import Path
 
-BASE_DIR = Path("/opt/monitorcenter/data")
-STATIC_DIR = Path("/opt/monitorcenter/static")
-TEMPLATE_DIR = Path("/opt/monitorcenter/templates")
+# In production: /opt/monitorcenter/  In dev: wherever this file lives.
+_ROOT = Path(__file__).parent
+
+BASE_DIR    = Path(os.getenv("MONITORCENTER_DATA_DIR",    str(_ROOT / "data")))
+STATIC_DIR  = Path(os.getenv("MONITORCENTER_STATIC_DIR",  str(_ROOT / "static")))
+TEMPLATE_DIR = Path(os.getenv("MONITORCENTER_TEMPLATE_DIR", str(_ROOT / "templates")))
 
 INDEX_DB_PATH = BASE_DIR / "_index.sqlite"
 

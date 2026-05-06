@@ -39,12 +39,27 @@
 
     <div style="flex:1;"></div>
 
-    <!-- Last scanned info -->
-    <div x-show="lastScanned" style="text-align:right;flex-shrink:0;">
-      <div style="font-size:0.7em;text-transform:uppercase;letter-spacing:0.06em;
-                  color:var(--text-secondary);">Last Scan</div>
-      <div style="font-size:0.82em;color:var(--text-primary);font-family:monospace;"
-           x-text="lastScanned"></div>
+    <!-- Auto-poll status -->
+    <div style="text-align:right;flex-shrink:0;line-height:1.7;">
+      <div x-show="scanState.last_scan_at"
+           style="font-size:0.78em;color:var(--text-secondary);">
+        <span style="color:var(--pass);font-weight:600;">⟳</span>
+        Last auto-scan:
+        <span style="color:var(--text-primary);font-family:monospace;"
+              x-text="(scanState.last_scan_at ?? '').replace('T',' ')"></span>
+      </div>
+      <div x-show="scanState.next_scan_at"
+           style="font-size:0.78em;color:var(--text-secondary);">
+        Next in:
+        <span style="color:var(--accent);font-weight:600;"
+              x-text="nextScanIn()"></span>
+      </div>
+      <div x-show="!scanState.last_scan_at && !scanState.next_scan_at && lastScanned"
+           style="font-size:0.78em;color:var(--text-secondary);">
+        Last scan:
+        <span style="color:var(--text-primary);font-family:monospace;"
+              x-text="lastScanned"></span>
+      </div>
     </div>
 
     <!-- SCAN WIPED DATA button -->
@@ -592,6 +607,7 @@ function wipeApp() {
     detailOpen:  null,
     copied:      null,
     scanBanner:  { visible: false, done: 0, total: 0 },
+    scanState:   { poller_running: false, last_scan_at: null, next_scan_at: null, interval: 1800 },
     _scanPoll:   null,
 
     async init() {
@@ -601,6 +617,8 @@ function wipeApp() {
         this.loadMonth(),
         this.loadScanStatus(),
       ]);
+      // refresh status bar every 30 s (lightweight — no data reload)
+      setInterval(() => this.loadScanStatus(), 30000);
     },
 
     async loadToday() {
@@ -621,6 +639,22 @@ function wipeApp() {
     async loadScanStatus() {
       try {
         const s = await fetch('/wipe/api/scan/status').then(r => r.json());
+        // poller state (new fields from scheduler)
+        this.scanState = {
+          poller_running: s.poller_running ?? false,
+          last_scan_at:   s.last_scan_at   ?? null,
+          next_scan_at:   s.next_scan_at   ?? null,
+          interval:       s.interval       ?? 1800,
+        };
+        // manual full-scan progress banner
+        if (s.running === 1) {
+          this.scanBanner.visible = true;
+          this.scanBanner.done    = s.done  ?? 0;
+          this.scanBanner.total   = s.total ?? 0;
+        } else {
+          this.scanBanner.visible = false;
+        }
+        // fallback last-scan label (from db updated_at)
         if (s.updated_at && !s.running) {
           this.lastScanned = s.updated_at.replace('T', ' ').substring(0, 16);
         }
@@ -720,6 +754,14 @@ function wipeApp() {
       if (!start || !end) return '';
       const fmt = d => { const p = d.split('-'); return p[1] + '/' + p[2]; };
       return fmt(start) + ' – ' + fmt(end);
+    },
+
+    nextScanIn() {
+      if (!this.scanState.next_scan_at) return '—';
+      const diff = new Date(this.scanState.next_scan_at) - new Date();
+      if (diff <= 0) return '< 1 min';
+      const mins = Math.ceil(diff / 60000);
+      return mins + ' min';
     },
 
     renderDeviceTypeBar(dt) {

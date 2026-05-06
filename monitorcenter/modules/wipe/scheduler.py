@@ -1,48 +1,102 @@
 import logging
 import threading
+from datetime import datetime, timedelta
 
 from modules.wipe.db import get_conn, get_scan_status
 from modules.wipe.scanner import WipeScanner
 
 logger = logging.getLogger(__name__)
 
-_poll_thread: threading.Thread | None = None
-_stop_event = threading.Event()
+_poll_thread:      threading.Thread | None = None
+_stop_event      = threading.Event()
+_last_scan_at:   str | None = None
+_next_scan_at:   str | None = None
+_current_interval: int = 1800
+
+
+def get_poll_state() -> dict:
+    return {
+        "poller_running": _poll_thread is not None and _poll_thread.is_alive(),
+        "last_scan_at":   _last_scan_at,
+        "next_scan_at":   _next_scan_at,
+        "interval":       _current_interval,
+    }
 
 
 def _poll_loop(cfg: dict, interval: int) -> None:
+    global _last_scan_at, _next_scan_at
+
     scanner = WipeScanner(
-        log_root=cfg["log_root"],
-        db_path=cfg["db_path"],
-        win_share_root=cfg["win_share_root"],
+        log_root       = cfg["log_root"],
+        db_path        = cfg["db_path"],
+        win_share_root = cfg["win_share_root"],
     )
+
+    logger.info(
+        f"[WipePoller] started, interval={interval}s, "
+        f"target={cfg['log_root']}/logs/<current_month>/"
+    )
+
     while not _stop_event.is_set():
+        # record next scheduled fire time
+        _next_scan_at = (
+            datetime.now().replace(microsecond=0) + timedelta(seconds=interval)
+        ).isoformat()
+
+        # wait interval seconds; returns True early if stop was requested
+        if _stop_event.wait(timeout=interval):
+            break
+
+        # skip if a manual full-scan is running
         try:
             conn = get_conn(cfg["db_path"])
             status = get_scan_status(conn)
             conn.close()
-            if status["running"] == 0:
-                result = scanner.run_poll()
-                if result["inserted"] > 0:
-                    logger.info(f"Poll: {result['inserted']} new records")
+            if status.get("running") == 1:
+                logger.info("[WipePoller] skipped: full scan in progress")
+                continue
         except Exception as e:
-            logger.error(f"Poll error: {e}")
-        _stop_event.wait(interval)
+            logger.warning(f"[WipePoller] DB check failed, skipping: {e}")
+            continue
+
+        # run current-month poll
+        try:
+            result = scanner.run_poll()
+            _last_scan_at = datetime.now().replace(microsecond=0).isoformat()
+            if result["inserted"] > 0:
+                logger.info(
+                    f"[WipePoller] inserted={result['inserted']} "
+                    f"skipped={result['skipped']} "
+                    f"errors={result['errors']}"
+                )
+            # no new files -> silent (avoid log spam every 30 min)
+        except Exception as e:
+            logger.error(f"[WipePoller] poll error: {e}")
+            # keep thread alive; retry next interval
 
 
 def start_poll_scheduler(cfg: dict) -> None:
-    global _poll_thread, _stop_event
-    interval = cfg.get("poll_interval", 600)
+    global _poll_thread, _stop_event, _current_interval
+
+    if _poll_thread is not None and _poll_thread.is_alive():
+        logger.warning("[WipePoller] already running, skip")
+        return
+
+    _current_interval = int(cfg.get("poll_interval", 1800))
     _stop_event.clear()
     _poll_thread = threading.Thread(
-        target=_poll_loop,
-        args=(cfg, interval),
-        daemon=True,
-        name="wipe-poller",
+        target  = _poll_loop,
+        args    = (cfg, _current_interval),
+        daemon  = True,
+        name    = "wipe-poller",
     )
     _poll_thread.start()
-    logger.info(f"Wipe poller started, interval={interval}s")
 
 
 def stop_poll_scheduler() -> None:
+    global _poll_thread
     _stop_event.set()
+    if _poll_thread is not None:
+        _poll_thread.join(timeout=10)
+        _poll_thread = None
+    logger.info("[WipePoller] stopped")

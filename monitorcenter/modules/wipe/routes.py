@@ -9,6 +9,7 @@ from modules.wipe.db import (
     stats_summary, by_manufacturer, fail_reasons, by_device_type,
 )
 from modules.wipe.scanner import WipeScanner
+from modules.wipe.scheduler import get_poll_state
 
 wipe_bp = Blueprint("wipe", __name__, url_prefix="/wipe",
                     template_folder="templates")
@@ -135,6 +136,6 @@ def api_scan():
 @wipe_bp.get("/api/scan/status")
 def api_scan_status():
     conn = get_conn(_db_path())
-    status = get_scan_status(conn)
+    db_status = get_scan_status(conn)
     conn.close()
-    return jsonify(status)
+    return jsonify({**db_status, **get_poll_state()})
