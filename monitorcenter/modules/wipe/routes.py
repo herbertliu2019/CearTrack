@@ -7,6 +7,7 @@ from modules.wipe.db import (
     get_conn, get_scan_status, upsert_scan_status,
     query_by_sn, query_period, query_today,
     stats_summary, by_manufacturer, fail_reasons, by_device_type,
+    total_record_count,
 )
 from modules.wipe.scanner import WipeScanner
 from modules.wipe.scheduler import get_poll_state
@@ -28,10 +29,12 @@ def dashboard():
 def api_today():
     conn = get_conn(_db_path())
     records = query_today(conn)
+    db_total = total_record_count(conn)
     conn.close()
     return jsonify({
         "stats": stats_summary(records),
         "by_device_type": by_device_type(records),
+        "db_total": db_total,
         "records": records,
     })
 
@@ -61,6 +64,7 @@ def api_stats():
 
     conn = get_conn(_db_path())
     records = query_period(conn, start, end)
+    db_total = total_record_count(conn)
     conn.close()
 
     # daily breakdown
@@ -85,6 +89,7 @@ def api_stats():
         "by_device_type": by_device_type(records),
         "by_manufacturer": by_manufacturer(records),
         "fail_reasons": fail_reasons(records),
+        "db_total": db_total,
         "records": records,
     })
 

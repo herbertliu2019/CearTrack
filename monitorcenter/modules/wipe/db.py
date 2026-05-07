@@ -121,6 +121,12 @@ def insert_record(conn: sqlite3.Connection, record: dict) -> bool:
     return cur.rowcount == 1
 
 
+def total_record_count(conn: sqlite3.Connection) -> int:
+    """Return total number of wipe records in the database."""
+    row = conn.execute("SELECT COUNT(*) FROM wipe_records").fetchone()
+    return row[0] if row else 0
+
+
 def upsert_record(conn: sqlite3.Connection, record: dict) -> None:
     """Delete existing row for log_path then insert fresh (force-rescan mode)."""
     conn.execute("DELETE FROM wipe_records WHERE log_path = ?", (record["log_path"],))

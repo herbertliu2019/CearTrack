@@ -169,23 +169,20 @@
     </div>
 
     <!-- KPI strip -->
-    <div class="stats-strip" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px;">
-      <div class="stat-card">
-        <div class="stat-label">Total</div>
-        <div class="stat-value" x-text="today.stats.total ?? 0"></div>
+    <div class="stats-strip" style="grid-template-columns:1.1fr 1px repeat(4,1fr);margin-bottom:16px;align-items:stretch;">
+      <div class="stat-card" style="background:rgba(99,102,241,0.07);border-color:rgba(99,102,241,0.25);">
+        <div class="stat-label" style="color:#818cf8;">ALL RECORDS</div>
+        <div class="stat-value" style="color:#c7d2fe;" x-text="(today.db_total ?? 0).toLocaleString()"></div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Passed</div>
-        <div class="stat-value" style="color:var(--pass);" x-text="today.stats.passed ?? 0"></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Failed</div>
-        <div class="stat-value" style="color:var(--fail);" x-text="today.stats.failed ?? 0"></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Pass Rate</div>
-        <div class="stat-value" x-text="(today.stats.pass_rate ?? 0) + '%'"></div>
-      </div>
+      <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
+      <div class="stat-card"><div class="stat-label">TODAY</div>
+        <div class="stat-value" x-text="today.stats.total ?? 0"></div></div>
+      <div class="stat-card"><div class="stat-label">Passed</div>
+        <div class="stat-value" style="color:var(--pass);" x-text="today.stats.passed ?? 0"></div></div>
+      <div class="stat-card"><div class="stat-label">Failed</div>
+        <div class="stat-value" style="color:var(--fail);" x-text="today.stats.failed ?? 0"></div></div>
+      <div class="stat-card"><div class="stat-label">Pass Rate</div>
+        <div class="stat-value" x-text="(today.stats.pass_rate ?? 0) + '%'"></div></div>
     </div>
 
     <!-- By Device Type -->
@@ -257,8 +254,13 @@
     </div>
 
     <!-- KPI strip -->
-    <div class="stats-strip" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px;">
-      <div class="stat-card"><div class="stat-label">Total</div>
+    <div class="stats-strip" style="grid-template-columns:1.1fr 1px repeat(4,1fr);margin-bottom:16px;align-items:stretch;">
+      <div class="stat-card" style="background:rgba(99,102,241,0.07);border-color:rgba(99,102,241,0.25);">
+        <div class="stat-label" style="color:#818cf8;">ALL RECORDS</div>
+        <div class="stat-value" style="color:#c7d2fe;" x-text="(week.db_total ?? 0).toLocaleString()"></div>
+      </div>
+      <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
+      <div class="stat-card"><div class="stat-label">THIS WEEK</div>
         <div class="stat-value" x-text="week.stats?.total ?? 0"></div></div>
       <div class="stat-card"><div class="stat-label">Passed</div>
         <div class="stat-value" style="color:var(--pass);" x-text="week.stats?.passed ?? 0"></div></div>
@@ -365,8 +367,13 @@
     </div>
 
     <!-- KPI strip -->
-    <div class="stats-strip" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px;">
-      <div class="stat-card"><div class="stat-label">Total</div>
+    <div class="stats-strip" style="grid-template-columns:1.1fr 1px repeat(4,1fr);margin-bottom:16px;align-items:stretch;">
+      <div class="stat-card" style="background:rgba(99,102,241,0.07);border-color:rgba(99,102,241,0.25);">
+        <div class="stat-label" style="color:#818cf8;">ALL RECORDS</div>
+        <div class="stat-value" style="color:#c7d2fe;" x-text="(month.db_total ?? 0).toLocaleString()"></div>
+      </div>
+      <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
+      <div class="stat-card"><div class="stat-label">THIS MONTH</div>
         <div class="stat-value" x-text="month.stats?.total ?? 0"></div></div>
       <div class="stat-card"><div class="stat-label">Passed</div>
         <div class="stat-value" style="color:var(--pass);" x-text="month.stats?.passed ?? 0"></div></div>
@@ -492,8 +499,13 @@
                 x-text="fmtRange(customFrom, customTo) + '  (' + (custom.stats?.total ?? 0) + ' records)'"></span>
         </div>
 
-        <div class="stats-strip" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px;">
-          <div class="stat-card"><div class="stat-label">Total</div>
+        <div class="stats-strip" style="grid-template-columns:1.1fr 1px repeat(4,1fr);margin-bottom:16px;align-items:stretch;">
+          <div class="stat-card" style="background:rgba(99,102,241,0.07);border-color:rgba(99,102,241,0.25);">
+            <div class="stat-label" style="color:#818cf8;">ALL RECORDS</div>
+            <div class="stat-value" style="color:#c7d2fe;" x-text="(custom.db_total ?? 0).toLocaleString()"></div>
+          </div>
+          <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
+          <div class="stat-card"><div class="stat-label">SELECTED</div>
             <div class="stat-value" x-text="custom.stats?.total ?? 0"></div></div>
           <div class="stat-card"><div class="stat-label">Passed</div>
             <div class="stat-value" style="color:var(--pass);" x-text="custom.stats?.passed ?? 0"></div></div>
@@ -605,10 +617,10 @@ function wipeApp() {
     searchResults: [],
     searched:      false,
 
-    today:  { stats: {}, records: [], by_device_type: null },
-    week:   { stats: null, by_manufacturer: [], fail_reasons: [], daily: [], by_device_type: null, start: null, end: null },
-    month:  { stats: null, by_manufacturer: [], fail_reasons: [], daily: [], by_device_type: null },
-    custom: { stats: null, by_manufacturer: [], fail_reasons: [], daily: [], by_device_type: null },
+    today:  { stats: {}, records: [], by_device_type: null, db_total: null },
+    week:   { stats: null, by_manufacturer: [], fail_reasons: [], daily: [], by_device_type: null, db_total: null, start: null, end: null },
+    month:  { stats: null, by_manufacturer: [], fail_reasons: [], daily: [], by_device_type: null, db_total: null },
+    custom: { stats: null, by_manufacturer: [], fail_reasons: [], daily: [], by_device_type: null, db_total: null },
 
     customFrom:  '',
     customTo:    '',
