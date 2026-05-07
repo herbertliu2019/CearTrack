@@ -162,21 +162,18 @@
        TAB: TODAY
   ══════════════════════════════════════════════════════════════ -->
   <div x-show="activeTab==='today'">
-    <div style="font-size:1em;font-weight:700;text-transform:uppercase;
-                letter-spacing:0.08em;color:var(--text-primary);
-                margin-bottom:16px;">
-      Total Today
-    </div>
 
     <!-- KPI strip -->
     <div class="stats-strip" style="grid-template-columns:1.1fr 1px repeat(4,1fr);margin-bottom:16px;align-items:stretch;">
       <div class="stat-card" style="background:rgba(99,102,241,0.07);border-color:rgba(99,102,241,0.25);">
-        <div class="stat-label" style="color:#818cf8;">ALL RECORDS</div>
+        <div class="stat-label" style="color:#818cf8;">ALL TIME</div>
         <div class="stat-value" style="color:#c7d2fe;" x-text="(today.db_total ?? 0).toLocaleString()"></div>
       </div>
       <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
-      <div class="stat-card"><div class="stat-label">TODAY</div>
-        <div class="stat-value" x-text="today.stats.total ?? 0"></div></div>
+      <div class="stat-card">
+        <div class="stat-label">TODAY</div>
+        <div class="stat-value" x-text="today.stats.total ?? 0"></div>
+      </div>
       <div class="stat-card"><div class="stat-label">PASSED</div>
         <div class="stat-value" style="color:var(--pass);" x-text="today.stats.passed ?? 0"></div></div>
       <div class="stat-card"><div class="stat-label">FAILED</div>
@@ -244,24 +241,20 @@
        TAB: THIS WEEK
   ══════════════════════════════════════════════════════════════ -->
   <div x-show="activeTab==='week'">
-    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:16px;">
-      <div style="font-size:1em;font-weight:700;text-transform:uppercase;
-                  letter-spacing:0.08em;color:var(--text-primary);">
-        This Week
-      </div>
-      <div style="color:var(--text-secondary);font-size:0.85em;font-weight:400;"
-           x-text="fmtRange(week.start, week.end)"></div>
-    </div>
 
     <!-- KPI strip -->
     <div class="stats-strip" style="grid-template-columns:1.1fr 1px repeat(4,1fr);margin-bottom:16px;align-items:stretch;">
       <div class="stat-card" style="background:rgba(99,102,241,0.07);border-color:rgba(99,102,241,0.25);">
-        <div class="stat-label" style="color:#818cf8;">ALL RECORDS</div>
+        <div class="stat-label" style="color:#818cf8;">ALL TIME</div>
         <div class="stat-value" style="color:#c7d2fe;" x-text="(week.db_total ?? 0).toLocaleString()"></div>
       </div>
       <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
-      <div class="stat-card"><div class="stat-label">THIS WEEK</div>
-        <div class="stat-value" x-text="week.stats?.total ?? 0"></div></div>
+      <div class="stat-card">
+        <div class="stat-label">THIS WEEK</div>
+        <div class="stat-value" x-text="week.stats?.total ?? 0"></div>
+        <div style="font-size:0.7em;color:var(--text-secondary);margin-top:4px;font-weight:500;"
+             x-text="fmtRange(week.start, week.end)"></div>
+      </div>
       <div class="stat-card"><div class="stat-label">PASSED</div>
         <div class="stat-value" style="color:var(--pass);" x-text="week.stats?.passed ?? 0"></div></div>
       <div class="stat-card"><div class="stat-label">FAILED</div>
@@ -357,24 +350,20 @@
        TAB: THIS MONTH
   ══════════════════════════════════════════════════════════════ -->
   <div x-show="activeTab==='month'">
-    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:16px;">
-      <div style="font-size:1em;font-weight:700;text-transform:uppercase;
-                  letter-spacing:0.08em;color:var(--text-primary);">
-        This Month
-      </div>
-      <div style="color:var(--text-secondary);font-size:0.85em;font-weight:400;"
-           x-text="fmtRange(month.start, month.end)"></div>
-    </div>
 
     <!-- KPI strip -->
     <div class="stats-strip" style="grid-template-columns:1.1fr 1px repeat(4,1fr);margin-bottom:16px;align-items:stretch;">
       <div class="stat-card" style="background:rgba(99,102,241,0.07);border-color:rgba(99,102,241,0.25);">
-        <div class="stat-label" style="color:#818cf8;">ALL RECORDS</div>
+        <div class="stat-label" style="color:#818cf8;">ALL TIME</div>
         <div class="stat-value" style="color:#c7d2fe;" x-text="(month.db_total ?? 0).toLocaleString()"></div>
       </div>
       <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
-      <div class="stat-card"><div class="stat-label">THIS MONTH</div>
-        <div class="stat-value" x-text="month.stats?.total ?? 0"></div></div>
+      <div class="stat-card">
+        <div class="stat-label">THIS MONTH</div>
+        <div class="stat-value" x-text="month.stats?.total ?? 0"></div>
+        <div style="font-size:0.7em;color:var(--text-secondary);margin-top:4px;font-weight:500;"
+             x-text="fmtRange(month.start, month.end)"></div>
+      </div>
       <div class="stat-card"><div class="stat-label">PASSED</div>
         <div class="stat-value" style="color:var(--pass);" x-text="month.stats?.passed ?? 0"></div></div>
       <div class="stat-card"><div class="stat-label">FAILED</div>
@@ -501,12 +490,16 @@
 
         <div class="stats-strip" style="grid-template-columns:1.1fr 1px repeat(4,1fr);margin-bottom:16px;align-items:stretch;">
           <div class="stat-card" style="background:rgba(99,102,241,0.07);border-color:rgba(99,102,241,0.25);">
-            <div class="stat-label" style="color:#818cf8;">ALL RECORDS</div>
+            <div class="stat-label" style="color:#818cf8;">ALL TIME</div>
             <div class="stat-value" style="color:#c7d2fe;" x-text="(custom.db_total ?? 0).toLocaleString()"></div>
           </div>
           <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
-          <div class="stat-card"><div class="stat-label">SELECTED</div>
-            <div class="stat-value" x-text="custom.stats?.total ?? 0"></div></div>
+          <div class="stat-card">
+            <div class="stat-label">SELECTED</div>
+            <div class="stat-value" x-text="custom.stats?.total ?? 0"></div>
+            <div style="font-size:0.7em;color:var(--text-secondary);margin-top:4px;font-weight:500;"
+                 x-text="fmtRange(customFrom, customTo)"></div>
+          </div>
           <div class="stat-card"><div class="stat-label">PASSED</div>
             <div class="stat-value" style="color:var(--pass);" x-text="custom.stats?.passed ?? 0"></div></div>
           <div class="stat-card"><div class="stat-label">FAILED</div>
