@@ -102,11 +102,20 @@
       </div>
     </a>
 
-    <!-- Placeholder for future modules -->
-    <div class="module-tile" style="opacity: 0.4; cursor: not-allowed;">
+    <!-- CPU module -->
+    <a href="/cpu/" class="module-tile">
       <h3>CPU</h3>
-      <div style="color: var(--text-secondary); margin-top: 10px;">Coming soon</div>
-    </div>
+      <div x-data="{stats:{}}" x-init="fetch('/cpu/api/stats').then(r=>r.json()).then(d=>stats=d).catch(()=>{})">
+        <div style="color: var(--text-secondary); font-size: 0.85em; margin-top: 10px;">
+          <span x-text="stats.summary ? stats.summary.total : 0"></span> tested this week
+        </div>
+        <div style="color: var(--pass); font-size: 0.85em;">
+          <span x-text="stats.summary && stats.summary.total ? Math.round(stats.summary.pass_count / stats.summary.total * 100) : 0"></span>% pass
+        </div>
+      </div>
+    </a>
+
+    <!-- Placeholder for future modules -->
     <div class="module-tile" style="opacity: 0.4; cursor: not-allowed;">
       <h3>GPU</h3>
       <div style="color: var(--text-secondary); margin-top: 10px;">Coming soon</div>

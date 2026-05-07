@@ -1,0 +1,5 @@
+{
+  "cpu_root_dir": "C:/Users/ITAD-02/OneDrive - California Electronic Asset Recovery, Inc/Desktop/Documents/ITAD Docs/03 Testing/CPU",
+  "cpu_db_path": "C:/Users/ITAD-02/OneDrive - California Electronic Asset Recovery, Inc/Desktop/script/claude_code/monitorcenter/data/cpu/cpu.db",
+  "poll_interval_sec": 1800
+}
