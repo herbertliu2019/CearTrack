@@ -73,15 +73,14 @@
        TAB: TODAY
   ══════════════════════════════════════════════════════════════ -->
   <div x-show="activeTab==='today'">
-    <div style="font-size:1em;font-weight:700;text-transform:uppercase;
-                letter-spacing:0.08em;color:var(--text-primary);margin-bottom:16px;">
-      Total Today
-    </div>
-
     <!-- KPI strip -->
-    <div class="stats-strip" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px;">
+    <div class="stats-strip" style="grid-template-columns:repeat(5,1fr);margin-bottom:24px;">
+      <div class="stat-card" style="background:rgba(99,102,241,0.12);border-left:3px solid #6366f1;border-right:2px solid rgba(99,102,241,0.22);">
+        <div class="stat-label" style="color:#818cf8;">All Records</div>
+        <div class="stat-value" style="color:#818cf8;" x-text="allTotal"></div>
+      </div>
       <div class="stat-card">
-        <div class="stat-label">Total</div>
+        <div class="stat-label">Today</div>
         <div class="stat-value" x-text="today.stats.total ?? 0"></div>
       </div>
       <div class="stat-card">
@@ -165,8 +164,12 @@
            x-text="fmtRange(week.start, week.end)"></div>
     </div>
 
-    <div class="stats-strip" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px;">
-      <div class="stat-card"><div class="stat-label">Total</div>
+    <div class="stats-strip" style="grid-template-columns:repeat(5,1fr);margin-bottom:24px;">
+      <div class="stat-card" style="background:rgba(99,102,241,0.12);border-left:3px solid #6366f1;border-right:2px solid rgba(99,102,241,0.22);">
+        <div class="stat-label" style="color:#818cf8;">All Records</div>
+        <div class="stat-value" style="color:#818cf8;" x-text="allTotal"></div>
+      </div>
+      <div class="stat-card"><div class="stat-label">This Week</div>
         <div class="stat-value" x-text="week.stats?.total ?? 0"></div></div>
       <div class="stat-card"><div class="stat-label">Passed</div>
         <div class="stat-value" style="color:var(--pass);" x-text="week.stats?.passed ?? 0"></div></div>
@@ -340,8 +343,12 @@
            x-text="fmtRange(month.start, month.end)"></div>
     </div>
 
-    <div class="stats-strip" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px;">
-      <div class="stat-card"><div class="stat-label">Total</div>
+    <div class="stats-strip" style="grid-template-columns:repeat(5,1fr);margin-bottom:24px;">
+      <div class="stat-card" style="background:rgba(99,102,241,0.12);border-left:3px solid #6366f1;border-right:2px solid rgba(99,102,241,0.22);">
+        <div class="stat-label" style="color:#818cf8;">All Records</div>
+        <div class="stat-value" style="color:#818cf8;" x-text="allTotal"></div>
+      </div>
+      <div class="stat-card"><div class="stat-label">This Month</div>
         <div class="stat-value" x-text="month.stats?.total ?? 0"></div></div>
       <div class="stat-card"><div class="stat-label">Passed</div>
         <div class="stat-value" style="color:var(--pass);" x-text="month.stats?.passed ?? 0"></div></div>
@@ -532,8 +539,12 @@
           </span>
         </div>
 
-        <div class="stats-strip" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px;">
-          <div class="stat-card"><div class="stat-label">Total</div>
+        <div class="stats-strip" style="grid-template-columns:repeat(5,1fr);margin-bottom:24px;">
+          <div class="stat-card" style="background:rgba(99,102,241,0.12);border-left:3px solid #6366f1;border-right:2px solid rgba(99,102,241,0.22);">
+            <div class="stat-label" style="color:#818cf8;">All Records</div>
+            <div class="stat-value" style="color:#818cf8;" x-text="allTotal"></div>
+          </div>
+          <div class="stat-card"><div class="stat-label">Selected</div>
             <div class="stat-value" x-text="custom.stats?.total ?? 0"></div></div>
           <div class="stat-card"><div class="stat-label">Passed</div>
             <div class="stat-value" style="color:var(--pass);" x-text="custom.stats?.passed ?? 0"></div></div>

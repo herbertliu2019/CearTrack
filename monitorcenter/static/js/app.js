@@ -19,6 +19,7 @@ function laptopApp(moduleName) {
     detailOpen: null,   // single record expand key
     openSections: {},   // brand/day expand keys
     schema: null,
+    allTotal: 0,
 
     async init() {
       const r = await fetch(`/${this.moduleName}/api/schema`);
@@ -27,6 +28,7 @@ function laptopApp(moduleName) {
         this.loadToday(),
         this.loadWeek(),
         this.loadMonth(),
+        fetch(`/${this.moduleName}/api/stats/total`).then(r => r.json()).then(d => { this.allTotal = d.total ?? 0; }).catch(() => {}),
       ]);
       setInterval(() => {
         if (this.activeTab === 'today') this.loadToday();

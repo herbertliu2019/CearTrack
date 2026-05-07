@@ -194,6 +194,14 @@ def api_stats():
     })
 
 
+@blueprint.route("/api/stats/total")
+def api_stats_total():
+    """Total count of all laptop history records ever (across all dates)."""
+    base = config.BASE_DIR / "laptop" / "history"
+    total = sum(1 for _ in base.rglob("*.json")) if base.exists() else 0
+    return jsonify({"total": total})
+
+
 @blueprint.route("/api/stats/range")
 def api_stats_range():
     """Aggregate stats over a date range.
