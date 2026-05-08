@@ -6,7 +6,7 @@
 <div x-data="landingApp()" x-init="init()">
 
   <div style="text-align: center; padding: 40px 0; border-bottom: 1px solid var(--border); margin-bottom: 30px;">
-    <h1 style="font-size: 2em; color: var(--accent);">CearTrack</h1>
+    <h1 style="font-size: 2em;"><span style="color:#1a7096;">Cear</span><span style="color:#48a030;">Track</span></h1>
     <p style="color: var(--text-secondary); margin-top: 8px;">
       Cear Hardware Test &amp; Traceability Platform
     </p>
@@ -73,7 +73,6 @@
   </div>
 
   <!-- Module tiles -->
-  <h2 style="margin-bottom: 12px;">Test Modules</h2>
   <div class="module-grid">
     {% for m in modules %}
     <a href="/{{ m }}/" class="module-tile">

@@ -24,7 +24,7 @@
       </svg>
       <div>
         <div style="font-size:1.45em;font-weight:800;letter-spacing:0.06em;
-                    color:var(--text-primary);text-transform:uppercase;line-height:1.1;">
+                    color:var(--accent);text-transform:uppercase;line-height:1.1;">
           Wipe Disk
         </div>
         <div style="font-size:0.78em;color:var(--text-secondary);
@@ -199,9 +199,9 @@
 
     <!-- KPI strip -->
     <div class="stats-strip" style="grid-template-columns:1.1fr 1px repeat(4,1fr);margin-bottom:16px;align-items:stretch;">
-      <div class="stat-card" style="background:rgba(99,102,241,0.07);border-color:rgba(99,102,241,0.25);">
+      <div class="stat-card" style="background:rgba(99,102,241,0.12);border-left:3px solid #6366f1;border-right:2px solid rgba(99,102,241,0.22);">
         <div class="stat-label" style="color:#818cf8;">ALL TIME</div>
-        <div class="stat-value" style="color:#c7d2fe;" x-text="(today.db_total ?? 0).toLocaleString()"></div>
+        <div class="stat-value" style="color:#818cf8;" x-text="(today.db_total ?? 0).toLocaleString()"></div>
       </div>
       <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
       <div class="stat-card">

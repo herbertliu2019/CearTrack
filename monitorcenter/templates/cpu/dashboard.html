@@ -229,7 +229,7 @@
       </svg>
       <div>
         <div style="font-size:1.45em;font-weight:800;letter-spacing:0.06em;
-                    color:var(--text-primary);text-transform:uppercase;line-height:1.1;">
+                    color:var(--accent);text-transform:uppercase;line-height:1.1;">
           CPU
         </div>
         <div style="font-size:0.78em;color:var(--text-secondary);
@@ -399,9 +399,9 @@
 
     <!-- KPI cards -->
     <div class="kpi-strip">
-      <div class="kpi-card">
-        <div class="kpi-value" x-text="stats.total_all_time?.toLocaleString() ?? '…'"></div>
-        <div class="kpi-label">Total All Time</div>
+      <div class="kpi-card" style="background:rgba(99,102,241,0.12);border-left:3px solid #6366f1;border-right:2px solid rgba(99,102,241,0.22);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+        <div class="kpi-value" style="color:#818cf8;" x-text="stats.total_all_time?.toLocaleString() ?? '…'"></div>
+        <div class="kpi-label" style="color:#818cf8;">All Time</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-value" x-text="stats.summary?.total?.toLocaleString() ?? '…'"></div>

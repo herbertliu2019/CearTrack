@@ -6,6 +6,19 @@
 
 <div x-data="laptopApp('{{ module_name }}')" x-init="init()">
 
+  <!-- ── Module Identity Header ───────────────────────────────────── -->
+  <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;
+              padding-bottom:16px;border-bottom:1px solid var(--border);">
+    <span style="font-size:2em;line-height:1;">💻</span>
+    <div>
+      <div style="font-size:1.15em;font-weight:700;color:var(--accent);
+                  letter-spacing:0.08em;text-transform:uppercase;">Laptop</div>
+      <div style="font-size:0.8em;color:var(--text-secondary);margin-top:2px;">
+        Hardware Test Dashboard
+      </div>
+    </div>
+  </div>
+
   <!-- ── Top Bar: Search ──────────────────────────────────────────── -->
   <div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;">
     <div class="search-box" style="width:60%;flex-shrink:0;margin-bottom:0;">

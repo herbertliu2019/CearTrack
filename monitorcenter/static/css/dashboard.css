@@ -42,6 +42,12 @@ nav a {
   transition: all 0.2s;
 }
 nav a:hover { color: var(--accent); background: var(--bg-card); }
+nav a.nav-active {
+  color: var(--accent);
+  background: var(--bg-card);
+  border-bottom: 2px solid var(--accent);
+  font-weight: 600;
+}
 
 main { max-width: 1800px; margin: 0 auto; }
 

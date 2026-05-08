@@ -9,12 +9,19 @@
 </head>
 <body>
   <header>
-    <h1><a href="/" style="text-decoration:none;color:inherit;">CearTrack</a></h1>
+    <h1 style="display:flex;align-items:center;gap:10px;">
+      <a href="/" style="text-decoration:none;display:flex;align-items:center;gap:10px;">
+        <img src="{{ url_for('static', filename='cear_logo.png') }}"
+             alt="CEAR" style="height:30px;width:auto;vertical-align:middle;
+                                filter:brightness(1.1);">
+        <span style="font-weight:600;letter-spacing:0.03em;"><span style="color:#1a7096;">Cear</span><span style="color:#48a030;">Track</span></span>
+      </a>
+    </h1>
     <nav>
-      <a href="/">Home</a>
-	  <a href="/laptop/">Laptop</a>
-      <a href="/wipe/">Wipe</a>
-      <a href="/cpu/">CPU</a>
+      <a href="/" class="{{ 'nav-active' if request.path == '/' else '' }}">Home</a>
+      <a href="/laptop/" class="{{ 'nav-active' if request.path.startswith('/laptop/') else '' }}">Laptop</a>
+      <a href="/wipe/"   class="{{ 'nav-active' if request.path.startswith('/wipe/')   else '' }}">Wipe</a>
+      <a href="/cpu/"    class="{{ 'nav-active' if request.path.startswith('/cpu/')    else '' }}">CPU</a>
     </nav>
   </header>
   <main>{% block content %}{% endblock %}</main>
