@@ -74,9 +74,9 @@
   ══════════════════════════════════════════════════════════════ -->
   <div x-show="activeTab==='today'">
     <!-- KPI strip -->
-    <div class="stats-strip" style="grid-template-columns:repeat(5,1fr);margin-bottom:24px;">
+    <div class="stats-strip" style="grid-template-columns:repeat(6,1fr);margin-bottom:24px;">
       <div class="stat-card" style="background:rgba(99,102,241,0.12);border-left:3px solid #6366f1;border-right:2px solid rgba(99,102,241,0.22);">
-        <div class="stat-label" style="color:#818cf8;">All Records</div>
+        <div class="stat-label" style="color:#818cf8;">All Time</div>
         <div class="stat-value" style="color:#818cf8;" x-text="allTotal"></div>
       </div>
       <div class="stat-card">
@@ -86,6 +86,10 @@
       <div class="stat-card">
         <div class="stat-label">Passed</div>
         <div class="stat-value" style="color:var(--pass);" x-text="today.stats.passed ?? 0"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Warn</div>
+        <div class="stat-value" style="color:var(--warn);" x-text="today.stats.warned ?? 0"></div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Failed</div>
@@ -157,22 +161,21 @@
        TAB: THIS WEEK
   ══════════════════════════════════════════════════════════════ -->
   <div x-show="activeTab==='week'">
-    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:16px;">
-      <div style="font-size:1em;font-weight:700;text-transform:uppercase;
-                  letter-spacing:0.08em;color:var(--text-primary);">This Week</div>
-      <div style="color:var(--text-secondary);font-size:0.85em;"
-           x-text="fmtRange(week.start, week.end)"></div>
-    </div>
-
-    <div class="stats-strip" style="grid-template-columns:repeat(5,1fr);margin-bottom:24px;">
+    <div class="stats-strip" style="grid-template-columns:repeat(6,1fr);margin-bottom:24px;">
       <div class="stat-card" style="background:rgba(99,102,241,0.12);border-left:3px solid #6366f1;border-right:2px solid rgba(99,102,241,0.22);">
-        <div class="stat-label" style="color:#818cf8;">All Records</div>
+        <div class="stat-label" style="color:#818cf8;">All Time</div>
         <div class="stat-value" style="color:#818cf8;" x-text="allTotal"></div>
       </div>
-      <div class="stat-card"><div class="stat-label">This Week</div>
-        <div class="stat-value" x-text="week.stats?.total ?? 0"></div></div>
+      <div class="stat-card">
+        <div class="stat-label">This Week</div>
+        <div class="stat-value" x-text="week.stats?.total ?? 0"></div>
+        <div style="font-size:0.75em;color:var(--text-secondary);margin-top:4px;"
+             x-text="fmtRange(week.start, week.end)"></div>
+      </div>
       <div class="stat-card"><div class="stat-label">Passed</div>
         <div class="stat-value" style="color:var(--pass);" x-text="week.stats?.passed ?? 0"></div></div>
+      <div class="stat-card"><div class="stat-label">Warn</div>
+        <div class="stat-value" style="color:var(--warn);" x-text="week.stats?.warned ?? 0"></div></div>
       <div class="stat-card"><div class="stat-label">Failed</div>
         <div class="stat-value" style="color:var(--fail);" x-text="week.stats?.failed ?? 0"></div></div>
       <div class="stat-card"><div class="stat-label">Pass Rate</div>
@@ -267,17 +270,18 @@
                   letter-spacing:0.06em;color:var(--text-secondary);margin-bottom:12px;">
         Daily Breakdown
       </div>
-      <div style="display:grid;grid-template-columns:140px 70px 80px 70px 1fr 20px;gap:8px;
+      <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;gap:8px;
                   padding-bottom:8px;border-bottom:1px solid var(--border);
                   color:var(--text-secondary);font-size:0.75em;text-transform:uppercase;font-weight:600;">
         <span>Date</span><span>Total</span>
         <span style="color:var(--pass);">Passed</span>
+        <span style="color:var(--warn);">Warn</span>
         <span style="color:var(--fail);">Failed</span><span></span><span></span>
       </div>
       <template x-for="d in (week.daily ?? [])" :key="d.date">
         <div>
           <!-- Day row — clickable -->
-          <div style="display:grid;grid-template-columns:140px 70px 80px 70px 1fr 20px;
+          <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;
                       gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);
                       align-items:center;font-size:0.88em;cursor:pointer;"
                @click="toggleSection('week_day_' + d.date)"
@@ -286,6 +290,7 @@
             <span style="color:var(--text-secondary);" x-text="d.date"></span>
             <span style="font-weight:600;" x-text="d.total"></span>
             <span style="color:var(--pass);font-weight:600;" x-text="d.passed"></span>
+            <span style="color:var(--warn);font-weight:600;" x-text="d.warned ?? 0"></span>
             <span style="color:var(--fail);font-weight:600;" x-text="d.failed"></span>
             <div style="height:5px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;">
               <div style="height:100%;background:var(--pass);border-radius:3px;"
@@ -336,22 +341,21 @@
        TAB: THIS MONTH
   ══════════════════════════════════════════════════════════════ -->
   <div x-show="activeTab==='month'">
-    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:16px;">
-      <div style="font-size:1em;font-weight:700;text-transform:uppercase;
-                  letter-spacing:0.08em;color:var(--text-primary);">This Month</div>
-      <div style="color:var(--text-secondary);font-size:0.85em;"
-           x-text="fmtRange(month.start, month.end)"></div>
-    </div>
-
-    <div class="stats-strip" style="grid-template-columns:repeat(5,1fr);margin-bottom:24px;">
+    <div class="stats-strip" style="grid-template-columns:repeat(6,1fr);margin-bottom:24px;">
       <div class="stat-card" style="background:rgba(99,102,241,0.12);border-left:3px solid #6366f1;border-right:2px solid rgba(99,102,241,0.22);">
-        <div class="stat-label" style="color:#818cf8;">All Records</div>
+        <div class="stat-label" style="color:#818cf8;">All Time</div>
         <div class="stat-value" style="color:#818cf8;" x-text="allTotal"></div>
       </div>
-      <div class="stat-card"><div class="stat-label">This Month</div>
-        <div class="stat-value" x-text="month.stats?.total ?? 0"></div></div>
+      <div class="stat-card">
+        <div class="stat-label">This Month</div>
+        <div class="stat-value" x-text="month.stats?.total ?? 0"></div>
+        <div style="font-size:0.75em;color:var(--text-secondary);margin-top:4px;"
+             x-text="fmtRange(month.start, month.end)"></div>
+      </div>
       <div class="stat-card"><div class="stat-label">Passed</div>
         <div class="stat-value" style="color:var(--pass);" x-text="month.stats?.passed ?? 0"></div></div>
+      <div class="stat-card"><div class="stat-label">Warn</div>
+        <div class="stat-value" style="color:var(--warn);" x-text="month.stats?.warned ?? 0"></div></div>
       <div class="stat-card"><div class="stat-label">Failed</div>
         <div class="stat-value" style="color:var(--fail);" x-text="month.stats?.failed ?? 0"></div></div>
       <div class="stat-card"><div class="stat-label">Pass Rate</div>
@@ -444,16 +448,17 @@
                   letter-spacing:0.06em;color:var(--text-secondary);margin-bottom:12px;">
         Daily Breakdown
       </div>
-      <div style="display:grid;grid-template-columns:140px 70px 80px 70px 1fr 20px;gap:8px;
+      <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;gap:8px;
                   padding-bottom:8px;border-bottom:1px solid var(--border);
                   color:var(--text-secondary);font-size:0.75em;text-transform:uppercase;font-weight:600;">
         <span>Date</span><span>Total</span>
         <span style="color:var(--pass);">Passed</span>
+        <span style="color:var(--warn);">Warn</span>
         <span style="color:var(--fail);">Failed</span><span></span><span></span>
       </div>
       <template x-for="d in (month.daily ?? [])" :key="d.date">
         <div>
-          <div style="display:grid;grid-template-columns:140px 70px 80px 70px 1fr 20px;
+          <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;
                       gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);
                       align-items:center;font-size:0.88em;cursor:pointer;"
                @click="toggleSection('month_day_' + d.date)"
@@ -462,6 +467,7 @@
             <span style="color:var(--text-secondary);" x-text="d.date"></span>
             <span style="font-weight:600;" x-text="d.total"></span>
             <span style="color:var(--pass);font-weight:600;" x-text="d.passed"></span>
+            <span style="color:var(--warn);font-weight:600;" x-text="d.warned ?? 0"></span>
             <span style="color:var(--fail);font-weight:600;" x-text="d.failed"></span>
             <div style="height:5px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;">
               <div style="height:100%;background:var(--pass);border-radius:3px;"
@@ -539,15 +545,21 @@
           </span>
         </div>
 
-        <div class="stats-strip" style="grid-template-columns:repeat(5,1fr);margin-bottom:24px;">
+        <div class="stats-strip" style="grid-template-columns:repeat(6,1fr);margin-bottom:24px;">
           <div class="stat-card" style="background:rgba(99,102,241,0.12);border-left:3px solid #6366f1;border-right:2px solid rgba(99,102,241,0.22);">
-            <div class="stat-label" style="color:#818cf8;">All Records</div>
+            <div class="stat-label" style="color:#818cf8;">All Time</div>
             <div class="stat-value" style="color:#818cf8;" x-text="allTotal"></div>
           </div>
-          <div class="stat-card"><div class="stat-label">Selected</div>
-            <div class="stat-value" x-text="custom.stats?.total ?? 0"></div></div>
+          <div class="stat-card">
+            <div class="stat-label">Selected</div>
+            <div class="stat-value" x-text="custom.stats?.total ?? 0"></div>
+            <div style="font-size:0.75em;color:var(--text-secondary);margin-top:4px;"
+                 x-text="fmtRange(customFrom, customTo)"></div>
+          </div>
           <div class="stat-card"><div class="stat-label">Passed</div>
             <div class="stat-value" style="color:var(--pass);" x-text="custom.stats?.passed ?? 0"></div></div>
+          <div class="stat-card"><div class="stat-label">Warn</div>
+            <div class="stat-value" style="color:var(--warn);" x-text="custom.stats?.warned ?? 0"></div></div>
           <div class="stat-card"><div class="stat-label">Failed</div>
             <div class="stat-value" style="color:var(--fail);" x-text="custom.stats?.failed ?? 0"></div></div>
           <div class="stat-card"><div class="stat-label">Pass Rate</div>
@@ -640,16 +652,17 @@
                       letter-spacing:0.06em;color:var(--text-secondary);margin-bottom:12px;">
             Daily Breakdown
           </div>
-          <div style="display:grid;grid-template-columns:140px 70px 80px 70px 1fr 20px;gap:8px;
+          <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;gap:8px;
                       padding-bottom:8px;border-bottom:1px solid var(--border);
                       color:var(--text-secondary);font-size:0.75em;text-transform:uppercase;font-weight:600;">
             <span>Date</span><span>Total</span>
             <span style="color:var(--pass);">Passed</span>
+            <span style="color:var(--warn);">Warn</span>
             <span style="color:var(--fail);">Failed</span><span></span><span></span>
           </div>
           <template x-for="d in (custom.daily ?? [])" :key="d.date">
             <div>
-              <div style="display:grid;grid-template-columns:140px 70px 80px 70px 1fr 20px;
+              <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;
                           gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);
                           align-items:center;font-size:0.88em;cursor:pointer;"
                    @click="toggleSection('custom_day_' + d.date)"
@@ -658,6 +671,7 @@
                 <span style="color:var(--text-secondary);" x-text="d.date"></span>
                 <span style="font-weight:600;" x-text="d.total"></span>
                 <span style="color:var(--pass);font-weight:600;" x-text="d.passed"></span>
+                <span style="color:var(--warn);font-weight:600;" x-text="d.warned ?? 0"></span>
                 <span style="color:var(--fail);font-weight:600;" x-text="d.failed"></span>
                 <div style="height:5px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;">
                   <div style="height:100%;background:var(--pass);border-radius:3px;"

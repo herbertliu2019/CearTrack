@@ -221,8 +221,8 @@ def api_stats_range():
     today = datetime.now().date()
 
     if range_param == "week":
-        # Calendar week: Monday 00:00 to Sunday 23:59
-        weekday = today.weekday()  # Monday=0, Sunday=6
+        # Calendar week: Sunday to Saturday
+        weekday = (today.weekday() + 1) % 7  # Sunday=0, Monday=1, ..., Saturday=6
         date_from = today - timedelta(days=weekday)
         date_to = date_from + timedelta(days=6)
     elif range_param == "month":
@@ -298,16 +298,20 @@ def api_stats_range():
                 fail_reasons[label] = fail_reasons.get(label, 0) + 1
 
     from collections import defaultdict
-    daily_map = defaultdict(lambda: {'total': 0, 'passed': 0, 'failed': 0})
+    daily_map = defaultdict(lambda: {'total': 0, 'passed': 0, 'warned': 0, 'failed': 0})
     for r in records:
         day = r.get('timestamp', '')[:10]
         daily_map[day]['total'] += 1
-        if r.get('overall_result') == 'PASS':
+        result = r.get('overall_result', '')
+        if result == 'PASS':
             daily_map[day]['passed'] += 1
+        elif result == 'WARN':
+            daily_map[day]['warned'] += 1
         else:
             daily_map[day]['failed'] += 1
     daily = [
-        {'date': d, 'total': v['total'], 'passed': v['passed'], 'failed': v['failed']}
+        {'date': d, 'total': v['total'], 'passed': v['passed'],
+         'warned': v['warned'], 'failed': v['failed']}
         for d, v in sorted(daily_map.items())
     ]
 

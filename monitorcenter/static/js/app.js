@@ -40,9 +40,10 @@ function laptopApp(moduleName) {
       const records = await r.json();
       const total  = records.length;
       const passed = records.filter(r => r.overall_result === 'PASS').length;
-      const failed = total - passed;
+      const warned = records.filter(r => r.overall_result === 'WARN').length;
+      const failed = records.filter(r => r.overall_result === 'FAIL').length;
       this.today = {
-        stats: { total, passed, failed, pass_rate: total ? Math.round(passed / total * 100) : 0 },
+        stats: { total, passed, warned, failed, pass_rate: total ? Math.round(passed / total * 100) : 0 },
         records,
       };
     },
@@ -51,7 +52,7 @@ function laptopApp(moduleName) {
       const r = await fetch(`/${this.moduleName}/api/stats/range?range=week`);
       const d = await r.json();
       this.week = {
-        stats:       { total: d.total, passed: d.passed, failed: d.failed, pass_rate: d.pass_rate },
+        stats:       { total: d.total, passed: d.passed, warned: d.warned ?? 0, failed: d.failed, pass_rate: d.pass_rate },
         by_brand:    (d.brands    ?? []).map(([name, count]) => ({ name, count })),
         fail_reasons:(d.fail_reasons ?? []).map(([reason, count]) => ({ reason, count })),
         daily:       d.daily ?? [],
@@ -65,7 +66,7 @@ function laptopApp(moduleName) {
       const r = await fetch(`/${this.moduleName}/api/stats/range?range=month`);
       const d = await r.json();
       this.month = {
-        stats:       { total: d.total, passed: d.passed, failed: d.failed, pass_rate: d.pass_rate },
+        stats:       { total: d.total, passed: d.passed, warned: d.warned ?? 0, failed: d.failed, pass_rate: d.pass_rate },
         by_brand:    (d.brands    ?? []).map(([name, count]) => ({ name, count })),
         fail_reasons:(d.fail_reasons ?? []).map(([reason, count]) => ({ reason, count })),
         daily:       d.daily ?? [],
@@ -80,7 +81,7 @@ function laptopApp(moduleName) {
       const url = `/${this.moduleName}/api/stats/range?from=${this.customFrom}&to=${this.customTo}`;
       const d = await (await fetch(url)).json();
       this.custom = {
-        stats:       { total: d.total, passed: d.passed, failed: d.failed, pass_rate: d.pass_rate },
+        stats:       { total: d.total, passed: d.passed, warned: d.warned ?? 0, failed: d.failed, pass_rate: d.pass_rate },
         by_brand:    (d.brands    ?? []).map(([name, count]) => ({ name, count })),
         fail_reasons:(d.fail_reasons ?? []).map(([reason, count]) => ({ reason, count })),
         daily:       d.daily ?? [],
@@ -140,8 +141,12 @@ function laptopApp(moduleName) {
 
     fmtRange(start, end) {
       if (!start || !end) return '';
-      const fmt = d => { const p = d.split('-'); return p[1] + '/' + p[2]; };
-      return fmt(start) + ' – ' + fmt(end);
+      const [sy, sm, sd] = start.split('-');
+      const [ey, em, ed] = end.split('-');
+      if (sy === ey) {
+        return `${sm}/${sd} – ${em}/${ed}, ${sy}`;
+      }
+      return `${sm}/${sd}/${sy} – ${em}/${ed}/${ey}`;
     },
 
     renderDetails(record) {
