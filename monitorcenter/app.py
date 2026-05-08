@@ -127,6 +127,54 @@ def _search_wipe_sqlite(sn: str) -> list[dict]:
         return []
 
 
+def _search_cpu_sqlite(sn: str) -> list[dict]:
+    """Search CPU SQLite DB by SN (partial match). Skips silently if DB not found."""
+    import sqlite3
+    from pathlib import Path
+    db_path_str = app.config.get("CPU_DB_PATH")
+    if not db_path_str:
+        return []
+    db_path = Path(db_path_str)
+    if not db_path.exists():
+        return []
+    try:
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        pattern = f"%{sn.upper()}%"
+        rows = conn.execute(
+            "SELECT * FROM cpu_records "
+            "WHERE UPPER(sn) LIKE ? "
+            "ORDER BY test_date DESC, start_time DESC",
+            (pattern,),
+        ).fetchall()
+        conn.close()
+        results = []
+        for row in rows:
+            r = dict(row)
+            raw = (r.get("overall_result") or "").upper()
+            overall = "PASS" if raw == "PASS" else ("FAIL" if raw == "FAIL" else (raw or "UNKNOWN"))
+            cpu_name = r.get("cpu_full_name") or r.get("cpu_model") or "—"
+            parts = [cpu_name]
+            if r.get("speed_ghz"):
+                parts.append(f"{r['speed_ghz']} GHz")
+            if r.get("physical_cores"):
+                parts.append(f"{r['physical_cores']}C/{r.get('logical_cores', '?')}T")
+            timestamp = r.get("start_time") or r.get("test_date", "")
+            results.append({
+                "module":         "cpu",
+                "sn":             r.get("sn", sn),
+                "system_sn":      r.get("sn", ""),
+                "timestamp":      timestamp,
+                "overall_result": overall,
+                "summary":        " | ".join(parts),
+                "payload":        r,
+            })
+        return results
+    except Exception as e:
+        print(f"CPU SQLite search error: {e}")
+        return []
+
+
 @app.route("/api/search")
 def api_search():
     """Cross-module SN search — returns a flat list of envelopes.
@@ -148,8 +196,84 @@ def api_search():
     # Wipe uses SQLite instead of JSON files — query separately
     results.extend(_search_wipe_sqlite(sn))
 
+    # CPU also uses SQLite — query separately
+    results.extend(_search_cpu_sqlite(sn))
+
     results.sort(key=lambda r: r.get("timestamp", ""), reverse=True)
     return jsonify(results)
+
+
+@app.route("/api/summary")
+def api_summary():
+    """Homepage summary — today/week/month counts for all modules."""
+    from datetime import timedelta, date
+    import calendar, sqlite3
+    from pathlib import Path
+
+    today = date.today()
+    days_since_sunday = (today.weekday() + 1) % 7
+    week_start  = today - timedelta(days=days_since_sunday)
+    week_end    = week_start + timedelta(days=6)
+    month_start = today.replace(day=1)
+    month_end   = today.replace(day=calendar.monthrange(today.year, today.month)[1])
+
+    out = {}
+
+    # ── Laptop (JSON history files) ──────────────────────────────────
+    try:
+        laptop_today = len(storage.read_latest("laptop"))
+        base = config.BASE_DIR / "laptop" / "history"
+
+        def _count(d_from, d_to):
+            n, cur = 0, d_from
+            while cur <= d_to:
+                day_dir = base / cur.strftime("%Y") / cur.strftime("%m-%d")
+                if day_dir.exists():
+                    n += sum(1 for _ in day_dir.glob("*.json"))
+                cur += timedelta(days=1)
+            return n
+
+        out["laptop"] = {
+            "today": laptop_today,
+            "week":  _count(week_start, week_end),
+            "month": _count(month_start, month_end),
+        }
+    except Exception:
+        out["laptop"] = {"today": 0, "week": 0, "month": 0}
+
+    # ── Wipe (SQLite) ────────────────────────────────────────────────
+    try:
+        wp = app.config.get("WIPE_DB")
+        if wp and Path(wp).exists():
+            c = sqlite3.connect(wp)
+            out["wipe"] = {
+                "today": c.execute("SELECT COUNT(*) FROM wipe_records WHERE wipe_date=?", (str(today),)).fetchone()[0],
+                "week":  c.execute("SELECT COUNT(*) FROM wipe_records WHERE wipe_date BETWEEN ? AND ?", (str(week_start), str(week_end))).fetchone()[0],
+                "month": c.execute("SELECT COUNT(*) FROM wipe_records WHERE wipe_date BETWEEN ? AND ?", (str(month_start), str(month_end))).fetchone()[0],
+            }
+            c.close()
+        else:
+            out["wipe"] = {"today": 0, "week": 0, "month": 0}
+    except Exception:
+        out["wipe"] = {"today": 0, "week": 0, "month": 0}
+
+    # ── CPU (SQLite) ─────────────────────────────────────────────────
+    try:
+        cp = app.config.get("CPU_DB_PATH")
+        if cp and Path(cp).exists():
+            c = sqlite3.connect(cp)
+            out["cpu"] = {
+                "today": c.execute("SELECT COUNT(*) FROM cpu_records WHERE test_date=?", (str(today),)).fetchone()[0],
+                "week":  c.execute("SELECT COUNT(*) FROM cpu_records WHERE test_date BETWEEN ? AND ?", (str(week_start), str(week_end))).fetchone()[0],
+                "month": c.execute("SELECT COUNT(*) FROM cpu_records WHERE test_date BETWEEN ? AND ?", (str(month_start), str(month_end))).fetchone()[0],
+            }
+            c.close()
+        else:
+            out["cpu"] = {"today": 0, "week": 0, "month": 0}
+    except Exception:
+        out["cpu"] = {"today": 0, "week": 0, "month": 0}
+
+    return jsonify(out)
 
 
 @app.route("/api/admin/rebuild_index", methods=["POST"])

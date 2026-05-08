@@ -2,6 +2,70 @@
 {% block title %}CearTrack{% endblock %}
 {% block content %}
 <script src="{{ url_for('static', filename='js/renderer.js') }}"></script>
+<style>
+.mod-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 22px 24px;
+  transition: border-color 0.2s, transform 0.15s;
+  cursor: pointer;
+}
+.mod-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+.mod-card-soon {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.mod-card-soon:hover {
+  border-color: var(--border);
+  transform: none;
+}
+.mod-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.mod-icon { display:flex; align-items:center; flex-shrink:0; }
+.mod-name {
+  font-size: 1.05em;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+.mod-stats {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.mod-stat {
+  flex: 1;
+  text-align: center;
+}
+.mod-stat-val {
+  font-size: 1.8em;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.1;
+}
+.mod-stat-lbl {
+  font-size: 0.7em;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 4px;
+}
+.mod-stat-divider {
+  width: 1px;
+  height: 40px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+</style>
 
 <div x-data="landingApp()" x-init="init()">
 
@@ -72,52 +136,142 @@
     </div>
   </div>
 
-  <!-- Module tiles -->
-  <div class="module-grid">
-    {% for m in modules %}
-    <a href="/{{ m }}/" class="module-tile">
-      <h3>{{ m|capitalize }}</h3>
-      <div x-data="{stats:{}}" x-init="fetch('/{{ m }}/api/stats').then(r=>r.json()).then(d=>stats=d).catch(()=>{})">
-        <div style="color: var(--text-secondary); font-size: 0.85em; margin-top: 10px;">
-          <span x-text="stats.total_today ?? 0"></span> tested today
-        </div>
-        <div style="color: var(--pass); font-size: 0.85em;">
-          <span x-text="stats.pass_rate ?? 0"></span>% pass
-        </div>
-      </div>
-    </a>
-    {% endfor %}
+  <!-- Module cards — 4 columns, all in one row -->
+  <div style="max-width:1100px;margin:0 auto;">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
 
-    <!-- Wipe module (registered separately, not in auto-discovery) -->
-    <a href="/wipe/" class="module-tile">
-      <h3>Wipe</h3>
-      <div x-data="{stats:{}}" x-init="fetch('/wipe/api/today').then(r=>r.json()).then(d=>stats=d.stats).catch(()=>{})">
-        <div style="color: var(--text-secondary); font-size: 0.85em; margin-top: 10px;">
-          <span x-text="stats.total ?? 0"></span> tested today
+      <!-- Laptop -->
+      <a href="/laptop/" style="text-decoration:none;">
+        <div class="mod-card">
+          <div class="mod-card-header">
+            <!-- Laptop SVG (matches module page emoji style) -->
+            <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="4" y="6" width="28" height="19" rx="2" stroke="var(--accent)" stroke-width="1.6"/>
+              <rect x="7" y="9" width="22" height="13" rx="1" fill="var(--accent)" fill-opacity="0.08" stroke="var(--accent)" stroke-width="1"/>
+              <rect x="1" y="25" width="34" height="3" rx="1.5" stroke="var(--accent)" stroke-width="1.4"/>
+              <rect x="13" y="25" width="10" height="1.5" rx="0.75" fill="var(--accent)" fill-opacity="0.4"/>
+            </svg>
+            <span class="mod-name">Laptop</span>
+          </div>
+          <div class="mod-stats">
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.laptop?.today ?? 0"></div>
+              <div class="mod-stat-lbl">Today</div>
+            </div>
+            <div class="mod-stat-divider"></div>
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.laptop?.week ?? 0"></div>
+              <div class="mod-stat-lbl">This Week</div>
+            </div>
+            <div class="mod-stat-divider"></div>
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.laptop?.month ?? 0"></div>
+              <div class="mod-stat-lbl">This Month</div>
+            </div>
+          </div>
         </div>
-        <div style="color: var(--pass); font-size: 0.85em;">
-          <span x-text="stats.pass_rate ?? 0"></span>% pass
-        </div>
-      </div>
-    </a>
+      </a>
 
-    <!-- CPU module -->
-    <a href="/cpu/" class="module-tile">
-      <h3>CPU</h3>
-      <div x-data="{stats:{}}" x-init="fetch('/cpu/api/stats').then(r=>r.json()).then(d=>stats=d).catch(()=>{})">
-        <div style="color: var(--text-secondary); font-size: 0.85em; margin-top: 10px;">
-          <span x-text="stats.summary ? stats.summary.total : 0"></span> tested this week
+      <!-- Wipe — exact same SVG as wipe module page -->
+      <a href="/wipe/" style="text-decoration:none;">
+        <div class="mod-card">
+          <div class="mod-card-header">
+            <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="3" y="8" width="30" height="20" rx="3" stroke="var(--accent)" stroke-width="1.6"/>
+              <circle cx="17" cy="18" r="7" stroke="var(--accent)" stroke-width="1.4"/>
+              <circle cx="17" cy="18" r="2.2" fill="var(--accent)" fill-opacity="0.45"/>
+              <line x1="23" y1="12.5" x2="28.5" y2="10" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <circle cx="23" cy="13" r="2" fill="var(--accent)" fill-opacity="0.6"/>
+              <circle cx="29.5" cy="11.5" r="1.2" fill="var(--accent)" fill-opacity="0.4"/>
+              <circle cx="29.5" cy="24.5" r="1.2" fill="var(--accent)" fill-opacity="0.4"/>
+            </svg>
+            <span class="mod-name">Wipe</span>
+          </div>
+          <div class="mod-stats">
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.wipe?.today ?? 0"></div>
+              <div class="mod-stat-lbl">Today</div>
+            </div>
+            <div class="mod-stat-divider"></div>
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.wipe?.week ?? 0"></div>
+              <div class="mod-stat-lbl">This Week</div>
+            </div>
+            <div class="mod-stat-divider"></div>
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.wipe?.month ?? 0"></div>
+              <div class="mod-stat-lbl">This Month</div>
+            </div>
+          </div>
         </div>
-        <div style="color: var(--pass); font-size: 0.85em;">
-          <span x-text="stats.summary && stats.summary.total ? Math.round(stats.summary.pass_count / stats.summary.total * 100) : 0"></span>% pass
-        </div>
-      </div>
-    </a>
+      </a>
 
-    <!-- Placeholder for future modules -->
-    <div class="module-tile" style="opacity: 0.4; cursor: not-allowed;">
-      <h3>GPU</h3>
-      <div style="color: var(--text-secondary); margin-top: 10px;">Coming soon</div>
+      <!-- CPU — exact same SVG as cpu module page -->
+      <a href="/cpu/" style="text-decoration:none;">
+        <div class="mod-card">
+          <div class="mod-card-header">
+            <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="9" y="9" width="18" height="18" rx="2" stroke="var(--accent)" stroke-width="1.6"/>
+              <rect x="13" y="13" width="10" height="10" rx="1" stroke="var(--accent)" stroke-width="1.2" fill="var(--accent)" fill-opacity="0.1"/>
+              <line x1="18" y1="13" x2="18" y2="23" stroke="var(--accent)" stroke-width="0.9" opacity="0.5"/>
+              <line x1="13" y1="18" x2="23" y2="18" stroke="var(--accent)" stroke-width="0.9" opacity="0.5"/>
+              <line x1="13" y1="9"  x2="13" y2="5"  stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="18" y1="9"  x2="18" y2="5"  stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="23" y1="9"  x2="23" y2="5"  stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="13" y1="27" x2="13" y2="31" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="18" y1="27" x2="18" y2="31" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="23" y1="27" x2="23" y2="31" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="9"  y1="13" x2="5"  y2="13" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="9"  y1="18" x2="5"  y2="18" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="9"  y1="23" x2="5"  y2="23" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="27" y1="13" x2="31" y2="13" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="27" y1="18" x2="31" y2="18" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="27" y1="23" x2="31" y2="23" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+            <span class="mod-name">CPU</span>
+          </div>
+          <div class="mod-stats">
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.cpu?.today ?? 0"></div>
+              <div class="mod-stat-lbl">Today</div>
+            </div>
+            <div class="mod-stat-divider"></div>
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.cpu?.week ?? 0"></div>
+              <div class="mod-stat-lbl">This Week</div>
+            </div>
+            <div class="mod-stat-divider"></div>
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.cpu?.month ?? 0"></div>
+              <div class="mod-stat-lbl">This Month</div>
+            </div>
+          </div>
+        </div>
+      </a>
+
+      <!-- GPU — coming soon, same row -->
+      <div class="mod-card mod-card-soon">
+        <div class="mod-card-header">
+          <!-- GPU card SVG -->
+          <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="2" y="10" width="28" height="16" rx="2" stroke="var(--accent)" stroke-width="1.5" opacity="0.4"/>
+            <rect x="6" y="14" width="8" height="8" rx="1.5" stroke="var(--accent)" stroke-width="1.2" opacity="0.4"/>
+            <circle cx="10" cy="18" r="2" stroke="var(--accent)" stroke-width="1" opacity="0.4"/>
+            <rect x="17" y="14" width="4" height="8" rx="1" fill="var(--accent)" fill-opacity="0.08" stroke="var(--accent)" stroke-width="1" opacity="0.4"/>
+            <line x1="30" y1="14" x2="34" y2="14" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round" opacity="0.4"/>
+            <line x1="30" y1="18" x2="34" y2="18" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round" opacity="0.4"/>
+            <line x1="30" y1="22" x2="34" y2="22" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round" opacity="0.4"/>
+            <line x1="6"  y1="26" x2="6"  y2="30" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round" opacity="0.4"/>
+            <line x1="10" y1="26" x2="10" y2="30" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round" opacity="0.4"/>
+            <line x1="14" y1="26" x2="14" y2="30" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round" opacity="0.4"/>
+            <line x1="18" y1="26" x2="18" y2="30" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round" opacity="0.4"/>
+          </svg>
+          <span class="mod-name" style="opacity:0.4;">GPU</span>
+        </div>
+        <div style="color:var(--text-secondary);font-size:0.8em;text-align:center;
+                    padding:10px 0;letter-spacing:0.04em;">Coming soon</div>
+      </div>
+
     </div>
   </div>
 
@@ -131,8 +285,14 @@ function landingApp() {
     searched: false,
     expandedKey: null,
     schemas: {},
+    summary: { laptop:{today:0,week:0,month:0}, wipe:{today:0,week:0,month:0}, cpu:{today:0,week:0,month:0} },
 
-    init() {},
+    async init() {
+      try {
+        const r = await fetch('/api/summary');
+        this.summary = await r.json();
+      } catch(e) {}
+    },
 
     async runGlobalSearch() {
       this.searched = true;
