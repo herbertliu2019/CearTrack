@@ -56,7 +56,9 @@ def api_stats():
     today = date.today()
 
     if period == "week":
-        start = str(today - timedelta(days=6))
+        # Start from this week's Sunday (weekday: Mon=0 ... Sun=6)
+        days_since_sunday = (today.weekday() + 1) % 7
+        start = str(today - timedelta(days=days_since_sunday))
         end = str(today)
     elif period == "month":
         start = today.replace(day=1).isoformat()
