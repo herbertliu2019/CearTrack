@@ -398,11 +398,7 @@
   <div x-show="!searched">
 
     <!-- KPI cards -->
-    <div class="kpi-strip">
-      <div class="kpi-card" style="background:rgba(99,102,241,0.12);border-left:3px solid #6366f1;border-right:2px solid rgba(99,102,241,0.22);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
-        <div class="kpi-value" style="color:#818cf8;" x-text="stats.total_all_time?.toLocaleString() ?? '…'"></div>
-        <div class="kpi-label" style="color:#818cf8;">All Time</div>
-      </div>
+    <div class="kpi-strip" style="grid-template-columns:repeat(4,1fr) 1px 1.1fr;">
       <div class="kpi-card">
         <div class="kpi-value" x-text="stats.summary?.total?.toLocaleString() ?? '…'"></div>
         <div class="kpi-label" x-text="periodLabel + ' Tests'"></div>
@@ -425,6 +421,11 @@
         <div class="kpi-value"
              x-text="stats.summary?.avg_duration_sec ? fmtDuration(Math.round(stats.summary.avg_duration_sec)) : '—'"></div>
         <div class="kpi-label">Avg Duration</div>
+      </div>
+      <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
+      <div class="kpi-card" style="background:rgba(99,102,241,0.12);border-right:3px solid #6366f1;border-left:2px solid rgba(99,102,241,0.22);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+        <div class="kpi-value" style="color:#818cf8;" x-text="stats.total_all_time?.toLocaleString() ?? '…'"></div>
+        <div class="kpi-label" style="color:#818cf8;">All Time</div>
       </div>
     </div>
 

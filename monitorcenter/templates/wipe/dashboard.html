@@ -198,12 +198,7 @@
   <div x-show="activeTab==='today'">
 
     <!-- KPI strip -->
-    <div class="stats-strip" style="grid-template-columns:1.1fr 1px repeat(4,1fr);margin-bottom:16px;align-items:stretch;">
-      <div class="stat-card" style="background:rgba(99,102,241,0.12);border-left:3px solid #6366f1;border-right:2px solid rgba(99,102,241,0.22);">
-        <div class="stat-label" style="color:#818cf8;">ALL TIME</div>
-        <div class="stat-value" style="color:#818cf8;" x-text="(today.db_total ?? 0).toLocaleString()"></div>
-      </div>
-      <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
+    <div class="stats-strip" style="grid-template-columns:repeat(4,1fr) 1px 1.1fr;margin-bottom:16px;align-items:stretch;">
       <div class="stat-card">
         <div class="stat-label">TODAY</div>
         <div class="stat-value" x-text="today.stats.total ?? 0"></div>
@@ -214,6 +209,11 @@
         <div class="stat-value" style="color:var(--fail);" x-text="today.stats.failed ?? 0"></div></div>
       <div class="stat-card"><div class="stat-label">PASS RATE</div>
         <div class="stat-value" x-text="(today.stats.pass_rate ?? 0) + '%'"></div></div>
+      <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
+      <div class="stat-card" style="background:rgba(99,102,241,0.12);border-right:3px solid #6366f1;border-left:2px solid rgba(99,102,241,0.22);">
+        <div class="stat-label" style="color:#818cf8;">ALL TIME</div>
+        <div class="stat-value" style="color:#818cf8;" x-text="(today.db_total ?? 0).toLocaleString()"></div>
+      </div>
     </div>
 
     <!-- By Device Type -->
@@ -277,12 +277,7 @@
   <div x-show="activeTab==='week'">
 
     <!-- KPI strip -->
-    <div class="stats-strip" style="grid-template-columns:1.1fr 1px repeat(4,1fr);margin-bottom:16px;align-items:stretch;">
-      <div class="stat-card" style="background:rgba(99,102,241,0.07);border-color:rgba(99,102,241,0.25);">
-        <div class="stat-label" style="color:#818cf8;">ALL TIME</div>
-        <div class="stat-value" style="color:#c7d2fe;" x-text="(week.db_total ?? 0).toLocaleString()"></div>
-      </div>
-      <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
+    <div class="stats-strip" style="grid-template-columns:repeat(4,1fr) 1px 1.1fr;margin-bottom:16px;align-items:stretch;">
       <div class="stat-card">
         <div class="stat-label">THIS WEEK</div>
         <div class="stat-value" x-text="week.stats?.total ?? 0"></div>
@@ -295,6 +290,11 @@
         <div class="stat-value" style="color:var(--fail);" x-text="week.stats?.failed ?? 0"></div></div>
       <div class="stat-card"><div class="stat-label">PASS RATE</div>
         <div class="stat-value" x-text="(week.stats?.pass_rate ?? 0) + '%'"></div></div>
+      <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
+      <div class="stat-card" style="background:rgba(99,102,241,0.12);border-right:3px solid #6366f1;border-left:2px solid rgba(99,102,241,0.22);">
+        <div class="stat-label" style="color:#818cf8;">ALL TIME</div>
+        <div class="stat-value" style="color:#818cf8;" x-text="(week.db_total ?? 0).toLocaleString()"></div>
+      </div>
     </div>
 
     <!-- By Device Type -->
@@ -386,12 +386,7 @@
   <div x-show="activeTab==='month'">
 
     <!-- KPI strip -->
-    <div class="stats-strip" style="grid-template-columns:1.1fr 1px repeat(4,1fr);margin-bottom:16px;align-items:stretch;">
-      <div class="stat-card" style="background:rgba(99,102,241,0.07);border-color:rgba(99,102,241,0.25);">
-        <div class="stat-label" style="color:#818cf8;">ALL TIME</div>
-        <div class="stat-value" style="color:#c7d2fe;" x-text="(month.db_total ?? 0).toLocaleString()"></div>
-      </div>
-      <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
+    <div class="stats-strip" style="grid-template-columns:repeat(4,1fr) 1px 1.1fr;margin-bottom:16px;align-items:stretch;">
       <div class="stat-card">
         <div class="stat-label">THIS MONTH</div>
         <div class="stat-value" x-text="month.stats?.total ?? 0"></div>
@@ -404,6 +399,11 @@
         <div class="stat-value" style="color:var(--fail);" x-text="month.stats?.failed ?? 0"></div></div>
       <div class="stat-card"><div class="stat-label">PASS RATE</div>
         <div class="stat-value" x-text="(month.stats?.pass_rate ?? 0) + '%'"></div></div>
+      <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
+      <div class="stat-card" style="background:rgba(99,102,241,0.12);border-right:3px solid #6366f1;border-left:2px solid rgba(99,102,241,0.22);">
+        <div class="stat-label" style="color:#818cf8;">ALL TIME</div>
+        <div class="stat-value" style="color:#818cf8;" x-text="(month.db_total ?? 0).toLocaleString()"></div>
+      </div>
     </div>
 
     <!-- By Device Type -->
@@ -522,12 +522,7 @@
                 x-text="fmtRange(customFrom, customTo) + '  (' + (custom.stats?.total ?? 0) + ' records)'"></span>
         </div>
 
-        <div class="stats-strip" style="grid-template-columns:1.1fr 1px repeat(4,1fr);margin-bottom:16px;align-items:stretch;">
-          <div class="stat-card" style="background:rgba(99,102,241,0.07);border-color:rgba(99,102,241,0.25);">
-            <div class="stat-label" style="color:#818cf8;">ALL TIME</div>
-            <div class="stat-value" style="color:#c7d2fe;" x-text="(custom.db_total ?? 0).toLocaleString()"></div>
-          </div>
-          <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
+        <div class="stats-strip" style="grid-template-columns:repeat(4,1fr) 1px 1.1fr;margin-bottom:16px;align-items:stretch;">
           <div class="stat-card">
             <div class="stat-label">SELECTED</div>
             <div class="stat-value" x-text="custom.stats?.total ?? 0"></div>
@@ -540,6 +535,11 @@
             <div class="stat-value" style="color:var(--fail);" x-text="custom.stats?.failed ?? 0"></div></div>
           <div class="stat-card"><div class="stat-label">PASS RATE</div>
             <div class="stat-value" x-text="(custom.stats?.pass_rate ?? 0) + '%'"></div></div>
+          <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
+          <div class="stat-card" style="background:rgba(99,102,241,0.12);border-right:3px solid #6366f1;border-left:2px solid rgba(99,102,241,0.22);">
+            <div class="stat-label" style="color:#818cf8;">ALL TIME</div>
+            <div class="stat-value" style="color:#818cf8;" x-text="(custom.db_total ?? 0).toLocaleString()"></div>
+          </div>
         </div>
 
         <!-- By Device Type -->
