@@ -772,8 +772,12 @@ function wipeApp() {
 
     fmtRange(start, end) {
       if (!start || !end) return '';
-      const fmt = d => { const p = d.split('-'); return p[1] + '/' + p[2]; };
-      return fmt(start) + ' – ' + fmt(end);
+      const [sy, sm, sd] = start.split('-');
+      const [ey, em, ed] = end.split('-');
+      if (sy === ey) {
+        return sm + '/' + sd + ' – ' + em + '/' + ed + ', ' + sy;
+      }
+      return sm + '/' + sd + '/' + sy + ' – ' + em + '/' + ed + '/' + ey;
     },
 
     nextScanIn() {
