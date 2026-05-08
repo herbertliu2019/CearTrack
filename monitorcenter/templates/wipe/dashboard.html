@@ -4,6 +4,26 @@
 
 <div x-data="wipeApp()" x-init="init()">
 
+  <!-- ── Page Header ──────────────────────────────────────────────── -->
+  <div style="margin-bottom:24px;">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:6px;">
+      <div style="font-size:2em;line-height:1;">🖴</div>
+      <div>
+        <div style="font-size:1.45em;font-weight:800;letter-spacing:0.06em;
+                    color:var(--text-primary);text-transform:uppercase;line-height:1.1;">
+          Wipe Disk
+        </div>
+        <div style="font-size:0.78em;color:var(--text-secondary);
+                    letter-spacing:0.04em;margin-top:2px;">
+          Drive Erasure Log Dashboard
+        </div>
+      </div>
+    </div>
+    <div style="height:1px;background:linear-gradient(to right,
+                var(--accent) 0%, rgba(0,212,255,0.15) 40%, transparent 100%);
+                margin-top:10px;"></div>
+  </div>
+
   <!-- ── Scan Progress Banner ─────────────────────────────────────── -->
   <div x-show="scanBanner.visible"
        style="position:fixed;top:0;left:0;right:0;z-index:999;
