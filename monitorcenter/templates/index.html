@@ -81,8 +81,16 @@
   <div style="max-width: 600px; margin: 0 auto 40px;">
     <div class="search-box">
       <input type="text" x-model="globalSearch" @keydown.enter="runGlobalSearch()"
+             @keydown.escape="clearSearch()"
              placeholder="Search by SN / Service Tag across all modules...">
       <button @click="runGlobalSearch()">Search</button>
+      <button x-show="searched" @click="clearSearch()"
+              style="background:transparent;color:var(--text-secondary);
+                     border:1px solid var(--border);padding:6px 12px;
+                     border-radius:4px;cursor:pointer;font-size:0.85em;
+                     white-space:nowrap;">
+        ✕ Clear
+      </button>
     </div>
 
     <div x-show="globalResults.length > 0" style="margin-top: 20px;">
@@ -301,6 +309,13 @@ function landingApp() {
       if (!this.globalSearch.trim()) { this.globalResults = []; return; }
       const r = await fetch(`/api/search?sn=${encodeURIComponent(this.globalSearch.trim())}`);
       this.globalResults = await r.json();
+    },
+
+    clearSearch() {
+      this.globalSearch = "";
+      this.globalResults = [];
+      this.searched = false;
+      this.expandedKey = null;
     },
 
     async toggleExpand(key, module) {
