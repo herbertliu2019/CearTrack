@@ -26,11 +26,8 @@ def get_poll_state() -> dict:
 def _poll_loop(cfg: dict, interval: int) -> None:
     global _last_scan_at, _next_scan_at
 
-    scanner = WipeScanner(
-        log_root       = cfg["log_root"],
-        db_path        = cfg["db_path"],
-        win_share_root = cfg["win_share_root"],
-    )
+    log_roots = cfg.get("log_roots") or [{"path": cfg["log_root"], "win_share_root": cfg.get("win_share_root", "")}]
+    scanner = WipeScanner(log_roots=log_roots, db_path=cfg["db_path"])
 
     logger.info(
         f"[WipePoller] started, interval={interval}s, "

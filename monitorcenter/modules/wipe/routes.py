@@ -129,7 +129,8 @@ def api_scan():
 
     conn.close()
     cfg = current_app.config["WIPE_CFG"]
-    scanner = WipeScanner(cfg["log_root"], db_path, cfg["win_share_root"])
+    log_roots = cfg.get("log_roots") or [{"path": cfg["log_root"], "win_share_root": cfg.get("win_share_root", "")}]
+    scanner = WipeScanner(log_roots=log_roots, db_path=db_path)
 
     force = request.args.get("force", "0") == "1"
 

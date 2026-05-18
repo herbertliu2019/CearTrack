@@ -18,24 +18,33 @@ MONTH_DIRS = {
 
 
 class WipeScanner:
-    def __init__(self, log_root: str, db_path: str, win_share_root: str):
-        self.log_root = Path(log_root)
+    def __init__(self, log_roots: list[dict], db_path: str):
+        """
+        log_roots: list of {"path": str, "win_share_root": str}
+        Backward compat: also accepts (log_root: str, db_path, win_share_root) positional args.
+        """
+        self.log_roots = [
+            {"path": Path(r["path"]), "win_share_root": r["win_share_root"].rstrip("\\")}
+            for r in log_roots
+        ]
         self.db_path = db_path
-        self.win_share_root = win_share_root.rstrip("\\")
         init_db(db_path)
 
     def make_win_path(self, log_path: Path) -> str:
-        rel = str(log_path).replace(str(self.log_root), "", 1)
-        rel = rel.replace("/", "\\")
-        if not rel.startswith("\\"):
-            rel = "\\" + rel
-        return self.win_share_root + rel
+        """Find which root this log belongs to and build the Windows UNC path."""
+        for r in self.log_roots:
+            try:
+                rel = log_path.relative_to(r["path"])
+                return r["win_share_root"] + "\\" + str(rel).replace("/", "\\")
+            except ValueError:
+                continue
+        return str(log_path)  # fallback: return as-is
 
-    def collect_all(self) -> list[Path]:
+    def _collect_from_root(self, root: Path) -> list[Path]:
         files = []
-        if not self.log_root.exists():
+        if not root.exists():
             return files
-        for year_dir in sorted(self.log_root.iterdir()):
+        for year_dir in sorted(root.iterdir()):
             if not year_dir.is_dir() or not year_dir.name.isdigit() or len(year_dir.name) != 4:
                 continue
             for month_dir in sorted(year_dir.iterdir()):
@@ -44,12 +53,21 @@ class WipeScanner:
                 files.extend(sorted(month_dir.glob("*.log")))
         return files
 
+    def collect_all(self) -> list[Path]:
+        files = []
+        for r in self.log_roots:
+            files.extend(self._collect_from_root(r["path"]))
+        return files
+
     def collect_current_month(self) -> list[Path]:
         now = datetime.now()
-        month_dir = self.log_root / str(now.year) / MONTH_DIRS[now.month]
-        if not month_dir.exists():
-            return []
-        return sorted(month_dir.glob("*.log"))
+        sub = Path(str(now.year)) / MONTH_DIRS[now.month]
+        files = []
+        for r in self.log_roots:
+            month_dir = r["path"] / sub
+            if month_dir.exists():
+                files.extend(sorted(month_dir.glob("*.log")))
+        return files
 
     def _process_files(self, files: list[Path], scan_type: str,
                        force: bool = False,
@@ -126,11 +144,13 @@ if __name__ == "__main__":
     with open(args.config, encoding="utf-8") as fh:
         cfg = json.load(fh)
 
-    scanner = WipeScanner(
-        log_root=cfg["log_root"],
-        db_path=cfg["db_path"],
-        win_share_root=cfg["win_share_root"],
-    )
+    # Support both new list format and legacy single-root format
+    if "log_roots" in cfg:
+        log_roots = cfg["log_roots"]
+    else:
+        log_roots = [{"path": cfg["log_root"], "win_share_root": cfg.get("win_share_root", "")}]
+
+    scanner = WipeScanner(log_roots=log_roots, db_path=cfg["db_path"])
 
     if args.full:
         files = scanner.collect_all()

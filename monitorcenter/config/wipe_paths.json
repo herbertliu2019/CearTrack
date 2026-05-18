@@ -1,6 +1,8 @@
 {
-  "log_root": "/mnt/win_logs",
-  "db_path": "/opt/monitorcenter/data/wipe_index.db",
-  "win_share_root": "\\\\04 Data Wiping\\EPS",
+  "log_roots": [
+    {"path": "/mnt/WIPE/eps", "win_share_root": "\\\\04 Data Wiping\\EPS"},
+    {"path": "/mnt/WIPE/pxe", "win_share_root": "\\\\04 Data Wiping\\PXE"}
+  ],
+  "db_path": "/opt/monitorcenter/data/wipe/wipe_index.db",
   "poll_interval": 1800
 }
