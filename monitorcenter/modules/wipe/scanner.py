@@ -16,6 +16,16 @@ MONTH_DIRS = {
     10: "10 October", 11: "11 November", 12: "12 December",
 }
 
+# Month names without numeric prefix (as found in actual log dirs)
+_MONTH_NAMES = {
+    "january", "february", "march", "april", "may", "june",
+    "july", "august", "september", "october", "november", "december",
+}
+
+def _is_month_dir(name: str) -> bool:
+    """Accept 'January', '01 January', '05 May', 'may', etc."""
+    return name.lower().split()[-1] in _MONTH_NAMES
+
 
 class WipeScanner:
     def __init__(self, log_roots: list[dict], db_path: str):
@@ -40,17 +50,36 @@ class WipeScanner:
                 continue
         return str(log_path)  # fallback: return as-is
 
+    def _find_year_dirs(self, root: Path) -> list[Path]:
+        """Return all year directories under root, including inside sub-source dirs.
+
+        Handles structures like:
+          root/2026/May/          → direct year dir
+          root/Makor/2026/May/    → one-level sub-source (Makor, Verify, logs_previous…)
+        """
+        year_dirs: list[Path] = []
+        if not root.exists():
+            return year_dirs
+        for item in root.iterdir():
+            if not item.is_dir():
+                continue
+            if item.name.isdigit() and len(item.name) == 4:
+                year_dirs.append(item)          # direct: root/YYYY/
+            else:
+                # sub-source dir: root/Makor/, root/Verify/, root/logs_previous/ …
+                for sub in item.iterdir():
+                    if sub.is_dir() and sub.name.isdigit() and len(sub.name) == 4:
+                        year_dirs.append(sub)   # root/Makor/YYYY/
+        return year_dirs
+
     def _collect_from_root(self, root: Path) -> list[Path]:
         files = []
-        if not root.exists():
-            return files
-        for year_dir in sorted(root.iterdir()):
-            if not year_dir.is_dir() or not year_dir.name.isdigit() or len(year_dir.name) != 4:
-                continue
+        for year_dir in sorted(self._find_year_dirs(root)):
             for month_dir in sorted(year_dir.iterdir()):
-                if not month_dir.is_dir() or month_dir.name not in MONTH_DIRS.values():
+                if not month_dir.is_dir() or not _is_month_dir(month_dir.name):
                     continue
-                files.extend(sorted(month_dir.glob("*.log")))
+                # rglob catches: direct *.log, Logs/*.log, {SN}/*.log, etc.
+                files.extend(sorted(month_dir.rglob("*.log")))
         return files
 
     def collect_all(self) -> list[Path]:
@@ -61,12 +90,17 @@ class WipeScanner:
 
     def collect_current_month(self) -> list[Path]:
         now = datetime.now()
-        sub = Path(str(now.year)) / MONTH_DIRS[now.month]
+        cur_year = str(now.year)
+        cur_month = now.strftime("%B")   # e.g. "May" — matches bare month dir names
         files = []
         for r in self.log_roots:
-            month_dir = r["path"] / sub
-            if month_dir.exists():
-                files.extend(sorted(month_dir.glob("*.log")))
+            for year_dir in self._find_year_dirs(r["path"]):
+                if year_dir.name != cur_year:
+                    continue
+                for month_dir in year_dir.iterdir():
+                    if month_dir.is_dir() and _is_month_dir(month_dir.name) \
+                            and month_dir.name.lower().endswith(cur_month.lower()):
+                        files.extend(sorted(month_dir.rglob("*.log")))
         return files
 
     def _process_files(self, files: list[Path], scan_type: str,
