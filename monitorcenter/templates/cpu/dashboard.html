@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}CPU Tests — CearTrack{% endblock %}
+{% block title %}CPU Tests — CEARTrack{% endblock %}
 {% block content %}
 
 <style>
@@ -64,25 +64,24 @@
 }
 
 /* ── Horizontal bar rows ─────────────────────────────────────────────────── */
-.hbar-row {
-  display: flex;
+.hbar-list {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) 1fr auto;
+  column-gap: 8px;
+  row-gap: 5px;
   align-items: center;
-  gap: 8px;
-  margin: 5px 0;
 }
+.hbar-row { display: contents; }
 .hbar-label {
   font-size: 11.5px;
-  text-align: right;
+  text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text-primary);
-  flex-shrink: 0;
-  width: 90px;
+  max-width: 260px;
 }
-.hbar-label.wide { width: 110px; }
 .hbar-track {
-  flex: 1;
   height: 12px;
   background: rgba(255,255,255,0.06);
   border-radius: 3px;
@@ -95,12 +94,11 @@
   transition: width 0.4s ease;
 }
 .hbar-val {
-  width: 28px;
+  min-width: 28px;
   font-size: 11.5px;
   font-weight: 700;
   color: var(--accent);
   text-align: right;
-  flex-shrink: 0;
 }
 
 /* ── Scan banner ─────────────────────────────────────────────────────────── */
@@ -195,6 +193,24 @@
   .chart-row    { grid-template-columns: 1fr; }
   .detail-grid  { grid-template-columns: 1fr; }
 }
+
+/* ── Daily volume chart ──────────────────────────────────── */
+.daily-panel { background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:14px; }
+.daily-head  { display:flex;justify-content:space-between;align-items:center;margin-bottom:10px; }
+.daily-legend{ display:flex;gap:14px;font-size:0.78em;color:var(--text-secondary); }
+.legend-dot  { display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle; }
+.legend-dot.pass { background:var(--pass); }
+.legend-dot.fail { background:var(--fail); }
+.daily-chart { display:flex;align-items:flex-end;gap:4px;height:140px;padding:18px 0 26px;border-bottom:1px solid rgba(255,255,255,0.08);position:relative; }
+.daily-col   { flex:1;height:100%;display:flex;flex-direction:column-reverse;min-width:14px;position:relative;cursor:default; }
+.daily-col:hover .daily-tooltip { display:block; }
+.daily-seg   { width:100%;transition:opacity 0.15s; }
+.daily-seg.pass { background:var(--pass); }
+.daily-seg.fail { background:var(--fail); }
+.daily-col:hover .daily-seg { opacity:0.85; }
+.daily-label { position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--text-secondary);white-space:nowrap; }
+.daily-total { position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--text-secondary);white-space:nowrap; }
+.daily-tooltip { display:none;position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--bg-primary,#1a1a1a);border:1px solid var(--border);border-radius:5px;padding:6px 10px;font-size:0.75em;white-space:nowrap;z-index:5;pointer-events:none;margin-bottom:4px; }
 </style>
 
 <div x-data="cpuApp()" x-init="init()">
@@ -438,16 +454,18 @@
         <template x-if="(stats.by_series ?? []).length === 0">
           <div style="color:var(--text-secondary);font-size:0.8em;padding:8px 0;">No data</div>
         </template>
-        <template x-for="item in (stats.by_series ?? [])" :key="item.series">
-          <div class="hbar-row">
-            <span class="hbar-label" x-text="item.series"></span>
-            <div class="hbar-track">
-              <div class="hbar-fill"
-                   :style="'width:' + pct(item.count, maxVal(stats.by_series,'count')) + '%;background:var(--accent)'"></div>
+        <div class="hbar-list" x-show="(stats.by_series ?? []).length > 0">
+          <template x-for="item in (stats.by_series ?? [])" :key="item.series">
+            <div class="hbar-row">
+              <span class="hbar-label" :title="item.series" x-text="item.series"></span>
+              <div class="hbar-track">
+                <div class="hbar-fill"
+                     :style="'width:' + pct(item.count, maxVal(stats.by_series,'count')) + '%;background:var(--accent)'"></div>
+              </div>
+              <span class="hbar-val" x-text="item.count"></span>
             </div>
-            <span class="hbar-val" x-text="item.count"></span>
-          </div>
-        </template>
+          </template>
+        </div>
       </div>
 
       <!-- By Generation -->
@@ -456,16 +474,18 @@
         <template x-if="(stats.by_generation ?? []).length === 0">
           <div style="color:var(--text-secondary);font-size:0.8em;padding:8px 0;">No data</div>
         </template>
-        <template x-for="item in (stats.by_generation ?? [])" :key="item.generation">
-          <div class="hbar-row">
-            <span class="hbar-label wide" x-text="genName(item.generation)"></span>
-            <div class="hbar-track">
-              <div class="hbar-fill"
-                   :style="'width:' + pct(item.count, maxVal(stats.by_generation,'count')) + '%;background:#a78bfa'"></div>
+        <div class="hbar-list" x-show="(stats.by_generation ?? []).length > 0">
+          <template x-for="item in (stats.by_generation ?? [])" :key="item.generation">
+            <div class="hbar-row">
+              <span class="hbar-label" :title="genName(item.generation)" x-text="genName(item.generation)"></span>
+              <div class="hbar-track">
+                <div class="hbar-fill"
+                     :style="'width:' + pct(item.count, maxVal(stats.by_generation,'count')) + '%;background:#a78bfa'"></div>
+              </div>
+              <span class="hbar-val" x-text="item.count"></span>
             </div>
-            <span class="hbar-val" x-text="item.count"></span>
-          </div>
-        </template>
+          </template>
+        </div>
       </div>
 
       <!-- By Core Count -->
@@ -474,16 +494,18 @@
         <template x-if="(stats.by_core_count ?? []).length === 0">
           <div style="color:var(--text-secondary);font-size:0.8em;padding:8px 0;">No data</div>
         </template>
-        <template x-for="item in (stats.by_core_count ?? [])" :key="item.core_group">
-          <div class="hbar-row">
-            <span class="hbar-label" x-text="item.core_group + ' cores'"></span>
-            <div class="hbar-track">
-              <div class="hbar-fill"
-                   :style="'width:' + pct(item.count, maxVal(stats.by_core_count,'count')) + '%;background:#34d399'"></div>
+        <div class="hbar-list" x-show="(stats.by_core_count ?? []).length > 0">
+          <template x-for="item in (stats.by_core_count ?? [])" :key="item.core_group">
+            <div class="hbar-row">
+              <span class="hbar-label" x-text="item.core_group + ' cores'"></span>
+              <div class="hbar-track">
+                <div class="hbar-fill"
+                     :style="'width:' + pct(item.count, maxVal(stats.by_core_count,'count')) + '%;background:#34d399'"></div>
+              </div>
+              <span class="hbar-val" x-text="item.count"></span>
             </div>
-            <span class="hbar-val" x-text="item.count"></span>
-          </div>
-        </template>
+          </template>
+        </div>
       </div>
 
     </div>
@@ -494,16 +516,127 @@
       <template x-if="(stats.by_model ?? []).length === 0">
         <div style="color:var(--text-secondary);font-size:0.8em;padding:8px 0;">No data</div>
       </template>
-      <template x-for="item in (stats.by_model ?? [])" :key="item.cpu_full_name">
-        <div class="hbar-row">
-          <span class="hbar-label wide" x-text="item.cpu_full_name"></span>
-          <div class="hbar-track">
-            <div class="hbar-fill"
-                 :style="'width:' + pct(item.count, maxVal(stats.by_model,'count')) + '%;background:var(--accent)'"></div>
+      <div class="hbar-list" x-show="(stats.by_model ?? []).length > 0">
+        <template x-for="item in (stats.by_model ?? [])" :key="item.cpu_full_name">
+          <div class="hbar-row">
+            <span class="hbar-label" :title="item.cpu_full_name" x-text="item.cpu_full_name"></span>
+            <div class="hbar-track">
+              <div class="hbar-fill"
+                   :style="'width:' + pct(item.count, maxVal(stats.by_model,'count')) + '%;background:var(--accent)'"></div>
+            </div>
+            <span class="hbar-val" x-text="item.count"></span>
           </div>
-          <span class="hbar-val" x-text="item.count"></span>
+        </template>
+      </div>
+    </div>
+
+    <!-- Daily Volume chart -->
+    <div class="daily-panel" x-show="period !== 'today'">
+      <div class="daily-head">
+        <div class="chart-title" style="margin:0;">Daily Volume</div>
+        <div class="daily-legend">
+          <span><span class="legend-dot pass"></span>Pass</span>
+          <span><span class="legend-dot fail"></span>Fail</span>
         </div>
-      </template>
+      </div>
+      <div class="daily-chart">
+        <template x-for="d in paddedDailyData()" :key="d.date">
+          <div class="daily-col"
+               :style="d.total > 0 ? 'cursor:pointer;' : ''"
+               @click="d.total > 0 && jumpToDay(d.date)"
+               :title="d.total > 0 ? 'View ' + d.total + ' records for ' + d.date : ''">
+            <div class="daily-total" x-show="d.total > 0" x-text="d.total"></div>
+            <div class="daily-seg fail" :style="'height:' + dailyPct(d.failed) + '%'"></div>
+            <div class="daily-seg pass" :style="'height:' + dailyPct(d.passed) + '%'"></div>
+            <div class="daily-label" x-text="dailyLabel(d.date)"></div>
+            <div class="daily-tooltip">
+              <div style="font-weight:700;margin-bottom:3px;" x-text="d.date"></div>
+              <div><span class="legend-dot pass"></span>Pass <span x-text="d.passed"></span></div>
+              <div x-show="d.failed > 0"><span class="legend-dot fail"></span>Fail <span x-text="d.failed"></span></div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Daily Breakdown table -->
+    <div class="chart-panel" style="margin-bottom:18px;" x-show="period !== 'today' && (stats.daily ?? []).length > 0">
+      <div class="chart-title">Daily Breakdown</div>
+      <table class="cpu-table" style="font-size:0.86em;">
+        <thead>
+          <tr>
+            <th style="width:160px;">Date</th>
+            <th style="text-align:right;width:60px;color:var(--accent);">Total</th>
+            <th style="text-align:right;width:60px;color:var(--pass);">Passed</th>
+            <th style="text-align:right;width:60px;color:var(--fail);">Failed</th>
+            <th style="text-align:right;width:80px;">Pass Rate</th>
+            <th style="width:24px;"></th>
+          </tr>
+        </thead>
+        <template x-for="d in (stats.daily ?? [])" :key="'db'+d.date">
+          <tbody>
+            <tr :id="'cpu-db-row-' + d.date"
+                style="cursor:pointer;"
+                :class="(d.failed ?? 0) > 0 ? 'result-fail-row' : ''"
+                @click="toggleDailyOpen(d.date)">
+              <td x-text="dailyLongLabel(d.date)"></td>
+              <td style="text-align:right;font-weight:700;color:var(--accent);" x-text="d.total"></td>
+              <td style="text-align:right;color:var(--pass);" x-text="d.passed ?? 0"></td>
+              <td style="text-align:right;" :style="(d.failed ?? 0) > 0 ? 'color:var(--fail);font-weight:700;' : 'color:var(--text-secondary);'" x-text="(d.failed ?? 0) || '—'"></td>
+              <td style="text-align:right;font-weight:700;"
+                  :style="d.total ? (Math.round((d.passed??0)/d.total*100) >= 90 ? 'color:var(--pass);' : 'color:var(--fail);') : ''"
+                  x-text="d.total ? Math.round((d.passed??0)/d.total*100) + '%' : '—'"></td>
+              <td style="text-align:right;color:var(--text-secondary);"
+                  x-text="dailyOpenDate === d.date ? '▾' : '▸'"></td>
+            </tr>
+            <tr x-show="dailyOpenDate === d.date">
+              <td colspan="6" style="padding:0;">
+                <div style="background:rgba(99,102,241,0.03);border-top:1px solid rgba(99,102,241,0.2);padding:10px 14px;">
+                  <div x-show="dailyRecordsLoading" style="color:var(--text-secondary);font-size:0.84em;padding:6px 4px;">Loading…</div>
+                  <div x-show="dailyLoadError" x-text="dailyLoadError" style="color:var(--fail);font-size:0.84em;padding:6px 4px;"></div>
+                  <div x-show="!dailyRecordsLoading && !dailyLoadError && dailyRecords.length === 0" style="color:var(--text-secondary);font-size:0.84em;padding:6px 4px;">No records found.</div>
+                  <template x-if="!dailyRecordsLoading && dailyRecords.length > 0">
+                    <table class="cpu-table" style="font-size:0.82em;">
+                      <thead>
+                        <tr>
+                          <th>SN</th>
+                          <th>Series</th>
+                          <th>Model</th>
+                          <th>Cores</th>
+                          <th>Duration</th>
+                          <th>Time</th>
+                          <th>Result</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <template x-for="r in dailyRecords" :key="r.id">
+                          <>
+                            <tr class="data-row" @click.stop="toggleExpand(r.id)" style="cursor:pointer;">
+                              <td x-text="r.sn"></td>
+                              <td x-text="r.cpu_series ?? '—'"></td>
+                              <td x-text="r.cpu_full_name ?? r.processor_name?.substring(0,28) ?? '—'"></td>
+                              <td x-text="r.physical_cores ?? '—'"></td>
+                              <td x-text="r.duration_sec ? fmtDuration(r.duration_sec) : '—'"></td>
+                              <td x-text="(r.start_time ?? '').substring(11,16)"></td>
+                              <td :class="r.overall_result==='Pass' ? 'result-pass' : 'result-fail'"
+                                  x-text="r.overall_result ?? '—'"></td>
+                            </tr>
+                            <tr class="expanded-row" x-show="expandedId === r.id">
+                              <td colspan="7">
+                                <div x-html="buildDetail(r)"></div>
+                              </td>
+                            </tr>
+                          </>
+                        </template>
+                      </tbody>
+                    </table>
+                  </template>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </template>
+      </table>
     </div>
 
     <!-- Today's Tests -->
@@ -590,6 +723,10 @@ function cpuApp() {
     scanStatus:    null,
     pollState:     { poller_running: false, last_scan_at: null, next_scan_at: null, interval: 1800 },
     _scanPoll:     null,
+    dailyOpenDate:       null,
+    dailyRecords:        [],
+    dailyRecordsLoading: false,
+    dailyLoadError:      '',
 
     async init() {
       await Promise.all([
@@ -616,6 +753,9 @@ function cpuApp() {
     async setPeriod(p) {
       this.period = p;
       this.periodLabel = p === 'week' ? 'This Week' : p === 'month' ? 'This Month' : 'Custom';
+      this.dailyOpenDate = null;
+      this.dailyRecords  = [];
+      this.dailyLoadError = '';
       if (p !== 'custom') await this.loadStats(p);
     },
 
@@ -677,6 +817,99 @@ function cpuApp() {
     },
 
     // ── Helpers ────────────────────────────────────────────────────────────
+    // Daily volume chart
+    paddedDailyData() {
+      const daily = this.stats.daily ?? [];
+      const map = {};
+      daily.forEach(d => { map[d.date] = d; });
+      const empty = (date) => ({ date, total: 0, passed: 0, failed: 0 });
+      if (this.period === 'week') {
+        const slots = [];
+        for (let i = 6; i >= 0; i--) {
+          const dt = new Date(); dt.setDate(dt.getDate() - i);
+          const s = dt.toISOString().slice(0, 10);
+          slots.push(map[s] || empty(s));
+        }
+        return slots;
+      }
+      if (this.period === 'month') {
+        const now = new Date();
+        const y = now.getFullYear(), m = now.getMonth();
+        const days = new Date(y, m + 1, 0).getDate();
+        const slots = [];
+        for (let i = 1; i <= days; i++) {
+          const s = `${y}-${String(m+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+          slots.push(map[s] || empty(s));
+        }
+        return slots;
+      }
+      if (this.period === 'custom' && this.customStart && this.customEnd) {
+        const start = new Date(this.customStart + 'T00:00:00');
+        const end   = new Date(this.customEnd   + 'T00:00:00');
+        if (Math.round((end - start) / 86400000) + 1 <= 62) {
+          const slots = [], cur = new Date(start);
+          while (cur <= end) {
+            const s = cur.toISOString().slice(0, 10);
+            slots.push(map[s] || empty(s));
+            cur.setDate(cur.getDate() + 1);
+          }
+          return slots;
+        }
+      }
+      return daily;
+    },
+    maxDailyVal() { return Math.max(1, ...this.paddedDailyData().map(d => d.total || 0)); },
+    dailyPct(val) { if (!val) return 0; return Math.max(2, (val / this.maxDailyVal()) * 100); },
+    dailyLabel(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return dateStr.slice(5);
+      const weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      return weekdays[d.getDay()] + ' ' + (d.getMonth()+1) + '/' + d.getDate();
+    },
+    dailyLongLabel(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return dateStr;
+      const weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      return dateStr + ' (' + weekdays[d.getDay()] + ')';
+    },
+    async jumpToDay(dateStr) {
+      // Expand the Daily Breakdown row for this date, then scroll to it
+      if (this.dailyOpenDate !== dateStr) {
+        await this.toggleDailyOpen(dateStr);
+      }
+      this.$nextTick(() => {
+        const el = document.getElementById('cpu-db-row-' + dateStr);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    },
+    async toggleDailyOpen(date) {
+      if (this.dailyOpenDate === date) {
+        this.dailyOpenDate = null;
+        this.dailyRecords = [];
+        this.dailyLoadError = '';
+        return;
+      }
+      this.dailyOpenDate = date;
+      this.dailyRecords = [];
+      this.dailyLoadError = '';
+      this.dailyRecordsLoading = true;
+      try {
+        const resp = await fetch(`/cpu/api/day/${date}`);
+        if (!resp.ok) {
+          this.dailyLoadError = `HTTP ${resp.status} — server may need restart`;
+          return;
+        }
+        const data = await resp.json();
+        this.dailyRecords = data.records ?? [];
+      } catch (e) {
+        this.dailyLoadError = 'Failed to load records (' + e.message + ')';
+      } finally {
+        this.dailyRecordsLoading = false;
+      }
+    },
+
     pct(val, max) { if (!max) return 4; return Math.max(4, Math.round((val / max) * 100)); },
     maxVal(arr, key) { if (!arr?.length) return 1; return Math.max(...arr.map(x => x[key] || 0)); },
     genName(g) { return GEN_NAMES[g] ?? ('Gen ' + g); },

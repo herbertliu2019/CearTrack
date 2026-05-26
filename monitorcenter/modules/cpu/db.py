@@ -355,7 +355,10 @@ def daily_counts(db_path: str, start: str, end: str) -> list[dict]:
     conn = get_conn(db_path)
     try:
         rows = conn.execute(
-            """SELECT test_date AS date, COUNT(*) AS count
+            """SELECT test_date AS date,
+                      COUNT(*) AS total,
+                      SUM(CASE WHEN overall_result = 'Pass' THEN 1 ELSE 0 END) AS passed,
+                      SUM(CASE WHEN overall_result = 'Fail' THEN 1 ELSE 0 END) AS failed
                FROM cpu_records
                WHERE test_date BETWEEN ? AND ?
                GROUP BY test_date

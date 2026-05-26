@@ -1,8 +1,29 @@
 {% extends "base.html" %}
-{% block title %}Laptop — CearTrack{% endblock %}
+{% block title %}Laptop — CEARTrack{% endblock %}
 {% block content %}
 <script src="{{ url_for('static', filename='js/renderer.js') }}"></script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<style>
+/* ── Daily volume chart ──────────────────────────────────── */
+.daily-panel { background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:14px; }
+.daily-head  { display:flex;justify-content:space-between;align-items:center;margin-bottom:10px; }
+.daily-legend{ display:flex;gap:14px;font-size:0.78em;color:var(--text-secondary); }
+.legend-dot  { display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle; }
+.legend-dot.pass { background:var(--pass); }
+.legend-dot.warn { background:#d97706; }
+.legend-dot.fail { background:var(--fail); }
+.daily-chart { display:flex;align-items:flex-end;gap:4px;height:140px;padding:18px 0 26px;border-bottom:1px solid rgba(255,255,255,0.08);position:relative; }
+.daily-col   { flex:1;height:100%;display:flex;flex-direction:column-reverse;min-width:14px;position:relative;cursor:default; }
+.daily-col:hover .daily-tooltip { display:block; }
+.daily-seg   { width:100%;transition:opacity 0.15s; }
+.daily-seg.pass { background:var(--pass); }
+.daily-seg.warn { background:#d97706; }
+.daily-seg.fail { background:var(--fail); }
+.daily-col:hover .daily-seg { opacity:0.85; }
+.daily-label { position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--text-secondary);white-space:nowrap; }
+.daily-total { position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--text-secondary);white-space:nowrap; }
+.daily-tooltip { display:none;position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--bg-primary,#1a1a1a);border:1px solid var(--border);border-radius:5px;padding:6px 10px;font-size:0.75em;white-space:nowrap;z-index:5;pointer-events:none;margin-bottom:4px; }
+</style>
 
 <div x-data="laptopApp('{{ module_name }}')" x-init="init()">
 
@@ -153,7 +174,7 @@
               </template>
             </div>
             <div class="card-footer"
-                 x-text="(r.timestamp ?? '').replace('T',' ').slice(0,16)"></div>
+                 x-text="(r.payload?.operator_id ? '👤 ' + r.payload.operator_id + '  •  ' : '') + (r.timestamp ?? '').replace('T',' ').slice(0,16)"></div>
           </div>
           <template x-if="detailOpen === r.sn + r.timestamp">
             <div class="detail-panel"
@@ -279,6 +300,38 @@
       </div>
     </div>
 
+    <!-- Daily Volume chart -->
+    <div class="daily-panel">
+      <div class="daily-head">
+        <div style="font-size:0.7em;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-secondary);">Daily Volume</div>
+        <div class="daily-legend">
+          <span><span class="legend-dot pass"></span>Pass</span>
+          <span><span class="legend-dot warn"></span>Warn</span>
+          <span><span class="legend-dot fail"></span>Fail</span>
+        </div>
+      </div>
+      <div class="daily-chart">
+        <template x-for="d in paddedDailyData('week')" :key="d.date">
+          <div class="daily-col"
+               :style="d.total > 0 ? 'cursor:pointer;' : ''"
+               @click="d.total > 0 && jumpToDay(d.date, 'week')"
+               :title="d.total > 0 ? 'View ' + d.total + ' records for ' + d.date : ''">
+            <div class="daily-total" x-show="d.total > 0" x-text="d.total"></div>
+            <div class="daily-seg fail" :style="'height:' + dailyPct(d.failed, 'week') + '%'"></div>
+            <div class="daily-seg warn" :style="'height:' + dailyPct(d.warned ?? 0, 'week') + '%'"></div>
+            <div class="daily-seg pass" :style="'height:' + dailyPct(d.passed, 'week') + '%'"></div>
+            <div class="daily-label" x-text="dailyLabel(d.date)"></div>
+            <div class="daily-tooltip">
+              <div style="font-weight:700;margin-bottom:3px;" x-text="d.date"></div>
+              <div><span class="legend-dot pass"></span>Pass <span x-text="d.passed"></span></div>
+              <div x-show="(d.warned ?? 0) > 0"><span class="legend-dot warn"></span>Warn <span x-text="d.warned"></span></div>
+              <div x-show="d.failed > 0"><span class="legend-dot fail"></span>Fail <span x-text="d.failed"></span></div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
     <!-- Daily Breakdown -->
     <div class="detail-panel" style="padding:16px 20px;">
       <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
@@ -294,7 +347,7 @@
         <span style="color:var(--fail);">Failed</span><span></span><span></span>
       </div>
       <template x-for="d in (week.daily ?? [])" :key="d.date">
-        <div>
+        <div :id="'db-row-week-' + d.date">
           <!-- Day row — clickable -->
           <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;
                       gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);
@@ -458,6 +511,38 @@
       </div>
     </div>
 
+    <!-- Daily Volume chart -->
+    <div class="daily-panel">
+      <div class="daily-head">
+        <div style="font-size:0.7em;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-secondary);">Daily Volume</div>
+        <div class="daily-legend">
+          <span><span class="legend-dot pass"></span>Pass</span>
+          <span><span class="legend-dot warn"></span>Warn</span>
+          <span><span class="legend-dot fail"></span>Fail</span>
+        </div>
+      </div>
+      <div class="daily-chart">
+        <template x-for="d in paddedDailyData('month')" :key="d.date">
+          <div class="daily-col"
+               :style="d.total > 0 ? 'cursor:pointer;' : ''"
+               @click="d.total > 0 && jumpToDay(d.date, 'month')"
+               :title="d.total > 0 ? 'View ' + d.total + ' records for ' + d.date : ''">
+            <div class="daily-total" x-show="d.total > 0" x-text="d.total"></div>
+            <div class="daily-seg fail" :style="'height:' + dailyPct(d.failed, 'month') + '%'"></div>
+            <div class="daily-seg warn" :style="'height:' + dailyPct(d.warned ?? 0, 'month') + '%'"></div>
+            <div class="daily-seg pass" :style="'height:' + dailyPct(d.passed, 'month') + '%'"></div>
+            <div class="daily-label" x-text="dailyLabel(d.date)"></div>
+            <div class="daily-tooltip">
+              <div style="font-weight:700;margin-bottom:3px;" x-text="d.date"></div>
+              <div><span class="legend-dot pass"></span>Pass <span x-text="d.passed"></span></div>
+              <div x-show="(d.warned ?? 0) > 0"><span class="legend-dot warn"></span>Warn <span x-text="d.warned"></span></div>
+              <div x-show="d.failed > 0"><span class="legend-dot fail"></span>Fail <span x-text="d.failed"></span></div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
     <!-- Daily Breakdown -->
     <div class="detail-panel" style="padding:16px 20px;">
       <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
@@ -473,7 +558,7 @@
         <span style="color:var(--fail);">Failed</span><span></span><span></span>
       </div>
       <template x-for="d in (month.daily ?? [])" :key="d.date">
-        <div>
+        <div :id="'db-row-month-' + d.date">
           <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;
                       gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);
                       align-items:center;font-size:0.88em;cursor:pointer;"
@@ -663,6 +748,38 @@
           </div>
         </div>
 
+        <!-- Daily Volume chart -->
+        <div class="daily-panel">
+          <div class="daily-head">
+            <div style="font-size:0.7em;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-secondary);">Daily Volume</div>
+            <div class="daily-legend">
+              <span><span class="legend-dot pass"></span>Pass</span>
+              <span><span class="legend-dot warn"></span>Warn</span>
+              <span><span class="legend-dot fail"></span>Fail</span>
+            </div>
+          </div>
+          <div class="daily-chart">
+            <template x-for="d in paddedDailyData('custom')" :key="d.date">
+              <div class="daily-col"
+                   :style="d.total > 0 ? 'cursor:pointer;' : ''"
+                   @click="d.total > 0 && jumpToDay(d.date, 'custom')"
+                   :title="d.total > 0 ? 'View ' + d.total + ' records for ' + d.date : ''">
+                <div class="daily-total" x-show="d.total > 0" x-text="d.total"></div>
+                <div class="daily-seg fail" :style="'height:' + dailyPct(d.failed, 'custom') + '%'"></div>
+                <div class="daily-seg warn" :style="'height:' + dailyPct(d.warned ?? 0, 'custom') + '%'"></div>
+                <div class="daily-seg pass" :style="'height:' + dailyPct(d.passed, 'custom') + '%'"></div>
+                <div class="daily-label" x-text="dailyLabel(d.date)"></div>
+                <div class="daily-tooltip">
+                  <div style="font-weight:700;margin-bottom:3px;" x-text="d.date"></div>
+                  <div><span class="legend-dot pass"></span>Pass <span x-text="d.passed"></span></div>
+                  <div x-show="(d.warned ?? 0) > 0"><span class="legend-dot warn"></span>Warn <span x-text="d.warned"></span></div>
+                  <div x-show="d.failed > 0"><span class="legend-dot fail"></span>Fail <span x-text="d.failed"></span></div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
         <!-- Daily Breakdown -->
         <div class="detail-panel" style="padding:16px 20px;">
           <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
@@ -678,7 +795,7 @@
             <span style="color:var(--fail);">Failed</span><span></span><span></span>
           </div>
           <template x-for="d in (custom.daily ?? [])" :key="d.date">
-            <div>
+            <div :id="'db-row-custom-' + d.date">
               <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;
                           gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);
                           align-items:center;font-size:0.88em;cursor:pointer;"

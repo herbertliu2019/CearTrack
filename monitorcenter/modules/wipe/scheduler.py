@@ -29,9 +29,9 @@ def _poll_loop(cfg: dict, interval: int) -> None:
     log_roots = cfg.get("log_roots") or [{"path": cfg["log_root"], "win_share_root": cfg.get("win_share_root", "")}]
     scanner = WipeScanner(log_roots=log_roots, db_path=cfg["db_path"])
 
+    roots_desc = ", ".join(str(r["path"]) for r in log_roots)
     logger.info(
-        f"[WipePoller] started, interval={interval}s, "
-        f"target={cfg['log_root']}/logs/<current_month>/"
+        f"[WipePoller] started, interval={interval}s, roots=[{roots_desc}]"
     )
 
     while not _stop_event.is_set():

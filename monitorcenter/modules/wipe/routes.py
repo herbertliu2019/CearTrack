@@ -10,7 +10,7 @@ from modules.wipe.db import (
     total_record_count,
 )
 from modules.wipe.scanner import WipeScanner
-from modules.wipe.scheduler import get_poll_state
+from modules.wipe.scheduler import get_poll_state, start_poll_scheduler
 
 wipe_bp = Blueprint("wipe", __name__, url_prefix="/wipe",
                     template_folder="templates")
@@ -102,6 +102,9 @@ def api_search():
     conn = get_conn(_db_path())
     results = query_by_sn(conn, q)
     conn.close()
+    # Mark first result (most recent) as latest
+    for i, r in enumerate(results):
+        r["is_latest"] = (i == 0)
     return jsonify({"query": q, "count": len(results), "results": results})
 
 
@@ -138,10 +141,30 @@ def api_scan():
         if force:
             scanner.run_force()
         else:
-            scanner.run_full()
+            scanner.run_poll()   # incremental: only new files, fast
 
     threading.Thread(target=_run, daemon=True, name="wipe-full-scan").start()
     return jsonify({"status": "started", "force": force})
+
+
+@wipe_bp.post("/api/scan/poll")
+def api_scan_poll():
+    """Trigger an incremental poll scan in a background thread."""
+    db_path = _db_path()
+    conn = get_conn(db_path)
+    status = get_scan_status(conn)
+    conn.close()
+    if status["running"]:
+        return jsonify({"status": "already_running"})
+    cfg = current_app.config["WIPE_CFG"]
+    log_roots = cfg.get("log_roots") or [{"path": cfg["log_root"], "win_share_root": cfg.get("win_share_root", "")}]
+    scanner = WipeScanner(log_roots=log_roots, db_path=db_path)
+
+    def _run():
+        scanner.run_poll()
+
+    threading.Thread(target=_run, daemon=True, name="wipe-poll-scan").start()
+    return jsonify({"status": "started", "type": "poll"})
 
 
 @wipe_bp.get("/api/scan/status")
@@ -149,4 +172,17 @@ def api_scan_status():
     conn = get_conn(_db_path())
     db_status = get_scan_status(conn)
     conn.close()
-    return jsonify({**db_status, **get_poll_state()})
+
+    # Self-healing: if the auto-poll scheduler died (e.g. after service restart
+    # interrupted a thread), revive it on the next status poll. Cost is one
+    # thread.is_alive() check per request — negligible.
+    poll_state = get_poll_state()
+    if not poll_state.get("poller_running"):
+        try:
+            start_poll_scheduler(current_app.config["WIPE_CFG"])
+            poll_state = get_poll_state()
+            poll_state["revived"] = True
+        except Exception as e:
+            poll_state["revive_error"] = str(e)
+
+    return jsonify({**db_status, **poll_state})

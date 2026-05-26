@@ -149,6 +149,74 @@ function laptopApp(moduleName) {
       return `${sm}/${sd}/${sy} – ${em}/${ed}/${ey}`;
     },
 
+    // ── Daily Volume chart helpers ────────────────────────────────────
+    jumpToDay(date, tab) {
+      // Open the day section in the breakdown table, then scroll to it
+      const key = tab + '_day_' + date;
+      this.openSections = { ...this.openSections, [key]: true };
+      this.$nextTick(() => {
+        const el = document.getElementById('db-row-' + tab + '-' + date);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    },
+
+    paddedDailyData(tab) {
+      const data = this[tab];
+      const daily = data?.daily ?? [];
+      const map = {};
+      daily.forEach(d => { map[d.date] = d; });
+      const empty = (date) => ({ date, total: 0, passed: 0, warned: 0, failed: 0 });
+      if (tab === 'week') {
+        const slots = [];
+        for (let i = 6; i >= 0; i--) {
+          const dt = new Date(); dt.setDate(dt.getDate() - i);
+          const s = dt.toISOString().slice(0, 10);
+          slots.push(map[s] || empty(s));
+        }
+        return slots;
+      }
+      if (tab === 'month') {
+        const now = new Date();
+        const y = now.getFullYear(), m = now.getMonth();
+        const days = new Date(y, m + 1, 0).getDate();
+        const slots = [];
+        for (let i = 1; i <= days; i++) {
+          const s = `${y}-${String(m+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+          slots.push(map[s] || empty(s));
+        }
+        return slots;
+      }
+      // custom: fill every day if range ≤ 62 days
+      if (this.customFrom && this.customTo) {
+        const start = new Date(this.customFrom + 'T00:00:00');
+        const end   = new Date(this.customTo   + 'T00:00:00');
+        if (Math.round((end - start) / 86400000) + 1 <= 62) {
+          const slots = [], cur = new Date(start);
+          while (cur <= end) {
+            const s = cur.toISOString().slice(0, 10);
+            slots.push(map[s] || empty(s));
+            cur.setDate(cur.getDate() + 1);
+          }
+          return slots;
+        }
+      }
+      return daily;
+    },
+    maxDaily(tab) {
+      return Math.max(1, ...this.paddedDailyData(tab).map(d => d.total || 0));
+    },
+    dailyPct(val, tab) {
+      if (!val) return 0;
+      return Math.max(2, (val / this.maxDaily(tab)) * 100);
+    },
+    dailyLabel(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return dateStr.slice(5);
+      const weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      return weekdays[d.getDay()] + ' ' + (d.getMonth()+1) + '/' + d.getDate();
+    },
+
     renderDetails(record) {
       if (!this.schema) return '';
       return renderPayload(this.schema, record);

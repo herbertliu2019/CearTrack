@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 from modules.wipe.parser import parse_log
+from modules.wipe.parser_makor import parse_makor_xml
 from modules.wipe.db import (
     init_db, get_conn, insert_record, upsert_record,
     upsert_scan_status, purge_missing_logs,
@@ -50,6 +51,39 @@ class WipeScanner:
                 continue
         return str(log_path)  # fallback: return as-is
 
+    def get_source(self, log_path: Path) -> str:
+        """Classify record source from path components."""
+        parts = log_path.parts
+        has_eps   = any(p.lower() == "eps"   for p in parts)
+        has_pxe   = any(p.lower() == "pxe"   for p in parts)
+        has_makor = any(p.lower() == "makor"  for p in parts)
+        if has_eps  and has_makor: return "makor_eps"
+        if has_pxe  and has_makor: return "makor_pxe"
+        if has_eps:                return "eps"
+        if has_pxe:                return "pxe"
+        return "unknown"
+
+    def should_skip(self, f: Path) -> bool:
+        """Return True for files that should not be parsed."""
+        suffix = f.suffix.lower()
+        if suffix == ".txt":
+            return True
+        if suffix == ".xml":
+            return True   # All XML files are companion metadata; wipe data is in .log only
+        parts_lower = [p.lower() for p in f.parts]
+        if "verify" in parts_lower:
+            return True
+        return False
+
+    def parse_file(self, f: Path) -> dict | None:
+        """Dispatch to correct parser based on file extension."""
+        suffix = f.suffix.lower()
+        if suffix == ".log":
+            return parse_log(f)
+        if suffix == ".xml":
+            return parse_makor_xml(f)
+        return None
+
     def _find_year_dirs(self, root: Path) -> list[Path]:
         """Return all year directories under root, including inside sub-source dirs.
 
@@ -78,8 +112,10 @@ class WipeScanner:
             for month_dir in sorted(year_dir.iterdir()):
                 if not month_dir.is_dir() or not _is_month_dir(month_dir.name):
                     continue
-                # rglob catches: direct *.log, Logs/*.log, {SN}/*.log, etc.
-                files.extend(sorted(month_dir.rglob("*.log")))
+                # rglob("*") catches .log and .xml; should_skip filters unwanted files
+                for f in sorted(month_dir.rglob("*")):
+                    if f.is_file() and not self.should_skip(f):
+                        files.append(f)
         return files
 
     def collect_all(self) -> list[Path]:
@@ -87,6 +123,13 @@ class WipeScanner:
         for r in self.log_roots:
             files.extend(self._collect_from_root(r["path"]))
         return files
+
+    def collect_incremental(self) -> list[Path]:
+        """Return only files not yet in the database (no mtime dependency)."""
+        conn = get_conn(self.db_path)
+        indexed = {row[0] for row in conn.execute("SELECT log_path FROM wipe_records").fetchall()}
+        conn.close()
+        return [f for f in self.collect_all() if str(f) not in indexed]
 
     def collect_current_month(self) -> list[Path]:
         now = datetime.now()
@@ -117,7 +160,7 @@ class WipeScanner:
 
         for i, f in enumerate(files, 1):
             now_str = datetime.now().isoformat()
-            record = parse_log(f)
+            record = self.parse_file(f)
             if record is None:
                 conn.execute(
                     "INSERT INTO scan_errors (log_path, error_msg, attempted_at) VALUES (?,?,?)",
@@ -126,8 +169,9 @@ class WipeScanner:
                 conn.commit()
                 errors += 1
             else:
-                record["log_path"] = str(f)
-                record["win_path"] = self.make_win_path(f)
+                record["log_path"]   = str(f)
+                record["win_path"]   = self.make_win_path(f)
+                record["source"]     = self.get_source(f)
                 record["indexed_at"] = now_str
                 if force:
                     upsert_record(conn, record)
@@ -138,11 +182,12 @@ class WipeScanner:
                     else:
                         skipped += 1
 
-            if i % 100 == 0:
+            if i % 500 == 0:
                 upsert_scan_status(conn, running=1, total=total, done=i,
                                    errors=errors, scan_type=scan_type)
             if progress_every and i % progress_every == 0:
-                print(f"Scanning: {i}/{total}...")
+                print(f"  [{scan_type}] {i}/{total} files... "
+                      f"inserted={inserted} skipped={skipped} errors={errors}")
 
         upsert_scan_status(conn, running=0, total=total, done=total,
                            errors=errors, scan_type=scan_type,
@@ -154,7 +199,7 @@ class WipeScanner:
         return self._process_files(self.collect_all(), "full")
 
     def run_poll(self) -> dict:
-        return self._process_files(self.collect_current_month(), "poll")
+        return self._process_files(self.collect_incremental(), "poll")
 
     def run_force(self) -> dict:
         """Re-parse every log file and remove DB records for deleted files."""

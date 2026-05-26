@@ -82,6 +82,18 @@ def api_stats():
     })
 
 
+# ── Records for a specific date (used by Daily Breakdown expand) ───────────
+
+@cpu_bp.get("/api/day/<date_str>")
+def api_day(date_str):
+    records = db.query_period(_db_path(), date_str, date_str)
+    return jsonify({
+        "date":    date_str,
+        "records": _sanitize(records),
+        "count":   len(records),
+    })
+
+
 # ── All Tests page ─────────────────────────────────────────────────────────
 
 @cpu_bp.get("/all")

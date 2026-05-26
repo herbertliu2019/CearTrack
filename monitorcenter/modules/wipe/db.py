@@ -74,6 +74,7 @@ _NEW_COLUMNS = [
     ("location2",        "TEXT"),
     ("erasure_rule",     "TEXT"),
     ("failure_reason",   "TEXT"),
+    ("source",           "TEXT"),   # eps / pxe / makor_eps / makor_pxe / unknown
 ]
 
 
@@ -109,6 +110,7 @@ def insert_record(conn: sqlite3.Connection, record: dict) -> bool:
         "win_path", "log_path", "indexed_at",
         "firmware", "protocol", "software_version", "log_hash",
         "location1", "location2", "erasure_rule", "failure_reason",
+        "source",
     ]
     values = [record.get(f) for f in fields]
     placeholders = ", ".join("?" * len(fields))
@@ -176,6 +178,14 @@ def stats_summary(records: list[dict]) -> dict:
     total = len(records)
     passed = sum(1 for r in records if r.get("result") == "PASSED")
     failed = sum(1 for r in records if r.get("result") == "FAILED")
+    warning = sum(
+        1 for r in records
+        if r.get("result") == "PASSED"
+        and (
+            (r.get("health_score") is not None and r["health_score"] < 70)
+            or (r.get("ssd_life")    is not None and r["ssd_life"]    < 50)
+        )
+    )
     durations = [r["duration_min"] for r in records if r.get("duration_min") is not None]
     avg_duration = round(sum(durations) / len(durations), 2) if durations else None
     pass_rate = round(passed / total * 100, 1) if total else 0.0
@@ -183,32 +193,49 @@ def stats_summary(records: list[dict]) -> dict:
         "total": total,
         "passed": passed,
         "failed": failed,
+        "warning": warning,
         "pass_rate": pass_rate,
         "avg_duration": avg_duration,
     }
 
 
 def by_device_type(records: list[dict]) -> dict:
-    """Classify drives into HDD / SSD / NVMe based on device_type field."""
-    counts: dict[str, int] = {"HDD": 0, "SSD": 0, "NVMe": 0}
+    """Classify drives into HDD / SSD / NVMe with pass/fail breakdown."""
+    buckets: dict[str, dict] = {
+        "HDD":  {"total": 0, "passed": 0, "failed": 0},
+        "SSD":  {"total": 0, "passed": 0, "failed": 0},
+        "NVMe": {"total": 0, "passed": 0, "failed": 0},
+    }
     for r in records:
         dt = (r.get("device_type") or "").upper()
         if "NVME" in dt:
-            counts["NVMe"] += 1
+            key = "NVMe"
         elif "SSD" in dt:
-            counts["SSD"] += 1
+            key = "SSD"
         else:
-            counts["HDD"] += 1
-    return counts
+            key = "HDD"
+        buckets[key]["total"] += 1
+        if r.get("result") == "PASSED":
+            buckets[key]["passed"] += 1
+        elif r.get("result") == "FAILED":
+            buckets[key]["failed"] += 1
+    return buckets
 
 
 def by_manufacturer(records: list[dict]) -> list[dict]:
-    counts: dict[str, int] = {}
+    """Group drives by manufacturer with pass/fail breakdown."""
+    buckets: dict[str, dict] = {}
     for r in records:
-        name = r.get("manufacturer") or "Unknown"   # drive manufacturer (TOSHIBA, Seagate …)
-        counts[name] = counts.get(name, 0) + 1
+        name = r.get("manufacturer") or "Unknown"
+        b = buckets.setdefault(name, {"total": 0, "passed": 0, "failed": 0})
+        b["total"] += 1
+        if r.get("result") == "PASSED":
+            b["passed"] += 1
+        elif r.get("result") == "FAILED":
+            b["failed"] += 1
     return sorted(
-        [{"name": k, "count": v} for k, v in counts.items()],
+        [{"name": k, "count": v["total"], "passed": v["passed"], "failed": v["failed"]}
+         for k, v in buckets.items()],
         key=lambda x: x["count"],
         reverse=True,
     )
