@@ -18,6 +18,7 @@ function laptopApp(moduleName) {
     customTo:   '',
     detailOpen: null,   // single record expand key
     openSections: {},   // brand/day expand keys
+    groupBy: 'date',    // 'date' | 'operator'
     schema: null,
     allTotal: 0,
 
@@ -130,6 +131,41 @@ function laptopApp(moduleName) {
 
     recordsForDay(tab, date) {
       return (this[tab].records ?? []).filter(r => (r.timestamp ?? '').slice(0, 10) === date);
+    },
+
+    groupByOperator(tab) {
+      const records = (this[tab].records ?? []);
+      const opMap = {};
+      for (const rec of records) {
+        const op = rec.payload?.test_info?.operator_id || '—';
+        if (!opMap[op]) opMap[op] = [];
+        opMap[op].push(rec);
+      }
+      return Object.entries(opMap)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([op, recs]) => {
+          const total  = recs.length;
+          const passed = recs.filter(r => r.overall_result === 'PASS').length;
+          const warned = recs.filter(r => r.overall_result === 'WARN').length;
+          const failed = recs.filter(r => r.overall_result === 'FAIL').length;
+          const dateMap = {};
+          for (const rec of recs) {
+            const d = (rec.timestamp ?? '').slice(0, 10);
+            if (!dateMap[d]) dateMap[d] = [];
+            dateMap[d].push(rec);
+          }
+          const dates = Object.entries(dateMap)
+            .sort(([a], [b]) => b.localeCompare(a))
+            .map(([date, dr]) => ({
+              date,
+              total:  dr.length,
+              passed: dr.filter(r => r.overall_result === 'PASS').length,
+              warned: dr.filter(r => r.overall_result === 'WARN').length,
+              failed: dr.filter(r => r.overall_result === 'FAIL').length,
+              records: dr,
+            }));
+          return { op, total, passed, warned, failed, dates };
+        });
     },
 
     resultClass(result) {

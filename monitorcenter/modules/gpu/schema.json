@@ -1,0 +1,61 @@
+{
+  "module": "gpu",
+  "card_title_fields": ["payload.gpu.name"],
+  "card_subtitle_fields": ["payload.gpu.vendor", "payload.gpu.vram_mb"],
+  "sections": [
+    {
+      "title": "Graphics Card",
+      "type": "key_value",
+      "fields": [
+        { "path": "payload.gpu.name",           "label": "Name" },
+        { "path": "payload.gpu.chip",           "label": "GPU Chip" },
+        { "path": "payload.gpu.vendor",         "label": "Vendor" },
+        { "path": "payload.gpu.subvendor",      "label": "Subvendor" },
+        { "path": "payload.gpu.device_id",      "label": "Device ID" },
+        { "path": "payload.gpu.bios_version",   "label": "BIOS Version" },
+        { "path": "payload.gpu.driver_version", "label": "Driver Version" }
+      ]
+    },
+    {
+      "title": "Memory",
+      "type": "key_value",
+      "fields": [
+        { "path": "payload.gpu.vram_mb",             "label": "Size",      "suffix": " MB" },
+        { "path": "payload.gpu.vram_type",           "label": "Type" },
+        { "path": "payload.gpu.vram_bus_width",      "label": "Bus Width", "suffix": " bit" },
+        { "path": "payload.gpu.vram_bandwidth_gbps", "label": "Bandwidth", "suffix": " GB/s" }
+      ]
+    },
+    {
+      "title": "Interface",
+      "type": "key_value",
+      "fields": [
+        { "path": "payload.gpu.pcie_gen",           "label": "PCIe Gen" },
+        { "path": "payload.gpu.pcie_width_current", "label": "Width (actual)" },
+        { "path": "payload.gpu.pcie_width_max",     "label": "Width (max)" }
+      ]
+    },
+    {
+      "title": "Clocks",
+      "type": "key_value",
+      "fields": [
+        { "path": "payload.gpu.clock_gpu_mhz", "label": "GPU Clock", "suffix": " MHz" },
+        { "path": "payload.gpu.clock_mem_mhz", "label": "Mem Clock", "suffix": " MHz" }
+      ]
+    },
+    {
+      "title": "Test Results",
+      "type": "key_value",
+      "fields": [
+        { "path": "payload.test_info.test_tier",     "label": "Test Tier", "type": "badge" },
+        { "path": "payload.vram_test.status",        "label": "VRAM Test" },
+        { "path": "payload.vram_test.errors",        "label": "VRAM Errors" },
+        { "path": "payload.vulkan_benchmark.score",  "label": "glmark2 Score" },
+        { "path": "payload.vulkan_benchmark.status", "label": "glmark2 Test" },
+        { "path": "payload.thermal.temp_max_c",      "label": "Temp Max",  "suffix": " °C" },
+        { "path": "payload.thermal.temp_avg_c",      "label": "Temp Avg",  "suffix": " °C" },
+        { "path": "payload.thermal.power_max_w",     "label": "Power Max", "suffix": " W" }
+      ]
+    }
+  ]
+}

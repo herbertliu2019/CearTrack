@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}CearTrack{% endblock %}
+{% block title %}CEARTrack{% endblock %}
 {% block content %}
 <script src="{{ url_for('static', filename='js/renderer.js') }}"></script>
 <style>
@@ -71,9 +71,9 @@
 <div x-data="landingApp()" x-init="init()">
 
   <div style="text-align: center; padding: 40px 0; border-bottom: 1px solid var(--border); margin-bottom: 30px;">
-    <h1 style="font-size: 2em;"><span style="color:#1a7096;">Cear</span><span style="color:#48a030;">Track</span></h1>
+    <h1 style="font-size: 2em;"><span style="color:#1a7096;">CEAR</span><span style="color:#48a030;">Track</span></h1>
     <p style="color: var(--text-secondary); margin-top: 8px;">
-      Cear Hardware Test &amp; Traceability Platform
+      CEAR Hardware Test &amp; Traceability Platform
     </p>
   </div>
 
@@ -258,28 +258,43 @@
         </div>
       </a>
 
-      <!-- GPU — coming soon, same row -->
-      <div class="mod-card mod-card-soon">
-        <div class="mod-card-header">
-          <!-- GPU card SVG -->
-          <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="2" y="10" width="28" height="16" rx="2" stroke="var(--accent)" stroke-width="1.5" opacity="0.4"/>
-            <rect x="6" y="14" width="8" height="8" rx="1.5" stroke="var(--accent)" stroke-width="1.2" opacity="0.4"/>
-            <circle cx="10" cy="18" r="2" stroke="var(--accent)" stroke-width="1" opacity="0.4"/>
-            <rect x="17" y="14" width="4" height="8" rx="1" fill="var(--accent)" fill-opacity="0.08" stroke="var(--accent)" stroke-width="1" opacity="0.4"/>
-            <line x1="30" y1="14" x2="34" y2="14" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round" opacity="0.4"/>
-            <line x1="30" y1="18" x2="34" y2="18" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round" opacity="0.4"/>
-            <line x1="30" y1="22" x2="34" y2="22" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round" opacity="0.4"/>
-            <line x1="6"  y1="26" x2="6"  y2="30" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round" opacity="0.4"/>
-            <line x1="10" y1="26" x2="10" y2="30" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round" opacity="0.4"/>
-            <line x1="14" y1="26" x2="14" y2="30" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round" opacity="0.4"/>
-            <line x1="18" y1="26" x2="18" y2="30" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round" opacity="0.4"/>
-          </svg>
-          <span class="mod-name" style="opacity:0.4;">GPU</span>
+      <!-- GPU -->
+      <a href="/gpu/" style="text-decoration:none;">
+        <div class="mod-card">
+          <div class="mod-card-header">
+            <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="2" y="10" width="28" height="16" rx="2" stroke="var(--accent)" stroke-width="1.5"/>
+              <rect x="6" y="14" width="8" height="8" rx="1.5" stroke="var(--accent)" stroke-width="1.2"/>
+              <circle cx="10" cy="18" r="2" stroke="var(--accent)" stroke-width="1"/>
+              <rect x="17" y="14" width="4" height="8" rx="1" fill="var(--accent)" fill-opacity="0.08" stroke="var(--accent)" stroke-width="1"/>
+              <line x1="30" y1="14" x2="34" y2="14" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="30" y1="18" x2="34" y2="18" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="30" y1="22" x2="34" y2="22" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="6"  y1="26" x2="6"  y2="30" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="10" y1="26" x2="10" y2="30" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="14" y1="26" x2="14" y2="30" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="18" y1="26" x2="18" y2="30" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+            <span class="mod-name">GPU</span>
+          </div>
+          <div class="mod-stats">
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.gpu?.today ?? 0"></div>
+              <div class="mod-stat-lbl">Today</div>
+            </div>
+            <div class="mod-stat-divider"></div>
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.gpu?.week ?? 0"></div>
+              <div class="mod-stat-lbl">This Week</div>
+            </div>
+            <div class="mod-stat-divider"></div>
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.gpu?.month ?? 0"></div>
+              <div class="mod-stat-lbl">This Month</div>
+            </div>
+          </div>
         </div>
-        <div style="color:var(--text-secondary);font-size:0.8em;text-align:center;
-                    padding:10px 0;letter-spacing:0.04em;">Coming soon</div>
-      </div>
+      </a>
 
     </div>
   </div>
@@ -294,7 +309,7 @@ function landingApp() {
     searched: false,
     expandedKey: null,
     schemas: {},
-    summary: { laptop:{today:0,week:0,month:0}, wipe:{today:0,week:0,month:0}, cpu:{today:0,week:0,month:0} },
+    summary: { laptop:{today:0,week:0,month:0}, wipe:{today:0,week:0,month:0}, cpu:{today:0,week:0,month:0}, gpu:{today:0,week:0,month:0} },
 
     async init() {
       try {

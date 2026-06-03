@@ -154,8 +154,18 @@
             </div>
             <div class="card-body">
               <div class="card-spec" x-text="(r.payload?.cpu?.model ?? '')"></div>
-              <div class="card-spec"
-                   x-text="(r.payload?.memory?.total_gb ?? '') + ' GB ' + (r.payload?.memory?.type ?? '') + '  •  Battery ' + (r.payload?.battery?.health_percent ?? '?') + '%'">
+              <div class="card-spec" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span x-text="(r.payload?.memory?.total_gb ?? '') + ' GB ' + (r.payload?.memory?.type ?? '') + '  •  Battery ' + (r.payload?.battery?.health_percent ?? '?') + '%'"></span>
+                <template x-if="r.payload?.battery?.battery_condition">
+                  <span style="font-size:0.82em;color:var(--text-secondary);"
+                        x-text="'Cond: ' + r.payload.battery.battery_condition"></span>
+                </template>
+                <template x-if="r.payload?.battery?.status">
+                  <span class="badge"
+                        :class="r.payload.battery.status === 'PASS' ? 'pass' : r.payload.battery.status === 'WARN' ? 'warn' : 'fail'"
+                        style="font-size:0.72em;padding:1px 6px;"
+                        x-text="'Batt: ' + r.payload.battery.status"></span>
+                </template>
               </div>
             </div>
             <div style="display:flex;gap:10px;padding:6px 16px;
@@ -174,7 +184,7 @@
               </template>
             </div>
             <div class="card-footer"
-                 x-text="(r.payload?.operator_id ? '👤 ' + r.payload.operator_id + '  •  ' : '') + (r.timestamp ?? '').replace('T',' ').slice(0,16)"></div>
+                 x-text="(r.payload?.test_info?.operator_id ? '👤 ' + r.payload.test_info.operator_id + '  •  ' : '') + (r.timestamp ?? '').replace('T',' ').slice(0,16)"></div>
           </div>
           <template x-if="detailOpen === r.sn + r.timestamp">
             <div class="detail-panel"
@@ -334,10 +344,17 @@
 
     <!-- Daily Breakdown -->
     <div class="detail-panel" style="padding:16px 20px;">
-      <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
-                  letter-spacing:0.06em;color:var(--text-secondary);margin-bottom:12px;">
-        Daily Breakdown
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                    letter-spacing:0.06em;color:var(--text-secondary);">Daily Breakdown</div>
+        <div style="display:flex;gap:4px;">
+          <button @click="groupBy='date'" class="tab-btn" :class="{active:groupBy==='date'}"
+                  style="padding:3px 10px;font-size:0.72em;">By Date</button>
+          <button @click="groupBy='operator'" class="tab-btn" :class="{active:groupBy==='operator'}"
+                  style="padding:3px 10px;font-size:0.72em;">By Operator</button>
+        </div>
       </div>
+      <div x-show="groupBy==='date'">
       <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;gap:8px;
                   padding-bottom:8px;border-bottom:1px solid var(--border);
                   color:var(--text-secondary);font-size:0.75em;text-transform:uppercase;font-weight:600;">
@@ -383,6 +400,10 @@
                             x-text="rec.vendor + ' ' + rec.model"></span>
                     </div>
                     <div style="display:flex;align-items:center;gap:6px;">
+                      <span x-show="rec.payload?.test_info?.operator_id"
+                            style="color:var(--accent);font-size:0.75em;opacity:0.85;font-weight:500;">
+                        👤 <span x-text="rec.payload?.test_info?.operator_id ?? ''"></span>
+                      </span>
                       <span class="badge" :class="resultClass(rec.overall_result)"
                             x-text="rec.overall_result"></span>
                       <span style="color:var(--text-secondary);font-size:0.72em;"
@@ -401,6 +422,82 @@
       <div x-show="!(week.daily ?? []).length"
            style="color:var(--text-secondary);font-size:0.85em;padding:12px 0;">
         No data this week.
+      </div>
+      </div><!-- /by-date -->
+      <!-- By Operator -->
+      <div x-show="groupBy==='operator'">
+        <template x-for="og in groupByOperator('week')" :key="og.op">
+          <div style="margin-bottom:6px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;
+                        padding:7px 12px;background:rgba(0,212,255,0.06);
+                        border-left:3px solid var(--accent);border-radius:4px;cursor:pointer;margin-bottom:2px;"
+                 @click="toggleSection('wop_'+og.op)"
+                 @mouseenter="$el.style.background='rgba(0,212,255,0.1)'"
+                 @mouseleave="$el.style.background='rgba(0,212,255,0.06)'">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <span style="color:var(--accent);font-weight:700;font-size:0.88em;">👤 <span x-text="og.op"></span></span>
+                <span style="font-size:0.78em;color:var(--text-secondary);" x-text="og.total+' tests'"></span>
+                <span style="font-size:0.78em;color:var(--pass);" x-text="og.passed+' ✓'"></span>
+                <span x-show="og.warned>0" style="font-size:0.78em;color:var(--warn);" x-text="og.warned+' △'"></span>
+                <span x-show="og.failed>0" style="font-size:0.78em;color:var(--fail);" x-text="og.failed+' ✗'"></span>
+              </div>
+              <span style="color:var(--text-secondary);font-size:0.8em;"
+                    x-text="isOpen('wop_'+og.op)?'▲':'▼'"></span>
+            </div>
+            <template x-if="isOpen('wop_'+og.op)">
+              <div style="padding-left:14px;border-left:1px solid rgba(255,255,255,0.06);margin-left:6px;margin-bottom:4px;">
+                <template x-for="dg in og.dates" :key="dg.date">
+                  <div>
+                    <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;
+                                gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);
+                                align-items:center;font-size:0.85em;cursor:pointer;"
+                         @click="toggleSection('wop_'+og.op+'_'+dg.date)"
+                         @mouseenter="$el.style.background='rgba(255,255,255,0.03)'"
+                         @mouseleave="$el.style.background='transparent'">
+                      <span style="color:var(--text-secondary);" x-text="dg.date"></span>
+                      <span style="font-weight:600;" x-text="dg.total"></span>
+                      <span style="color:var(--pass);font-weight:600;" x-text="dg.passed"></span>
+                      <span style="color:var(--warn);font-weight:600;" x-text="dg.warned"></span>
+                      <span style="color:var(--fail);font-weight:600;" x-text="dg.failed"></span>
+                      <div></div>
+                      <span style="color:var(--text-secondary);font-size:0.8em;text-align:right;"
+                            x-text="isOpen('wop_'+og.op+'_'+dg.date)?'▲':'▼'"></span>
+                    </div>
+                    <template x-if="isOpen('wop_'+og.op+'_'+dg.date)">
+                      <div style="padding:4px 0 4px 8px;border-bottom:1px solid rgba(255,255,255,0.06);">
+                        <template x-for="rec in dg.records" :key="rec.sn+rec.timestamp">
+                          <div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;
+                                        padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;"
+                                 @click="toggleDetail('wopd_'+rec.sn+rec.timestamp)">
+                              <div>
+                                <span style="font-family:monospace;font-size:0.88em;font-weight:600;" x-text="rec.sn"></span>
+                                <span style="color:var(--text-secondary);font-size:0.78em;margin-left:7px;"
+                                      x-text="rec.vendor+' '+rec.model"></span>
+                              </div>
+                              <div style="display:flex;align-items:center;gap:6px;">
+                                <span class="badge" :class="resultClass(rec.overall_result)" x-text="rec.overall_result"></span>
+                                <span style="color:var(--text-secondary);font-size:0.72em;"
+                                      x-text="detailOpen==='wopd_'+rec.sn+rec.timestamp?'▲':'▼'"></span>
+                              </div>
+                            </div>
+                            <template x-if="detailOpen==='wopd_'+rec.sn+rec.timestamp">
+                              <div style="padding:8px 0;" x-html="renderDetails(rec)"></div>
+                            </template>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </template>
+        <div x-show="!groupByOperator('week').length"
+             style="color:var(--text-secondary);font-size:0.85em;padding:12px 0;">
+          No data this week.
+        </div>
       </div>
     </div>
   </div>
@@ -545,10 +642,17 @@
 
     <!-- Daily Breakdown -->
     <div class="detail-panel" style="padding:16px 20px;">
-      <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
-                  letter-spacing:0.06em;color:var(--text-secondary);margin-bottom:12px;">
-        Daily Breakdown
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                    letter-spacing:0.06em;color:var(--text-secondary);">Daily Breakdown</div>
+        <div style="display:flex;gap:4px;">
+          <button @click="groupBy='date'" class="tab-btn" :class="{active:groupBy==='date'}"
+                  style="padding:3px 10px;font-size:0.72em;">By Date</button>
+          <button @click="groupBy='operator'" class="tab-btn" :class="{active:groupBy==='operator'}"
+                  style="padding:3px 10px;font-size:0.72em;">By Operator</button>
+        </div>
       </div>
+      <div x-show="groupBy==='date'">
       <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;gap:8px;
                   padding-bottom:8px;border-bottom:1px solid var(--border);
                   color:var(--text-secondary);font-size:0.75em;text-transform:uppercase;font-weight:600;">
@@ -592,6 +696,10 @@
                             x-text="rec.vendor + ' ' + rec.model"></span>
                     </div>
                     <div style="display:flex;align-items:center;gap:6px;">
+                      <span x-show="rec.payload?.test_info?.operator_id"
+                            style="color:var(--accent);font-size:0.75em;opacity:0.85;font-weight:500;">
+                        👤 <span x-text="rec.payload?.test_info?.operator_id ?? ''"></span>
+                      </span>
                       <span class="badge" :class="resultClass(rec.overall_result)"
                             x-text="rec.overall_result"></span>
                       <span style="color:var(--text-secondary);font-size:0.72em;"
@@ -610,6 +718,82 @@
       <div x-show="!(month.daily ?? []).length"
            style="color:var(--text-secondary);font-size:0.85em;padding:12px 0;">
         No data this month.
+      </div>
+      </div><!-- /by-date -->
+      <!-- By Operator -->
+      <div x-show="groupBy==='operator'">
+        <template x-for="og in groupByOperator('month')" :key="og.op">
+          <div style="margin-bottom:6px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;
+                        padding:7px 12px;background:rgba(0,212,255,0.06);
+                        border-left:3px solid var(--accent);border-radius:4px;cursor:pointer;margin-bottom:2px;"
+                 @click="toggleSection('mop_'+og.op)"
+                 @mouseenter="$el.style.background='rgba(0,212,255,0.1)'"
+                 @mouseleave="$el.style.background='rgba(0,212,255,0.06)'">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <span style="color:var(--accent);font-weight:700;font-size:0.88em;">👤 <span x-text="og.op"></span></span>
+                <span style="font-size:0.78em;color:var(--text-secondary);" x-text="og.total+' tests'"></span>
+                <span style="font-size:0.78em;color:var(--pass);" x-text="og.passed+' ✓'"></span>
+                <span x-show="og.warned>0" style="font-size:0.78em;color:var(--warn);" x-text="og.warned+' △'"></span>
+                <span x-show="og.failed>0" style="font-size:0.78em;color:var(--fail);" x-text="og.failed+' ✗'"></span>
+              </div>
+              <span style="color:var(--text-secondary);font-size:0.8em;"
+                    x-text="isOpen('mop_'+og.op)?'▲':'▼'"></span>
+            </div>
+            <template x-if="isOpen('mop_'+og.op)">
+              <div style="padding-left:14px;border-left:1px solid rgba(255,255,255,0.06);margin-left:6px;margin-bottom:4px;">
+                <template x-for="dg in og.dates" :key="dg.date">
+                  <div>
+                    <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;
+                                gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);
+                                align-items:center;font-size:0.85em;cursor:pointer;"
+                         @click="toggleSection('mop_'+og.op+'_'+dg.date)"
+                         @mouseenter="$el.style.background='rgba(255,255,255,0.03)'"
+                         @mouseleave="$el.style.background='transparent'">
+                      <span style="color:var(--text-secondary);" x-text="dg.date"></span>
+                      <span style="font-weight:600;" x-text="dg.total"></span>
+                      <span style="color:var(--pass);font-weight:600;" x-text="dg.passed"></span>
+                      <span style="color:var(--warn);font-weight:600;" x-text="dg.warned"></span>
+                      <span style="color:var(--fail);font-weight:600;" x-text="dg.failed"></span>
+                      <div></div>
+                      <span style="color:var(--text-secondary);font-size:0.8em;text-align:right;"
+                            x-text="isOpen('mop_'+og.op+'_'+dg.date)?'▲':'▼'"></span>
+                    </div>
+                    <template x-if="isOpen('mop_'+og.op+'_'+dg.date)">
+                      <div style="padding:4px 0 4px 8px;border-bottom:1px solid rgba(255,255,255,0.06);">
+                        <template x-for="rec in dg.records" :key="rec.sn+rec.timestamp">
+                          <div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;
+                                        padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;"
+                                 @click="toggleDetail('mopd_'+rec.sn+rec.timestamp)">
+                              <div>
+                                <span style="font-family:monospace;font-size:0.88em;font-weight:600;" x-text="rec.sn"></span>
+                                <span style="color:var(--text-secondary);font-size:0.78em;margin-left:7px;"
+                                      x-text="rec.vendor+' '+rec.model"></span>
+                              </div>
+                              <div style="display:flex;align-items:center;gap:6px;">
+                                <span class="badge" :class="resultClass(rec.overall_result)" x-text="rec.overall_result"></span>
+                                <span style="color:var(--text-secondary);font-size:0.72em;"
+                                      x-text="detailOpen==='mopd_'+rec.sn+rec.timestamp?'▲':'▼'"></span>
+                              </div>
+                            </div>
+                            <template x-if="detailOpen==='mopd_'+rec.sn+rec.timestamp">
+                              <div style="padding:8px 0;" x-html="renderDetails(rec)"></div>
+                            </template>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </template>
+        <div x-show="!groupByOperator('month').length"
+             style="color:var(--text-secondary);font-size:0.85em;padding:12px 0;">
+          No data this month.
+        </div>
       </div>
     </div>
   </div>
@@ -782,10 +966,17 @@
 
         <!-- Daily Breakdown -->
         <div class="detail-panel" style="padding:16px 20px;">
-          <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
-                      letter-spacing:0.06em;color:var(--text-secondary);margin-bottom:12px;">
-            Daily Breakdown
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                        letter-spacing:0.06em;color:var(--text-secondary);">Daily Breakdown</div>
+            <div style="display:flex;gap:4px;">
+              <button @click="groupBy='date'" class="tab-btn" :class="{active:groupBy==='date'}"
+                      style="padding:3px 10px;font-size:0.72em;">By Date</button>
+              <button @click="groupBy='operator'" class="tab-btn" :class="{active:groupBy==='operator'}"
+                      style="padding:3px 10px;font-size:0.72em;">By Operator</button>
+            </div>
           </div>
+          <div x-show="groupBy==='date'">
           <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;gap:8px;
                       padding-bottom:8px;border-bottom:1px solid var(--border);
                       color:var(--text-secondary);font-size:0.75em;text-transform:uppercase;font-weight:600;">
@@ -829,6 +1020,10 @@
                                 x-text="rec.vendor + ' ' + rec.model"></span>
                         </div>
                         <div style="display:flex;align-items:center;gap:6px;">
+                          <span x-show="rec.payload?.test_info?.operator_id"
+                                style="color:var(--accent);font-size:0.75em;opacity:0.85;font-weight:500;">
+                            👤 <span x-text="rec.payload?.test_info?.operator_id ?? ''"></span>
+                          </span>
                           <span class="badge" :class="resultClass(rec.overall_result)"
                                 x-text="rec.overall_result"></span>
                           <span style="color:var(--text-secondary);font-size:0.72em;"
@@ -847,6 +1042,82 @@
           <div x-show="!(custom.daily ?? []).length"
                style="color:var(--text-secondary);font-size:0.85em;padding:12px 0;">
             No data for this period.
+          </div>
+          </div><!-- /by-date -->
+          <!-- By Operator -->
+          <div x-show="groupBy==='operator'">
+            <template x-for="og in groupByOperator('custom')" :key="og.op">
+              <div style="margin-bottom:6px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;
+                            padding:7px 12px;background:rgba(0,212,255,0.06);
+                            border-left:3px solid var(--accent);border-radius:4px;cursor:pointer;margin-bottom:2px;"
+                     @click="toggleSection('cop_'+og.op)"
+                     @mouseenter="$el.style.background='rgba(0,212,255,0.1)'"
+                     @mouseleave="$el.style.background='rgba(0,212,255,0.06)'">
+                  <div style="display:flex;align-items:center;gap:12px;">
+                    <span style="color:var(--accent);font-weight:700;font-size:0.88em;">👤 <span x-text="og.op"></span></span>
+                    <span style="font-size:0.78em;color:var(--text-secondary);" x-text="og.total+' tests'"></span>
+                    <span style="font-size:0.78em;color:var(--pass);" x-text="og.passed+' ✓'"></span>
+                    <span x-show="og.warned>0" style="font-size:0.78em;color:var(--warn);" x-text="og.warned+' △'"></span>
+                    <span x-show="og.failed>0" style="font-size:0.78em;color:var(--fail);" x-text="og.failed+' ✗'"></span>
+                  </div>
+                  <span style="color:var(--text-secondary);font-size:0.8em;"
+                        x-text="isOpen('cop_'+og.op)?'▲':'▼'"></span>
+                </div>
+                <template x-if="isOpen('cop_'+og.op)">
+                  <div style="padding-left:14px;border-left:1px solid rgba(255,255,255,0.06);margin-left:6px;margin-bottom:4px;">
+                    <template x-for="dg in og.dates" :key="dg.date">
+                      <div>
+                        <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;
+                                    gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);
+                                    align-items:center;font-size:0.85em;cursor:pointer;"
+                             @click="toggleSection('cop_'+og.op+'_'+dg.date)"
+                             @mouseenter="$el.style.background='rgba(255,255,255,0.03)'"
+                             @mouseleave="$el.style.background='transparent'">
+                          <span style="color:var(--text-secondary);" x-text="dg.date"></span>
+                          <span style="font-weight:600;" x-text="dg.total"></span>
+                          <span style="color:var(--pass);font-weight:600;" x-text="dg.passed"></span>
+                          <span style="color:var(--warn);font-weight:600;" x-text="dg.warned"></span>
+                          <span style="color:var(--fail);font-weight:600;" x-text="dg.failed"></span>
+                          <div></div>
+                          <span style="color:var(--text-secondary);font-size:0.8em;text-align:right;"
+                                x-text="isOpen('cop_'+og.op+'_'+dg.date)?'▲':'▼'"></span>
+                        </div>
+                        <template x-if="isOpen('cop_'+og.op+'_'+dg.date)">
+                          <div style="padding:4px 0 4px 8px;border-bottom:1px solid rgba(255,255,255,0.06);">
+                            <template x-for="rec in dg.records" :key="rec.sn+rec.timestamp">
+                              <div>
+                                <div style="display:flex;justify-content:space-between;align-items:center;
+                                            padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;"
+                                     @click="toggleDetail('copd_'+rec.sn+rec.timestamp)">
+                                  <div>
+                                    <span style="font-family:monospace;font-size:0.88em;font-weight:600;" x-text="rec.sn"></span>
+                                    <span style="color:var(--text-secondary);font-size:0.78em;margin-left:7px;"
+                                          x-text="rec.vendor+' '+rec.model"></span>
+                                  </div>
+                                  <div style="display:flex;align-items:center;gap:6px;">
+                                    <span class="badge" :class="resultClass(rec.overall_result)" x-text="rec.overall_result"></span>
+                                    <span style="color:var(--text-secondary);font-size:0.72em;"
+                                          x-text="detailOpen==='copd_'+rec.sn+rec.timestamp?'▲':'▼'"></span>
+                                  </div>
+                                </div>
+                                <template x-if="detailOpen==='copd_'+rec.sn+rec.timestamp">
+                                  <div style="padding:8px 0;" x-html="renderDetails(rec)"></div>
+                                </template>
+                              </div>
+                            </template>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </template>
+            <div x-show="!groupByOperator('custom').length"
+                 style="color:var(--text-secondary);font-size:0.85em;padding:12px 0;">
+              No data for this period.
+            </div>
           </div>
         </div>
       </div>
