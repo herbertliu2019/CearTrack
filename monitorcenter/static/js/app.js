@@ -115,6 +115,15 @@ function laptopApp(moduleName) {
       return !!this.openSections[key];
     },
 
+    // Default-OPEN variant for the By-Operator breakdown groups.
+    isOpOpen(key) {
+      return this.openSections[key] !== false;
+    },
+    toggleOp(key) {
+      const open = this.openSections[key] !== false;   // currently open?
+      this.openSections = { ...this.openSections, [key]: !open };
+    },
+
     normalizeBrand(vendor) {
       if (!vendor) return 'Unknown';
       if (vendor.includes('Dell'))                       return 'Dell';

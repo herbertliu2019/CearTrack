@@ -431,7 +431,7 @@
             <div style="display:flex;justify-content:space-between;align-items:center;
                         padding:7px 12px;background:rgba(0,212,255,0.06);
                         border-left:3px solid var(--accent);border-radius:4px;cursor:pointer;margin-bottom:2px;"
-                 @click="toggleSection('wop_'+og.op)"
+                 @click="toggleOp('wop_'+og.op)"
                  @mouseenter="$el.style.background='rgba(0,212,255,0.1)'"
                  @mouseleave="$el.style.background='rgba(0,212,255,0.06)'">
               <div style="display:flex;align-items:center;gap:12px;">
@@ -442,16 +442,16 @@
                 <span x-show="og.failed>0" style="font-size:0.78em;color:var(--fail);" x-text="og.failed+' ✗'"></span>
               </div>
               <span style="color:var(--text-secondary);font-size:0.8em;"
-                    x-text="isOpen('wop_'+og.op)?'▲':'▼'"></span>
+                    x-text="isOpOpen('wop_'+og.op)?'▲':'▼'"></span>
             </div>
-            <template x-if="isOpen('wop_'+og.op)">
+            <template x-if="isOpOpen('wop_'+og.op)">
               <div style="padding-left:14px;border-left:1px solid rgba(255,255,255,0.06);margin-left:6px;margin-bottom:4px;">
                 <template x-for="dg in og.dates" :key="dg.date">
                   <div>
                     <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;
                                 gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);
                                 align-items:center;font-size:0.85em;cursor:pointer;"
-                         @click="toggleSection('wop_'+og.op+'_'+dg.date)"
+                         @click="toggleOp('wop_'+og.op+'_'+dg.date)"
                          @mouseenter="$el.style.background='rgba(255,255,255,0.03)'"
                          @mouseleave="$el.style.background='transparent'">
                       <span style="color:var(--text-secondary);" x-text="dg.date"></span>
@@ -461,9 +461,9 @@
                       <span style="color:var(--fail);font-weight:600;" x-text="dg.failed"></span>
                       <div></div>
                       <span style="color:var(--text-secondary);font-size:0.8em;text-align:right;"
-                            x-text="isOpen('wop_'+og.op+'_'+dg.date)?'▲':'▼'"></span>
+                            x-text="isOpOpen('wop_'+og.op+'_'+dg.date)?'▲':'▼'"></span>
                     </div>
-                    <template x-if="isOpen('wop_'+og.op+'_'+dg.date)">
+                    <template x-if="isOpOpen('wop_'+og.op+'_'+dg.date)">
                       <div style="padding:4px 0 4px 8px;border-bottom:1px solid rgba(255,255,255,0.06);">
                         <template x-for="rec in dg.records" :key="rec.sn+rec.timestamp">
                           <div>
@@ -727,7 +727,7 @@
             <div style="display:flex;justify-content:space-between;align-items:center;
                         padding:7px 12px;background:rgba(0,212,255,0.06);
                         border-left:3px solid var(--accent);border-radius:4px;cursor:pointer;margin-bottom:2px;"
-                 @click="toggleSection('mop_'+og.op)"
+                 @click="toggleOp('mop_'+og.op)"
                  @mouseenter="$el.style.background='rgba(0,212,255,0.1)'"
                  @mouseleave="$el.style.background='rgba(0,212,255,0.06)'">
               <div style="display:flex;align-items:center;gap:12px;">
@@ -738,16 +738,16 @@
                 <span x-show="og.failed>0" style="font-size:0.78em;color:var(--fail);" x-text="og.failed+' ✗'"></span>
               </div>
               <span style="color:var(--text-secondary);font-size:0.8em;"
-                    x-text="isOpen('mop_'+og.op)?'▲':'▼'"></span>
+                    x-text="isOpOpen('mop_'+og.op)?'▲':'▼'"></span>
             </div>
-            <template x-if="isOpen('mop_'+og.op)">
+            <template x-if="isOpOpen('mop_'+og.op)">
               <div style="padding-left:14px;border-left:1px solid rgba(255,255,255,0.06);margin-left:6px;margin-bottom:4px;">
                 <template x-for="dg in og.dates" :key="dg.date">
                   <div>
                     <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;
                                 gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);
                                 align-items:center;font-size:0.85em;cursor:pointer;"
-                         @click="toggleSection('mop_'+og.op+'_'+dg.date)"
+                         @click="toggleOp('mop_'+og.op+'_'+dg.date)"
                          @mouseenter="$el.style.background='rgba(255,255,255,0.03)'"
                          @mouseleave="$el.style.background='transparent'">
                       <span style="color:var(--text-secondary);" x-text="dg.date"></span>
@@ -757,9 +757,9 @@
                       <span style="color:var(--fail);font-weight:600;" x-text="dg.failed"></span>
                       <div></div>
                       <span style="color:var(--text-secondary);font-size:0.8em;text-align:right;"
-                            x-text="isOpen('mop_'+og.op+'_'+dg.date)?'▲':'▼'"></span>
+                            x-text="isOpOpen('mop_'+og.op+'_'+dg.date)?'▲':'▼'"></span>
                     </div>
-                    <template x-if="isOpen('mop_'+og.op+'_'+dg.date)">
+                    <template x-if="isOpOpen('mop_'+og.op+'_'+dg.date)">
                       <div style="padding:4px 0 4px 8px;border-bottom:1px solid rgba(255,255,255,0.06);">
                         <template x-for="rec in dg.records" :key="rec.sn+rec.timestamp">
                           <div>
@@ -1051,7 +1051,7 @@
                 <div style="display:flex;justify-content:space-between;align-items:center;
                             padding:7px 12px;background:rgba(0,212,255,0.06);
                             border-left:3px solid var(--accent);border-radius:4px;cursor:pointer;margin-bottom:2px;"
-                     @click="toggleSection('cop_'+og.op)"
+                     @click="toggleOp('cop_'+og.op)"
                      @mouseenter="$el.style.background='rgba(0,212,255,0.1)'"
                      @mouseleave="$el.style.background='rgba(0,212,255,0.06)'">
                   <div style="display:flex;align-items:center;gap:12px;">
@@ -1062,16 +1062,16 @@
                     <span x-show="og.failed>0" style="font-size:0.78em;color:var(--fail);" x-text="og.failed+' ✗'"></span>
                   </div>
                   <span style="color:var(--text-secondary);font-size:0.8em;"
-                        x-text="isOpen('cop_'+og.op)?'▲':'▼'"></span>
+                        x-text="isOpOpen('cop_'+og.op)?'▲':'▼'"></span>
                 </div>
-                <template x-if="isOpen('cop_'+og.op)">
+                <template x-if="isOpOpen('cop_'+og.op)">
                   <div style="padding-left:14px;border-left:1px solid rgba(255,255,255,0.06);margin-left:6px;margin-bottom:4px;">
                     <template x-for="dg in og.dates" :key="dg.date">
                       <div>
                         <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;
                                     gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);
                                     align-items:center;font-size:0.85em;cursor:pointer;"
-                             @click="toggleSection('cop_'+og.op+'_'+dg.date)"
+                             @click="toggleOp('cop_'+og.op+'_'+dg.date)"
                              @mouseenter="$el.style.background='rgba(255,255,255,0.03)'"
                              @mouseleave="$el.style.background='transparent'">
                           <span style="color:var(--text-secondary);" x-text="dg.date"></span>
@@ -1081,9 +1081,9 @@
                           <span style="color:var(--fail);font-weight:600;" x-text="dg.failed"></span>
                           <div></div>
                           <span style="color:var(--text-secondary);font-size:0.8em;text-align:right;"
-                                x-text="isOpen('cop_'+og.op+'_'+dg.date)?'▲':'▼'"></span>
+                                x-text="isOpOpen('cop_'+og.op+'_'+dg.date)?'▲':'▼'"></span>
                         </div>
-                        <template x-if="isOpen('cop_'+og.op+'_'+dg.date)">
+                        <template x-if="isOpOpen('cop_'+og.op+'_'+dg.date)">
                           <div style="padding:4px 0 4px 8px;border-bottom:1px solid rgba(255,255,255,0.06);">
                             <template x-for="rec in dg.records" :key="rec.sn+rec.timestamp">
                               <div>
