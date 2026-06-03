@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+@page { size: A4; margin: 18mm 20mm; }
+
+body {
+  font-family: 'DejaVu Sans', sans-serif;
+  font-size: 10pt;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+/* ── Header ── */
+.header-wrap {
+  display: table;
+  width: 100%;
+  border-bottom: 2px solid #1a7096;
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+}
+.header-logo-cell {
+  display: table-cell;
+  width: 100px;
+  vertical-align: middle;
+  padding-right: 14px;
+}
+.header-logo-text {
+  display: inline-block;
+  border-radius: 5px;
+  padding: 6px 12px;
+  font-size: 13pt;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+.logo-other  { background: #e5e7eb; color: #374151; font-size: 10pt; }
+.header-center-cell {
+  display: table-cell;
+  vertical-align: middle;
+  text-align: center;
+}
+.header-title {
+  font-size: 18pt;
+  font-weight: bold;
+  color: #1a7096;
+  letter-spacing: 0.05em;
+}
+.header-sub {
+  font-size: 10pt;
+  color: #444;
+  margin-top: 2px;
+}
+.header-meta {
+  font-size: 8.5pt;
+  color: #666;
+  margin-top: 4px;
+}
+
+/* ── Two-column layout ── */
+.two-col {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 10px;
+}
+.col {
+  display: table-cell;
+  width: 50%;
+  vertical-align: top;
+  padding-right: 8px;
+}
+.col:last-child { padding-right: 0; padding-left: 8px; }
+
+/* ── Section box ── */
+.section {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.section-title {
+  background: #f0f4f8;
+  padding: 4px 10px;
+  font-size: 7.5pt;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #1a7096;
+  border-bottom: 1px solid #ddd;
+}
+
+/* ── KV table ── */
+.kv-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.kv-table td {
+  padding: 3.5px 10px;
+  font-size: 8.5pt;
+  border-bottom: 1px solid #f2f2f2;
+}
+.kv-table tr:last-child td { border-bottom: none; }
+.kv-label { color: #666; width: 44%; }
+.kv-value { color: #1a1a1a; font-weight: 500; }
+
+/* ── Test result badge rows ── */
+.result-header {
+  display: table;
+  width: 100%;
+  padding: 7px 10px 5px;
+  border-bottom: 1px solid #f2f2f2;
+}
+.result-badge {
+  display: table-cell;
+  vertical-align: middle;
+}
+.result-score {
+  display: table-cell;
+  text-align: right;
+  vertical-align: middle;
+  font-size: 20pt;
+  font-weight: 900;
+  line-height: 1;
+}
+.badge-pill {
+  display: inline-block;
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 9pt;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+.badge-pass { background: #dcfce7; color: #16a34a; }
+.badge-fail { background: #fee2e2; color: #dc2626; }
+.badge-warn { background: #fef9c3; color: #d97706; }
+.score-pass { color: #16a34a; }
+.score-fail { color: #dc2626; }
+.score-warn { color: #d97706; }
+
+/* ── Thermal ── */
+.temp-warn { color: #d97706; font-weight: 700; }
+.temp-crit { color: #dc2626; font-weight: 700; }
+
+/* ── Performance data rows ── */
+.test-row {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+  padding: 5px 10px;
+  border-bottom: 1px solid #f2f2f2;
+}
+.test-row:last-child { border-bottom: none; }
+.test-label { display: table-cell; color: #666; font-size: 9pt; width: 150px; vertical-align: middle; }
+.test-value { display: table-cell; font-size: 9pt; font-weight: 600; vertical-align: middle; }
+
+/* ── dmesg box ── */
+.warn-box {
+  background: #fff7ed;
+  border: 1px solid #d97706;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 8.5pt;
+  color: #92400e;
+  margin-bottom: 10px;
+}
+.dmesg-line { font-family: monospace; font-size: 7.5pt; color: #7f1d1d; margin: 1px 0; }
+
+/* ── Overall verdict ── */
+.overall-box {
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  text-align: center;
+  padding: 12px 0;
+  margin-top: 10px;
+}
+.overall-label {
+  font-size: 14pt;
+  font-weight: bold;
+  letter-spacing: 0.08em;
+}
+.overall-pass  { color: #16a34a; border-color: #16a34a; }
+.overall-fail  { color: #dc2626; border-color: #dc2626; }
+.overall-warn  { color: #d97706; border-color: #d97706; }
+.overall-info  { color: #334155; border-color: #64748b; }
+.overall-footer { font-size: 8pt; color: #888; margin-top: 5px; }
+
+/* ── INFO_ONLY banner ── */
+.info-only-banner {
+  background: #f1f5f9;
+  border-left: 4px solid #64748b;
+  border: 1px solid #cbd5e1;
+  border-left-width: 4px;
+  border-radius: 4px;
+  padding: 12px 14px;
+  margin: 10px 0;
+}
+.info-only-title {
+  color: #334155;
+  font-size: 11pt;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+.info-only-banner table { width: 100%; border-collapse: collapse; }
+.info-only-banner td { padding: 4px 0; font-size: 9pt; vertical-align: top; }
+.info-only-banner td.lbl { color: #64748b; width: 130px; font-weight: 600; }
+.info-only-banner td.val { color: #334155; }
+</style>
+</head>
+<body>
+
+{% set gpu     = data.get('gpu', {}) or {} %}
+{% set thermal = data.get('thermal', {}) or {} %}
+{% set vram    = data.get('vram_test', {}) or {} %}
+{% set vk      = data.get('vulkan_benchmark', {}) or {} %}
+{% set dmesg   = data.get('dmesg_gpu_errors', []) or [] %}
+{% set ti      = data.get('test_info', {}) or {} %}
+{% set vendor_up = (gpu.get('vendor', '') or '')|upper %}
+
+{% macro fmt_dur(s) -%}
+  {%- if s is none or s == 0 -%}—
+  {%- elif s < 60 -%}{{ s }}s
+  {%- else -%}{{ (s // 60) }}m {{ '%02d' % (s % 60) }}s
+  {%- endif -%}
+{%- endmacro %}
+
+<!-- ── Header ── -->
+<div class="header-wrap">
+  <div class="header-logo-cell">
+    {% if 'NVIDIA' in vendor_up %}
+      <!-- NVIDIA wordmark SVG -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="96" height="36" viewBox="0 0 96 36">
+        <!-- Green eye / swoosh shape -->
+        <path d="M6 10 Q18 2 30 10 L30 26 Q18 34 6 26 Z" fill="#76b900" opacity="0.15"/>
+        <path d="M8 13 Q18 7 28 13 L28 23 Q18 29 8 23 Z" fill="#76b900" opacity="0.3"/>
+        <circle cx="18" cy="18" r="5" fill="#76b900"/>
+        <!-- NVIDIA text -->
+        <text x="33" y="24" font-family="DejaVu Sans,Arial,sans-serif" font-weight="bold"
+              font-size="15" fill="#76b900" letter-spacing="0.5">NVIDIA</text>
+      </svg>
+    {% elif 'AMD' in vendor_up or 'ADVANCED MICRO' in vendor_up %}
+      <!-- AMD logo SVG: arrow + wordmark -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="80" height="36" viewBox="0 0 80 36">
+        <!-- Red arrow/chevron -->
+        <polygon points="0,0 14,0 22,18 14,36 0,36 8,18" fill="#ED1C24"/>
+        <polygon points="5,6 14,6 20,18 14,30 5,30 11,18" fill="white" opacity="0.25"/>
+        <!-- AMD text -->
+        <text x="27" y="26" font-family="DejaVu Sans,Arial,sans-serif" font-weight="bold"
+              font-size="18" fill="#ED1C24" letter-spacing="0.5">AMD</text>
+      </svg>
+    {% else %}
+      <span class="header-logo-text logo-other">GPU</span>
+    {% endif %}
+  </div>
+  <div class="header-center-cell">
+    <div class="header-title">GPU TEST REPORT</div>
+    <div class="header-sub">CEAR INC</div>
+    <div class="header-meta">
+      SN: {{ sn }} &nbsp;|&nbsp; Date: {{ (test_time or '')[:10] }}
+      {% if ti.get('test_station') %}&nbsp;|&nbsp; Station: {{ ti.get('test_station') }}{% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ── Graphics Card + Memory ── -->
+<div class="two-col">
+  <div class="col">
+    <div class="section">
+      <div class="section-title">Graphics Card</div>
+      <table class="kv-table">
+        <tr><td class="kv-label">Name</td>     <td class="kv-value">{{ gpu.get('name', '—') }}</td></tr>
+        <tr><td class="kv-label">GPU Chip</td> <td class="kv-value">{{ gpu.get('chip', '—') }}</td></tr>
+        <tr><td class="kv-label">Vendor</td>   <td class="kv-value">{{ gpu.get('vendor', '—') }}</td></tr>
+        <tr><td class="kv-label">Subvendor</td><td class="kv-value">{{ gpu.get('subvendor', '—') }}</td></tr>
+        {% if gpu.get('compute_arch') %}
+        <tr><td class="kv-label">Compute Arch</td><td class="kv-value">{{ gpu.get('compute_arch') }}</td></tr>
+        {% endif %}
+        <tr><td class="kv-label">Device ID</td><td class="kv-value">{{ gpu.get('device_id', '—') }}</td></tr>
+        <tr><td class="kv-label">BIOS Version</td><td class="kv-value">{{ gpu.get('bios_version', '—') }}</td></tr>
+        <tr><td class="kv-label">Driver</td>   <td class="kv-value">{{ gpu.get('driver_version', '—') }}</td></tr>
+        {% if gpu.get('legacy_driver_needed') %}
+        <tr><td class="kv-label">Legacy Driver Needed</td><td class="kv-value">{{ gpu.get('legacy_driver_needed') }}</td></tr>
+        {% endif %}
+        {% if gpu.get('gpu_sn') or gpu.get('serial') %}
+        <tr><td class="kv-label">GPU SN</td>   <td class="kv-value">{{ gpu.get('gpu_sn') or gpu.get('serial') }}</td></tr>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+  <div class="col">
+    <div class="section">
+      <div class="section-title">Memory</div>
+      <table class="kv-table">
+        <tr><td class="kv-label">Size</td>     <td class="kv-value">{{ gpu.get('vram_mb', '—') }} MB</td></tr>
+        <tr><td class="kv-label">Type</td>     <td class="kv-value">{{ gpu.get('vram_type', '—') }}</td></tr>
+        <tr><td class="kv-label">Bus Width</td><td class="kv-value">{{ gpu.get('vram_bus_width', '—') }} bit</td></tr>
+        <tr><td class="kv-label">Bandwidth</td>
+          <td class="kv-value">
+            {% set bw = gpu.get('vram_bandwidth_gbps', 0) %}
+            {{ bw if bw else 'N/A' }}{% if bw %} GB/s{% endif %}
+          </td>
+        </tr>
+        {% if gpu.get('bar1_mb') %}
+        <tr><td class="kv-label">BAR1 Size</td><td class="kv-value">{{ gpu.get('bar1_mb') }} MB</td></tr>
+        {% endif %}
+      </table>
+    </div>
+    <div class="section">
+      <div class="section-title">Interface &amp; Clocks</div>
+      <table class="kv-table">
+        <tr><td class="kv-label">PCIe Gen</td>
+          <td class="kv-value">
+            Gen {{ gpu.get('pcie_gen', '?') }}{% if gpu.get('pcie_gen_current') is not none and gpu.get('pcie_gen_current') != gpu.get('pcie_gen') %} (negotiated Gen {{ gpu.get('pcie_gen_current') }}){% endif %}
+          </td>
+        </tr>
+        <tr><td class="kv-label">PCIe Width</td>
+          <td class="kv-value">x{{ gpu.get('pcie_width_current', '?') }} / x{{ gpu.get('pcie_width_max', '?') }} max</td>
+        </tr>
+        {% if gpu.get('power_limit_w') %}
+        <tr><td class="kv-label">Power Limit</td><td class="kv-value">{{ gpu.get('power_limit_w') }} W</td></tr>
+        {% endif %}
+        {% if gpu.get('clock_boost_gpu_mhz') is not none %}
+        <tr><td class="kv-label">GPU Clock (Boost)</td><td class="kv-value">{{ gpu.get('clock_boost_gpu_mhz') }} MHz</td></tr>
+        {% endif %}
+        {% if gpu.get('clock_base_gpu_mhz') %}
+        <tr><td class="kv-label">GPU Clock (Base)</td><td class="kv-value">{{ gpu.get('clock_base_gpu_mhz') }} MHz</td></tr>
+        {% endif %}
+        {% if gpu.get('clock_boost_mem_mhz') is not none %}
+        <tr><td class="kv-label">Mem Clock (Boost)</td><td class="kv-value">{{ gpu.get('clock_boost_mem_mhz') }} MHz</td></tr>
+        {% endif %}
+        {% if gpu.get('clock_base_mem_mhz') %}
+        <tr><td class="kv-label">Mem Clock (Base)</td><td class="kv-value">{{ gpu.get('clock_base_mem_mhz') }} MHz</td></tr>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── dmesg errors (if any) ── -->
+{% if dmesg %}
+<div class="warn-box">
+  ⚠ {{ dmesg|length }} dmesg GPU error(s) detected:
+  {% for e in dmesg %}<div class="dmesg-line">{{ e }}</div>{% endfor %}
+</div>
+{% endif %}
+
+{% if overall == 'INFO_ONLY' %}
+<!-- ── INFO_ONLY banner — replaces test results ── -->
+<div class="info-only-banner">
+  <div class="info-only-title">INFO ONLY &mdash; Stress Tests Skipped</div>
+  <table>
+    <tr>
+      <td class="lbl">Reason</td>
+      <td class="val">VRAM {{ gpu.get('vram_mb', '?') }} MB is below 4096 MB threshold.</td>
+    </tr>
+    <tr>
+      <td class="lbl">Suitable for</td>
+      <td class="val">Office use, display output, light workloads.</td>
+    </tr>
+    <tr>
+      <td class="lbl">Tests run</td>
+      <td class="val">L1 hardware identification only (no VRAM burn, no glmark2).</td>
+    </tr>
+    {% if ti.get('total_duration_seconds') %}
+    <tr>
+      <td class="lbl">L1 ID time</td>
+      <td class="val">{{ fmt_dur(ti.get('total_duration_seconds')) }}</td>
+    </tr>
+    {% endif %}
+  </table>
+</div>
+{% else %}
+<!-- ── TEST RESULTS: wrapper + 2-col cards ── -->
+{% set vram_pass = vram.get('status') == 'PASS' %}
+{% set vk_pass   = vk.get('status')   == 'PASS' %}
+<div class="section">
+  <div class="section-title">Test Results</div>
+  <div class="two-col" style="margin-bottom:0;">
+    <div class="col">
+      <!-- VRAM -->
+      <div style="border-right:1px solid #eee;padding:8px 10px;">
+        <div style="font-size:7.5pt;font-weight:bold;text-transform:uppercase;letter-spacing:0.07em;color:#555;margin-bottom:6px;">VRAM Test</div>
+        <div style="margin-bottom:6px;">
+          <span class="badge-pill {% if vram_pass %}badge-pass{% else %}badge-fail{% endif %}">{{ vram.get('status', '—') }}</span>
+          <span style="font-size:8pt;color:#666;margin-left:6px;">{{ vram.get('tool', 'gpu-burn') }}</span>
+        </div>
+        <table class="kv-table">
+          <tr><td class="kv-label">Errors</td>       <td class="kv-value">{{ vram.get('errors', 0) }}</td></tr>
+          <tr><td class="kv-label">Burn duration</td><td class="kv-value">{{ fmt_dur(ti.get('burn_duration_seconds') or vram.get('duration_seconds')) }}</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="col">
+      <!-- glmark2 -->
+      <div style="padding:8px 10px;">
+        <div style="font-size:7.5pt;font-weight:bold;text-transform:uppercase;letter-spacing:0.07em;color:#555;margin-bottom:6px;">glmark2 Benchmark</div>
+        <div style="margin-bottom:6px;">
+          <span class="badge-pill {% if vk_pass %}badge-pass{% else %}badge-fail{% endif %}">{{ vk.get('status', '—') }}</span>
+        </div>
+        <table class="kv-table">
+          <tr>
+            <td class="kv-label">Score</td>
+            <td class="kv-value" style="font-size:14pt;font-weight:900;{% if vk_pass %}color:#16a34a;{% else %}color:#dc2626;{% endif %}">
+              {{ vk.get('score', '—') }}
+            </td>
+          </tr>
+          <tr><td class="kv-label">Duration</td><td class="kv-value">{{ fmt_dur(ti.get('glmark2_duration_seconds')) }}</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Performance data (no title) ── -->
+{% set tmax = thermal.get('temp_max_c', 0) %}
+<div class="section" style="margin-top:8px;">
+  {% if ti.get('total_duration_seconds') %}
+  <div class="test-row">
+    <span class="test-label">Total Test Duration</span>
+    <span class="test-value">{{ fmt_dur(ti.get('total_duration_seconds')) }}</span>
+  </div>
+  {% endif %}
+  <div class="test-row">
+    <span class="test-label">Temp Max / Avg</span>
+    <span class="test-value {% if tmax > 95 %}temp-crit{% elif tmax > 85 %}temp-warn{% endif %}">
+      {{ tmax }}°C max / {{ thermal.get('temp_avg_c', '—') }}°C avg
+    </span>
+  </div>
+  {% if thermal.get('util_avg_pct') is not none %}
+  <div class="test-row">
+    <span class="test-label">Util Avg</span>
+    <span class="test-value">{{ thermal.get('util_avg_pct') }}%</span>
+  </div>
+  {% endif %}
+  <div class="test-row">
+    <span class="test-label">Power Max</span>
+    <span class="test-value">{{ thermal.get('power_max_w', '—') }} W</span>
+  </div>
+  {% if dmesg %}
+  <div class="test-row">
+    <span class="test-label">dmesg GPU Errors</span>
+    <span class="test-value badge-fail">{{ dmesg|length }} error(s)</span>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- ── Overall verdict ── -->
+{% if overall == 'PASS' %}
+  {% set oc = 'overall-pass' %}
+{% elif overall == 'WARN' %}
+  {% set oc = 'overall-warn' %}
+{% elif overall == 'INFO_ONLY' %}
+  {% set oc = 'overall-info' %}
+{% else %}
+  {% set oc = 'overall-fail' %}
+{% endif %}
+<div class="overall-box {{ oc }}">
+  <div class="overall-label">OVERALL: {{ 'INFO ONLY' if overall == 'INFO_ONLY' else overall }}</div>
+  <div class="overall-footer">
+    Tested by Cear Inc &bull; {{ (test_time or '')[:10] }}
+  </div>
+</div>
+
+</body>
+</html>

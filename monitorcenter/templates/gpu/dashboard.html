@@ -1,0 +1,1540 @@
+{% extends "base.html" %}
+{% block title %}GPU Tests — CEARTrack{% endblock %}
+{% block content %}
+
+<style>
+/* ── KPI strip ───────────────────────────────────────────── */
+.kpi-strip {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 12px; margin-bottom: 16px;
+}
+.kpi-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px 16px;
+}
+.kpi-top { display: flex; justify-content: space-between; align-items: baseline; }
+.kpi-label {
+  font-size: 0.7em; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text-secondary);
+}
+.kpi-value { font-size: 1.95em; font-weight: 800; line-height: 1.1; margin-top: 4px; color: var(--accent); }
+.kpi-value.pass { color: var(--pass); }
+.kpi-value.fail { color: var(--fail); }
+.kpi-value.warn { color: #d97706; }
+.kpi-value.muted { color: var(--text-secondary); }
+.kpi-delta {
+  font-size: 0.78em; font-weight: 600; margin-top: 4px; color: var(--text-secondary);
+}
+.kpi-delta .up   { color: var(--pass); }
+.kpi-delta .down { color: var(--fail); }
+.kpi-delta .flat { color: var(--text-secondary); }
+.kpi-sub { font-size: 0.72em; color: var(--text-secondary); margin-top: 2px; }
+
+/* ── Insights row (Stations / Fail Reasons / Yield) ──────── */
+.insights-row {
+  display: grid; grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 12px; margin-bottom: 16px;
+}
+.insight-panel {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px 16px;
+}
+.insight-title {
+  font-size: 0.7em; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text-secondary); margin-bottom: 10px;
+}
+.station-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; font-size: 0.82em; }
+.station-name { flex: 0 0 110px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.station-bar-wrap { flex: 1; height: 10px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+.station-bar-fill { height: 100%; background: var(--accent); opacity: 0.85; }
+.station-count { flex: 0 0 26px; text-align: right; font-weight: 700; color: var(--accent); }
+.station-rate  { flex: 0 0 46px; text-align: right; font-size: 0.85em; }
+.station-rate.good { color: var(--pass); }
+.station-rate.bad  { color: var(--fail); }
+.station-rate.mid  { color: #d97706; }
+
+.fail-row { display: flex; align-items: center; gap: 10px; margin: 6px 0; font-size: 0.85em; cursor: default; }
+.fail-icon { width: 18px; text-align: center; }
+.fail-label { flex: 1; color: var(--text-primary); }
+.fail-count { font-weight: 700; color: var(--fail); }
+
+.yield-row { display: flex; justify-content: space-between; margin: 5px 0; font-size: 0.85em; }
+.yield-row .lbl { color: var(--text-primary); }
+.yield-row .val { font-weight: 700; }
+.yield-row.tier-high  .val { color: #8b5cf6; }
+.yield-row.tier-mid   .val { color: var(--pass); }
+.yield-row.tier-entry .val { color: #d97706; }
+.yield-row.tier-scrap .val { color: var(--fail); }
+
+/* ── Period tabs / search ────────────────────────────────── */
+.period-tabs { display: flex; gap: 6px; }
+.tab-btn {
+  padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-secondary);
+  cursor: pointer; font-size: 0.82em; font-weight: 600; transition: all 0.15s;
+}
+.tab-btn.active, .tab-btn:hover {
+  border-color: var(--accent); color: var(--accent); background: rgba(99,102,241,0.08);
+}
+
+.section-header { display: flex; align-items: center; justify-content: space-between; margin: 18px 0 10px; }
+.section-title { font-size: 0.72em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); }
+.section-actions { display: flex; gap: 8px; }
+.action-link {
+  font-size: 0.78em; color: var(--text-secondary); cursor: pointer;
+  padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border);
+}
+.action-link:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ── Dense table ─────────────────────────────────────────── */
+.gpu-table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+.gpu-table th {
+  text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border);
+  font-size: 0.68em; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text-secondary); background: rgba(255,255,255,0.02);
+  position: sticky; top: 0;
+}
+.gpu-table td {
+  padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,0.04);
+  white-space: nowrap;
+}
+.gpu-table tr.data-row { cursor: pointer; }
+.gpu-table tr.data-row:hover { background: rgba(99,102,241,0.06); }
+.gpu-table tr.data-row.selected { background: rgba(99,102,241,0.12); }
+.gpu-table tr.data-row.failed { background: rgba(239,68,68,0.04); }
+.gpu-table tr.data-row.warned { background: rgba(217,119,6,0.04); }
+
+.result-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: middle; }
+.result-dot.pass { background: var(--pass); }
+.result-dot.fail { background: var(--fail); }
+.result-dot.warn { background: #d97706; }
+.result-dot.info-only { background: #64748b; }
+.kpi-value.info-only { color: #64748b; }
+.badge.info-only { background: rgba(100,116,139,0.18); color: #cbd5e1; border: 1px solid rgba(100,116,139,0.4); }
+tr.info-only-row { background: rgba(100,116,139,0.06); }
+.info-only-banner-inline {
+  background: rgba(100,116,139,0.10);
+  border-left: 4px solid #64748b;
+  border: 1px solid rgba(100,116,139,0.3);
+  border-left-width: 4px;
+  border-radius: 4px;
+  padding: 12px 14px;
+  margin: 12px 0;
+  font-size: 0.9em;
+}
+.info-only-banner-inline .lbl { color: #94a3b8; font-weight: 600; display: inline-block; width: 110px; }
+.info-only-banner-inline .row { padding: 3px 0; }
+.info-only-banner-inline .head {
+  color: #cbd5e1; font-weight: 700; font-size: 1.0em;
+  text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px;
+}
+
+.cell-sn { font-family: monospace; font-size: 1.35em; font-weight: 800; color: #ffffff; letter-spacing: 0.02em; max-width: 360px; overflow: hidden; text-overflow: ellipsis; }
+.cell-time { color: var(--text-secondary); font-size: 0.92em; }
+.cell-mono { font-family: monospace; }
+.cell-temp.warn { color: #d97706; font-weight: 700; }
+.cell-temp.crit { color: var(--fail); font-weight: 700; }
+
+.pcie-flag {
+  display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 0.75em;
+  font-weight: 700; background: rgba(217,119,6,0.18); color: #d97706; margin-left: 4px;
+}
+
+/* ── Side drawer ─────────────────────────────────────────── */
+.drawer-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  z-index: 50; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+
+.drawer {
+  position: fixed; top: 0; right: 0; width: 560px; max-width: 92vw; height: 100vh;
+  background: var(--bg-card); border-left: 1px solid var(--border);
+  z-index: 51; transform: translateX(100%); transition: transform 0.25s ease;
+  overflow-y: auto; padding: 22px 26px 40px;
+}
+.drawer.open { transform: translateX(0); }
+.drawer-close {
+  position: absolute; top: 14px; right: 16px; background: transparent;
+  border: 1px solid var(--border); border-radius: 6px; color: var(--text-secondary);
+  padding: 4px 10px; cursor: pointer; font-size: 1.1em; line-height: 1;
+}
+.drawer-close:hover { color: var(--accent); border-color: var(--accent); }
+
+.drawer-head {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+  padding-bottom: 14px; border-bottom: 1px solid var(--border);
+}
+.drawer-head .head-badge {
+  min-width: 50px; text-align: center; padding: 4px 10px; border-radius: 5px;
+  font-size: 0.78em; font-weight: 800; letter-spacing: 0.06em;
+}
+.drawer-title { font-size: 1.05em; font-weight: 700; }
+.drawer-meta { font-size: 0.78em; color: var(--text-secondary); margin-top: 2px; }
+
+.kv-section-title {
+  font-size: 0.68em; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.12em; color: var(--text-secondary);
+  margin: 18px 0 8px; padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.kv-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.kv-grid { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; align-items: center; }
+.kv-label { font-size: 0.8em; color: var(--text-secondary); }
+.kv-value { font-size: 0.8em; color: var(--text-primary); text-align: right; }
+
+.score-big { font-size: 1.8em; font-weight: 800; color: var(--accent); line-height: 1; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.78em; font-weight: 700; }
+.badge.pass { background: rgba(16,185,129,0.15); color: var(--pass); }
+.badge.fail { background: rgba(239,68,68,0.15); color: var(--fail); }
+.badge.warn { background: rgba(217,119,6,0.15); color: #d97706; }
+.temp-warn { color: #d97706; font-weight: 700; }
+.temp-crit { color: var(--fail); font-weight: 700; }
+
+.warn-box-inline {
+  background: rgba(217,119,6,0.12); border: 1px solid rgba(217,119,6,0.35);
+  border-radius: 5px; padding: 8px 12px; font-size: 0.82em;
+  color: #d97706; margin-bottom: 12px;
+}
+.dmesg-box {
+  background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3);
+  border-radius: 5px; padding: 8px 12px; margin-bottom: 12px;
+}
+.dmesg-line { font-size: 0.78em; font-family: monospace; color: var(--fail); padding: 1px 0; }
+
+.pdf-btn {
+  display: inline-block; margin-top: 20px;
+  padding: 8px 18px; border-radius: 6px;
+  border: 1px solid var(--accent); color: var(--accent);
+  text-decoration: none; font-size: 0.85em; font-weight: 600;
+}
+.pdf-btn:hover { background: rgba(99,102,241,0.12); }
+
+.empty-state {
+  text-align: center; padding: 40px 20px;
+  color: var(--text-secondary); font-size: 0.9em;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+}
+
+/* ── Daily volume chart ──────────────────────────────────── */
+.daily-panel {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px 18px; margin-bottom: 14px;
+}
+.daily-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.daily-legend { display: flex; gap: 14px; font-size: 0.78em; color: var(--text-secondary); }
+.legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+.legend-dot.pass { background: var(--pass); }
+.legend-dot.warn { background: #d97706; }
+.legend-dot.fail { background: var(--fail); }
+
+.daily-chart {
+  display: flex; align-items: flex-end; gap: 4px;
+  height: 140px; padding: 18px 0 26px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  position: relative;
+}
+.daily-col {
+  flex: 1; height: 100%;
+  display: flex; flex-direction: column-reverse;
+  min-width: 14px; position: relative; cursor: default;
+}
+.daily-col:hover .daily-tooltip { display: block; }
+.daily-seg { width: 100%; transition: opacity 0.15s; }
+.daily-seg.pass { background: var(--pass); }
+.daily-seg.warn { background: #d97706; }
+.daily-seg.fail { background: var(--fail); }
+.daily-col:hover .daily-seg { opacity: 0.85; }
+.daily-label {
+  position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; color: var(--text-secondary); white-space: nowrap;
+}
+.daily-total {
+  position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; font-weight: 700; color: var(--text-secondary); white-space: nowrap;
+}
+.daily-tooltip {
+  display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+  background: var(--bg-primary, #1a1a1a); border: 1px solid var(--border);
+  border-radius: 5px; padding: 6px 10px; font-size: 0.75em;
+  white-space: nowrap; z-index: 5; pointer-events: none;
+  margin-bottom: 4px;
+}
+
+/* Range stats (week/month) charts kept simple */
+.chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.chart-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; }
+.chart-title { font-size: 0.7em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-secondary); margin-bottom: 12px; }
+.hbar-list { display: grid; grid-template-columns: minmax(0, max-content) 1fr auto; column-gap: 8px; row-gap: 5px; align-items: center; }
+.hbar-row { display: contents; cursor: pointer; }
+.hbar-label { font-size: 11.5px; text-align: left; max-width: 180px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hbar-track { height: 12px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+.hbar-fill { height: 100%; border-radius: 3px; opacity: 0.85; }
+.hbar-val { min-width: 28px; font-size: 11.5px; font-weight: 700; color: var(--accent); text-align: right; }
+
+@media (max-width: 1100px) {
+  .insights-row { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .kpi-strip { grid-template-columns: repeat(2, 1fr); }
+  .chart-row { grid-template-columns: 1fr; }
+}
+
+/* ── Daily breakdown expand drawer ──────────────────────── */
+.dd-section { margin-bottom: 7px; border: 1px solid rgba(255,255,255,0.07); border-radius: 6px; overflow: hidden; }
+.dd-sec-head {
+  display: flex; align-items: center; gap: 7px;
+  padding: 7px 12px; cursor: pointer; user-select: none;
+  background: rgba(255,255,255,0.025);
+}
+.dd-sec-head:hover { background: rgba(99,102,241,0.08); }
+.dd-chevron { font-size: 0.76em; color: var(--accent); width: 10px; display: inline-block; flex-shrink: 0; }
+.dd-sec-label { font-size: 0.67em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-secondary); }
+.dd-sec-body { padding: 10px 14px; }
+
+.dd-bar-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 0.84em; }
+.dd-bar-label { width: 120px; flex-shrink: 0; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dd-bar-track { flex: 1; height: 9px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; min-width: 40px; }
+.dd-bar-fill { height: 100%; border-radius: 3px; opacity: 0.85; }
+.dd-bar-count { width: 26px; text-align: right; font-weight: 700; color: var(--accent); flex-shrink: 0; }
+.dd-bar-rate { width: 40px; text-align: right; font-weight: 700; flex-shrink: 0; }
+.dd-bar-flag { width: 18px; text-align: center; flex-shrink: 0; }
+
+.dd-fail-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.84em; }
+.dd-fail-row:last-child { border-bottom: none; }
+.dd-fail-icon { flex-shrink: 0; line-height: 1; }
+.dd-fail-gpu  { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary); }
+.dd-fail-sn   { font-family: monospace; font-size: 0.87em; color: var(--text-secondary); flex-shrink: 0; white-space: nowrap; }
+.dd-fail-st   { font-size: 0.82em; color: var(--text-secondary); flex-shrink: 0; white-space: nowrap; }
+.dd-fail-rsn  { font-weight: 600; flex-shrink: 0; white-space: nowrap; font-size: 0.87em; }
+
+.dd-timeline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px 0; }
+.dd-tl-dot {
+  position: relative; display: inline-block;
+  width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; cursor: default;
+}
+.dd-tl-dot:hover .dd-tl-tip { display: block; }
+.dd-tl-tip {
+  display: none; position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%);
+  background: #111; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px;
+  padding: 2px 7px; font-size: 10px; white-space: nowrap; z-index: 20; pointer-events: none;
+  color: #eee;
+}
+.dd-tl-count { margin-left: 6px; font-size: 0.8em; color: var(--text-secondary); }
+
+.dd-empty { color: var(--text-secondary); font-size: 0.84em; padding: 3px 0; }
+.dd-view-all {
+  display: inline-block; margin-top: 11px; padding: 6px 14px;
+  border: 1px solid rgba(99,102,241,0.45); border-radius: 5px;
+  color: var(--accent); font-size: 0.82em; font-weight: 600;
+  cursor: pointer; background: transparent;
+}
+.dd-view-all:hover { background: rgba(99,102,241,0.1); }
+</style>
+
+<div x-data="gpuApp()" x-init="init()">
+
+  <!-- ── Page Header ── -->
+  <div style="margin-bottom:20px;">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:6px;">
+      <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="10" width="28" height="16" rx="2" stroke="var(--accent)" stroke-width="1.5"/>
+        <rect x="6" y="14" width="8" height="8" rx="1.5" stroke="var(--accent)" stroke-width="1.2"/>
+        <circle cx="10" cy="18" r="2" stroke="var(--accent)" stroke-width="1"/>
+        <line x1="30" y1="14" x2="34" y2="14" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="30" y1="18" x2="34" y2="18" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="30" y1="22" x2="34" y2="22" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <div style="font-size:1.35em;font-weight:800;letter-spacing:0.06em;color:var(--accent);text-transform:uppercase;line-height:1.1;">GPU</div>
+        <div style="font-size:0.76em;color:var(--text-secondary);margin-top:2px;">Graphics Card Burn-In Test Dashboard</div>
+      </div>
+    </div>
+    <div style="height:1px;background:linear-gradient(to right,var(--accent) 0%,rgba(99,102,241,0.15) 40%,transparent 100%);margin-top:8px;"></div>
+  </div>
+
+  <!-- ── Top bar: search + tabs ── -->
+  <div style="margin-bottom:14px;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+      <div class="search-box" style="flex:1;margin-bottom:0;">
+        <input type="text" x-model="searchQuery"
+               @keydown.enter="runSearch()" @keydown.escape="clearSearch()"
+               placeholder="Search by SN, GPU model, or station…">
+        <button @click="runSearch()">Search</button>
+        <button x-show="searched" @click="clearSearch()"
+                style="background:transparent;color:var(--text-secondary);border:1px solid var(--border);padding:6px 12px;border-radius:4px;cursor:pointer;font-size:0.85em;">
+          ✕ Clear
+        </button>
+      </div>
+    </div>
+
+    <div x-show="!searched" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+      <div class="period-tabs">
+        <button class="tab-btn" :class="{active: tab==='today'}"  @click="setTab('today')">Today</button>
+        <button class="tab-btn" :class="{active: tab==='week'}"   @click="setTab('week')">This Week</button>
+        <button class="tab-btn" :class="{active: tab==='month'}"  @click="setTab('month')">This Month</button>
+        <button class="tab-btn" :class="{active: tab==='custom'}" @click="setTab('custom')">Custom</button>
+      </div>
+      <template x-if="tab==='custom'">
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="date" x-model="customStart" style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:6px 10px;color:var(--text-primary);font-size:0.85em;">
+          <span style="color:var(--text-secondary);">–</span>
+          <input type="date" x-model="customEnd" style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:6px 10px;color:var(--text-primary);font-size:0.85em;">
+          <button class="tab-btn active" @click="loadCustom()">Apply</button>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- ── KPI strip (Today only) ── -->
+  <div x-show="!searched && tab==='today'" class="kpi-strip">
+    <!-- Total today -->
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <span class="kpi-label">Today's Tests</span>
+      </div>
+      <div class="kpi-value" x-text="kpi.total"></div>
+    </div>
+
+    <!-- Passed count -->
+    <div class="kpi-card">
+      <div class="kpi-top"><span class="kpi-label">Passed</span></div>
+      <div class="kpi-value pass" x-text="kpi.passed"></div>
+    </div>
+
+    <!-- Failed / warned -->
+    <div class="kpi-card">
+      <div class="kpi-top"><span class="kpi-label">Issues</span></div>
+      <div class="kpi-value" :class="kpi.failed > 0 ? 'fail' : 'muted'" x-text="kpi.failed"></div>
+      <div class="kpi-delta">
+        <span style="color:var(--fail);" x-text="kpi.failed + ' failed'"></span>
+        <span x-show="kpi.warned > 0"    style="color:#d97706;margin-left:8px;" x-text="'· ' + kpi.warned + ' warned'"></span>
+        <span x-show="kpi.info_only > 0" style="color:#64748b;margin-left:8px;" x-text="'· ' + kpi.info_only + ' info'"></span>
+      </div>
+    </div>
+
+    <!-- Avg test time -->
+    <div class="kpi-card">
+      <div class="kpi-top"><span class="kpi-label">Avg Test Time</span></div>
+      <div class="kpi-value muted" x-text="fmtDurShort(kpi.avg_duration_seconds)"></div>
+      <div class="kpi-sub" x-show="topStation.name"
+           x-text="'Top: ' + topStation.name + ' (' + topStation.total + ')'"></div>
+    </div>
+  </div>
+
+  <!-- ── Insights row (Today only) ── -->
+  <div x-show="!searched && tab==='today' && kpi.total > 0" class="insights-row">
+    <!-- Station throughput -->
+    <div class="insight-panel">
+      <div class="insight-title">Station Throughput</div>
+      <template x-if="byStation.length === 0">
+        <div style="color:var(--text-secondary);font-size:0.82em;">No station data.</div>
+      </template>
+      <template x-for="s in byStation" :key="s.name">
+        <div class="station-row" style="cursor:pointer;"
+             @click="filterByStation(s.name)"
+             :title="'Show all records from ' + s.name">
+          <span class="station-name" :title="s.name" x-text="s.name"></span>
+          <div class="station-bar-wrap">
+            <div class="station-bar-fill"
+                 :style="'width:' + Math.max(4, Math.round(s.total / maxStation() * 100)) + '%'"></div>
+          </div>
+          <span class="station-count" x-text="s.total"></span>
+          <span class="station-rate" :class="stationRateClass(s)"
+                x-text="stationRate(s) + '%'"></span>
+        </div>
+      </template>
+    </div>
+
+    <!-- Failure breakdown -->
+    <div class="insight-panel">
+      <div class="insight-title">Failure Breakdown</div>
+      <template x-if="failReasonList.length === 0">
+        <div style="color:var(--pass);font-size:0.82em;">✅ No failures today.</div>
+      </template>
+      <template x-for="fr in failReasonList" :key="fr.key">
+        <div class="fail-row">
+          <span class="fail-icon" x-text="fr.icon"></span>
+          <span class="fail-label" x-text="fr.label"></span>
+          <span class="fail-count" x-text="fr.count"></span>
+        </div>
+      </template>
+    </div>
+
+    <!-- Yield tiers -->
+    <div class="insight-panel">
+      <div class="insight-title">Today's Yield</div>
+      <div class="yield-row tier-high">
+        <span class="lbl">💎 High (≥10GB)</span><span class="val" x-text="yieldTiers.high || 0"></span>
+      </div>
+      <div class="yield-row tier-mid">
+        <span class="lbl">🟢 Mid (6–8GB)</span><span class="val" x-text="yieldTiers.mid || 0"></span>
+      </div>
+      <div class="yield-row tier-entry">
+        <span class="lbl">🟡 Entry (&lt;6GB)</span><span class="val" x-text="yieldTiers.entry || 0"></span>
+      </div>
+      <div class="yield-row tier-scrap">
+        <span class="lbl">❌ Scrap (FAIL)</span><span class="val" x-text="yieldTiers.scrap || 0"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Range KPI (week/month/custom) ── -->
+  <div x-show="!searched && tab !== 'today' && (tab !== 'custom' || (stats.daily ?? []).length > 0)" class="kpi-strip">
+    <div class="kpi-card">
+      <div class="kpi-top"><span class="kpi-label" x-text="tabLabel + ' Tests'"></span></div>
+      <div class="kpi-value" x-text="kpi.total"></div>
+      <div class="kpi-sub" x-show="kpi.start" x-text="kpi.start + ' → ' + kpi.end"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-top"><span class="kpi-label">Passed</span></div>
+      <div class="kpi-value pass" x-text="kpi.passed"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-top"><span class="kpi-label">Failed</span></div>
+      <div class="kpi-value" :class="kpi.failed > 0 ? 'fail' : 'muted'" x-text="kpi.failed"></div>
+      <div class="kpi-sub" x-show="kpi.warned > 0"    style="color:#d97706;" x-text="kpi.warned + ' warned'"></div>
+      <div class="kpi-sub" x-show="kpi.info_only > 0" style="color:#64748b;" x-text="kpi.info_only + ' info only'"></div>
+    </div>
+    <div class="kpi-card" style="background:rgba(99,102,241,0.12);border-right:3px solid #6366f1;border-left:2px solid rgba(99,102,241,0.22);">
+      <div class="kpi-top"><span class="kpi-label" style="color:#818cf8;">All Time</span></div>
+      <div class="kpi-value" style="color:#818cf8;" x-text="totalAllTime.toLocaleString()"></div>
+      <div class="kpi-sub" style="color:#818cf8;">GPUs tested</div>
+    </div>
+  </div>
+
+  <!-- ── Range charts (vendor + fail reasons) — also shown on Today ── -->
+  <div x-show="!searched && ((stats.by_vendor ?? []).length > 0 || (stats.by_station ?? []).length > 0)" class="chart-row">
+    <div class="chart-panel">
+      <div class="chart-title">By Vendor</div>
+      <template x-if="(stats.by_vendor ?? []).length === 0">
+        <div style="color:var(--text-secondary);font-size:0.8em;padding:8px 0;">No data</div>
+      </template>
+      <div class="hbar-list" x-show="(stats.by_vendor ?? []).length > 0">
+        <template x-for="item in (stats.by_vendor ?? [])" :key="item[0]">
+          <div class="hbar-row" @click="filterByVendor(item[0])"
+               :title="item[0] + ' — click to show all records'">
+            <span class="hbar-label" :title="item[0]" x-text="item[0]"></span>
+            <div class="hbar-track"><div class="hbar-fill" :style="'width:' + pct(item[1], maxVendor()) + '%;background:var(--accent)'"></div></div>
+            <span class="hbar-val" x-text="item[1]"></span>
+          </div>
+        </template>
+      </div>
+    </div>
+    <div class="chart-panel">
+      <div class="chart-title">By Station</div>
+      <template x-if="(stats.by_station ?? []).length === 0">
+        <div style="color:var(--text-secondary);font-size:0.8em;padding:8px 0;">No data</div>
+      </template>
+      <div class="hbar-list" x-show="(stats.by_station ?? []).length > 0">
+        <template x-for="item in (stats.by_station ?? [])" :key="item[0]">
+          <div class="hbar-row" @click="filterByStation(item[0])"
+               :title="item[0] + ' — click to show all records from this station'">
+            <span class="hbar-label" :title="item[0]" x-text="item[0]"></span>
+            <div class="hbar-track"><div class="hbar-fill" :style="'width:' + pct(item[1], maxStationStat()) + '%;background:#10b981'"></div></div>
+            <span class="hbar-val" x-text="item[1]"></span>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Subvendor Performance (all tabs) ── -->
+  <div x-show="!searched && (stats.by_subvendor ?? []).length > 0"
+       style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:14px;">
+    <div class="chart-title" style="margin-bottom:10px;">
+      Subvendor Performance
+      <span style="font-size:0.85em;color:var(--text-secondary);font-weight:500;text-transform:none;letter-spacing:0;margin-left:6px;">
+        — board partner quality breakdown
+      </span>
+    </div>
+    <table class="gpu-table" style="font-size:0.86em;">
+      <thead>
+        <tr>
+          <th>Subvendor</th>
+          <th>Vendor</th>
+          <th style="text-align:right;">Count</th>
+          <th style="text-align:right;">Pass</th>
+          <th style="text-align:right;">Fail</th>
+          <th style="text-align:right;">Pass Rate</th>
+          <th style="text-align:right;">Avg Score</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-for="sv in (stats.by_subvendor ?? [])" :key="sv.name">
+          <tr style="cursor:pointer;" @click="filterBySubvendor(sv.name)"
+              :title="'Show all ' + sv.name + ' records'"
+              :class="{ failed: sv.pass_rate < 75, warned: sv.pass_rate >= 75 && sv.pass_rate < 90 }">
+            <td style="font-weight:600;" x-text="sv.name"></td>
+            <td style="color:var(--text-secondary);" x-text="sv.vendor || '—'"></td>
+            <td style="text-align:right;font-weight:700;color:var(--accent);" x-text="sv.count"></td>
+            <td style="text-align:right;color:var(--pass);" x-text="sv.passed"></td>
+            <td style="text-align:right;" :style="sv.failed > 0 ? 'color:var(--fail);font-weight:700;' : 'color:var(--text-secondary);'" x-text="sv.failed"></td>
+            <td style="text-align:right;font-weight:700;" :class="passRateCellClass(sv.pass_rate)" x-text="sv.pass_rate + '%'"></td>
+            <td style="text-align:right;font-family:monospace;" x-text="sv.avg_score ? sv.avg_score.toLocaleString() : '—'"></td>
+            <td x-text="qualityFlag(sv.pass_rate)"></td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Daily volume (week/month/custom) ── -->
+  <div x-show="!searched && tab !== 'today' && (tab !== 'custom' || (stats.daily ?? []).length > 0)" class="daily-panel">
+    <div class="daily-head">
+      <div class="chart-title" style="margin:0;">Daily Volume</div>
+      <div class="daily-legend">
+        <span><span class="legend-dot pass"></span>Pass</span>
+        <span><span class="legend-dot warn"></span>Warn</span>
+        <span><span class="legend-dot fail"></span>Fail</span>
+      </div>
+    </div>
+    <div class="daily-chart">
+      <template x-for="d in paddedDailyData()" :key="d.date">
+        <div class="daily-col" :style="d.total > 0 ? 'cursor:pointer;' : ''"
+             @click="d.total > 0 && loadDayRecords(d.date)"
+             :title="d.total > 0 ? 'View records on ' + d.date : ''">
+          <div class="daily-total" x-show="d.total > 0" x-text="d.total"></div>
+          <div class="daily-seg fail" :style="'height:' + dailyPct(d.failed) + '%'"></div>
+          <div class="daily-seg warn" :style="'height:' + dailyPct(d.warned) + '%'"></div>
+          <div class="daily-seg pass" :style="'height:' + dailyPct(d.passed) + '%'"></div>
+          <div class="daily-label" x-text="dailyLabel(d.date)"></div>
+          <div class="daily-tooltip">
+            <div style="font-weight:700;margin-bottom:3px;" x-text="d.date"></div>
+            <div><span class="legend-dot pass"></span>Pass <span x-text="d.passed"></span></div>
+            <div x-show="d.warned > 0"><span class="legend-dot warn"></span>Warn <span x-text="d.warned"></span></div>
+            <div x-show="d.failed > 0"><span class="legend-dot fail"></span>Fail <span x-text="d.failed"></span></div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- ── Daily Breakdown (grouped by station) ── -->
+  <div x-show="!searched && tab !== 'today' && (stats.by_station_daily ?? []).length > 0"
+       style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:14px;">
+    <div class="chart-title" style="margin-bottom:10px;">Daily Breakdown <span style="font-size:0.85em;color:var(--text-secondary);font-weight:500;text-transform:none;letter-spacing:0;margin-left:6px;">— grouped by station</span></div>
+
+    <template x-for="st in (stats.by_station_daily ?? [])" :key="'sg-'+st.name">
+      <div style="margin-bottom:10px;border:1px solid rgba(255,255,255,0.05);border-radius:6px;overflow:hidden;">
+
+        <!-- Station header -->
+        <div @click="toggleStationGroup(st.name)"
+             style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:10px 14px;background:rgba(99,102,241,0.06);border-bottom:1px solid rgba(99,102,241,0.15);"
+             :title="st.name">
+          <span style="color:var(--text-secondary);width:14px;text-align:center;font-size:0.9em;"
+                x-text="isStationOpen(st.name) ? '▾' : '▸'"></span>
+          <span style="flex:1;font-weight:700;font-size:1.0em;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+                x-text="st.name"></span>
+          <span style="color:var(--text-secondary);font-size:0.82em;" x-text="st.total + ' tests'"></span>
+          <span style="color:var(--pass);font-size:0.82em;font-weight:700;" x-text="st.passed + '✓'"></span>
+          <span x-show="st.warned > 0" style="color:#d97706;font-size:0.82em;font-weight:700;" x-text="st.warned + '⚠'"></span>
+          <span x-show="st.failed > 0" style="color:var(--fail);font-size:0.82em;font-weight:700;" x-text="st.failed + '✗'"></span>
+          <span x-show="st.info_only > 0" style="color:#64748b;font-size:0.82em;" x-text="st.info_only + ' info'"></span>
+          <span style="font-size:0.82em;font-weight:700;min-width:46px;text-align:right;"
+                :class="passRateCellClass(st.pass_rate)" x-text="st.pass_rate + '%'"></span>
+        </div>
+
+        <!-- Days under this station -->
+        <div x-show="isStationOpen(st.name)">
+          <table class="gpu-table" style="font-size:0.86em;">
+            <thead>
+              <tr>
+                <th style="width:148px;padding-left:34px;">Date</th>
+                <th style="text-align:right;width:50px;color:var(--accent);">Total</th>
+                <th style="text-align:right;width:56px;color:var(--pass);">Passed</th>
+                <th style="text-align:right;width:46px;color:#d97706;">Warn</th>
+                <th style="text-align:right;width:52px;color:var(--fail);">Failed</th>
+                <th style="text-align:right;width:76px;">Pass Rate</th>
+                <th style="width:24px;"></th>
+              </tr>
+            </thead>
+            <template x-for="d in st.days" :key="'sg-'+st.name+'-'+d.date">
+              <tbody>
+                <tr class="data-row"
+                    :class="{
+                      selected: openStationDay === (st.name + '|' + d.date),
+                      failed:   d.pass_rate < 75,
+                      warned:   d.pass_rate >= 75 && d.pass_rate < 90
+                    }"
+                    @click="toggleStationDay(st.name, d.date)">
+                  <td style="padding-left:34px;" x-text="dailyLongLabel(d.date)"></td>
+                  <td style="text-align:right;font-weight:700;color:var(--accent);" x-text="d.total"></td>
+                  <td style="text-align:right;color:var(--pass);" x-text="d.passed"></td>
+                  <td style="text-align:right;" :style="d.warned > 0 ? 'color:#d97706;font-weight:700;' : 'color:var(--text-secondary);'" x-text="d.warned || '—'"></td>
+                  <td style="text-align:right;" :style="d.failed > 0 ? 'color:var(--fail);font-weight:700;' : 'color:var(--text-secondary);'" x-text="d.failed || '—'"></td>
+                  <td style="text-align:right;font-weight:700;"
+                      :class="passRateCellClass(d.pass_rate)"
+                      x-text="d.pass_rate + '%'"></td>
+                  <td style="text-align:right;color:var(--text-secondary);"
+                      x-text="openStationDay === (st.name + '|' + d.date) ? '▾' : '▸'"></td>
+                </tr>
+                <tr x-show="openStationDay === (st.name + '|' + d.date)">
+                  <td colspan="7" style="padding:0;">
+                    <div style="background:rgba(99,102,241,0.03);border-top:1px solid rgba(99,102,241,0.2);padding:10px 14px;">
+                      <div x-show="dailyRecordsLoading" style="color:var(--text-secondary);font-size:0.84em;padding:6px 4px;">Loading…</div>
+                      <div x-show="dailyLoadError" x-text="dailyLoadError" style="color:var(--fail);font-size:0.84em;padding:6px 4px;"></div>
+                      <div x-show="!dailyRecordsLoading && !dailyLoadError && dailyRecords.length === 0" style="color:var(--text-secondary);font-size:0.84em;padding:6px 4px;">No records found.</div>
+                      <template x-if="!dailyRecordsLoading && dailyRecords.length > 0">
+                        <table class="gpu-table" style="font-size:0.82em;">
+                          <thead>
+                            <tr>
+                              <th></th>
+                              <th>Time</th>
+                              <th>SN</th>
+                              <th>GPU</th>
+                              <th>VRAM</th>
+                              <th>Score</th>
+                              <th>Temp</th>
+                              <th>Power</th>
+                              <th>Duration</th>
+                              <th></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <template x-for="(r, idx) in dailyRecords" :key="r.sn + '_' + r.timestamp + '_h' + idx">
+                              <tr class="data-row"
+                                  :class="{
+                                    selected: drawerSn === r.sn + '_h' + idx,
+                                    failed:   r.overall_result === 'FAIL',
+                                    warned:   r.overall_result === 'WARN'
+                                  }"
+                                  @click="openDrawer(r, 'h' + idx)">
+                                <td><span class="result-dot" :class="resultDotClass(r.overall_result)"></span></td>
+                                <td class="cell-time" x-text="shortTime(r.timestamp)"></td>
+                                <td class="cell-sn" x-text="r.sn"></td>
+                                <td>
+                                  <span x-text="r.gpu_name || '—'"></span>
+                                </td>
+                                <td x-text="r.vram_mb ? r.vram_mb + ' MB' : '—'"></td>
+                                <td class="cell-mono" x-text="r.glmark2_score || '—'"></td>
+                                <td class="cell-temp" :class="tempLevel(r.temp_max_c)"
+                                    x-text="r.temp_max_c ? r.temp_max_c + '°C' : '—'"></td>
+                                <td class="cell-mono" x-text="powerStr(r)"></td>
+                                <td class="cell-time" x-text="fmtDurShort(r.total_duration_seconds)"></td>
+                                <td style="color:var(--text-secondary);">›</td>
+                              </tr>
+                            </template>
+                          </tbody>
+                        </table>
+                      </template>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </template>
+          </table>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <!-- ── Records section header (Today + Search only) ── -->
+  <div class="section-header" x-show="!searched && tab === 'today'">
+    <span class="section-title"
+          x-text="\"Today's Tests (\" + filteredRecords.length + ')'"></span>
+    <div class="section-actions">
+      <span class="action-link" @click="exportCsv()">⬇ CSV</span>
+      <span class="action-link" @click="filterFailed = !filterFailed"
+            :style="filterFailed ? 'color:var(--fail);border-color:var(--fail);' : ''">
+        <span x-show="!filterFailed">Show Failed Only</span>
+        <span x-show="filterFailed">✕ Show All</span>
+      </span>
+    </div>
+  </div>
+
+  <!-- ── Search results header ── -->
+  <div class="section-header" x-show="searched">
+    <span class="section-title" x-text="'Search Results — ' + searchResults.length + ' found'"></span>
+  </div>
+
+  <!-- ── Empty state (Today + Search) ── -->
+  <template x-if="(tab === 'today' || searched) && visibleRows.length === 0">
+    <div class="empty-state" x-text="searched ? 'No results found.' : 'No GPU tests recorded for this period.'"></div>
+  </template>
+
+  <!-- ── Today: records grouped by station ── -->
+  <template x-if="tab === 'today' && !searched && visibleRows.length > 0">
+    <div>
+      <template x-for="st in todayRecordsByStation" :key="'tsg-' + st.name">
+        <div style="margin-bottom:10px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+
+          <!-- Station header -->
+          <div @click="toggleStationGroup(st.name)"
+               style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:10px 14px;background:rgba(99,102,241,0.06);border-bottom:1px solid rgba(99,102,241,0.15);"
+               :title="st.name">
+            <span style="color:var(--text-secondary);width:14px;text-align:center;font-size:0.9em;"
+                  x-text="isStationOpen(st.name) ? '▾' : '▸'"></span>
+            <span style="flex:1;font-weight:700;font-size:1.0em;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+                  x-text="st.name"></span>
+            <span style="color:var(--text-secondary);font-size:0.82em;" x-text="st.total + ' tests'"></span>
+            <span style="color:var(--pass);font-size:0.82em;font-weight:700;" x-text="st.passed + '✓'"></span>
+            <span x-show="st.warned > 0"    style="color:#d97706;font-size:0.82em;font-weight:700;" x-text="st.warned + '⚠'"></span>
+            <span x-show="st.failed > 0"    style="color:var(--fail);font-size:0.82em;font-weight:700;" x-text="st.failed + '✗'"></span>
+            <span x-show="st.info_only > 0" style="color:#64748b;font-size:0.82em;" x-text="st.info_only + ' info'"></span>
+            <span style="font-size:0.82em;font-weight:700;min-width:46px;text-align:right;"
+                  :class="passRateCellClass(st.pass_rate)" x-text="st.pass_rate + '%'"></span>
+          </div>
+
+          <!-- Records under this station -->
+          <div x-show="isStationOpen(st.name)">
+            <table class="gpu-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Time</th>
+                  <th>SN</th>
+                  <th>GPU</th>
+                  <th>VRAM</th>
+                  <th>Score</th>
+                  <th>Temp</th>
+                  <th>Power</th>
+                  <th>Duration</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="(r, i) in st.records" :key="r.sn + '_' + r.timestamp + '_t' + i">
+                  <tr class="data-row"
+                      :class="{
+                        selected: drawerSn === r.sn + '_t' + st.name + i,
+                        failed:   r.overall_result === 'FAIL',
+                        warned:   r.overall_result === 'WARN'
+                      }"
+                      @click="openDrawer(r, 't' + st.name + i)">
+                    <td><span class="result-dot" :class="resultDotClass(r.overall_result)"></span></td>
+                    <td class="cell-time" x-text="shortTime(r.timestamp)"></td>
+                    <td class="cell-sn" x-text="r.sn"></td>
+                    <td>
+                      <span x-text="r.gpu_name || '—'"></span>
+                    </td>
+                    <td x-text="r.vram_mb ? r.vram_mb + ' MB' : '—'"></td>
+                    <td class="cell-mono" x-text="r.glmark2_score || '—'"></td>
+                    <td class="cell-temp" :class="tempLevel(r.temp_max_c)"
+                        x-text="r.temp_max_c ? r.temp_max_c + '°C' : '—'"></td>
+                    <td class="cell-mono" x-text="powerStr(r)"></td>
+                    <td class="cell-time" x-text="fmtDurShort(r.total_duration_seconds)"></td>
+                    <td style="color:var(--text-secondary);">›</td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </template>
+    </div>
+  </template>
+
+  <!-- ── Search results: flat list (no station grouping) ── -->
+  <template x-if="searched && visibleRows.length > 0">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+      <table class="gpu-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Time</th>
+            <th>SN</th>
+            <th>Station</th>
+            <th>GPU</th>
+            <th>VRAM</th>
+            <th>Score</th>
+            <th>Temp</th>
+            <th>Power</th>
+            <th>Duration</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="(r, i) in visibleRows" :key="r.sn + '_' + r.timestamp + '_' + i">
+            <tr class="data-row"
+                :class="{
+                  selected: drawerSn === r.sn + '_' + i,
+                  failed:   r.overall_result === 'FAIL',
+                  warned:   r.overall_result === 'WARN'
+                }"
+                @click="openDrawer(r, i)">
+              <td><span class="result-dot" :class="resultDotClass(r.overall_result)"></span></td>
+              <td class="cell-time" x-text="shortTime(r.timestamp)"></td>
+              <td class="cell-sn" x-text="r.sn"></td>
+              <td x-text="r.test_station || '—'"></td>
+              <td>
+                <span x-text="r.gpu_name || '—'"></span>
+              </td>
+              <td x-text="r.vram_mb ? r.vram_mb + ' MB' : '—'"></td>
+              <td class="cell-mono" x-text="r.glmark2_score || '—'"></td>
+              <td class="cell-temp" :class="tempLevel(r.temp_max_c)"
+                  x-text="r.temp_max_c ? r.temp_max_c + '°C' : '—'"></td>
+              <td class="cell-mono" x-text="powerStr(r)"></td>
+              <td class="cell-time" x-text="fmtDurShort(r.total_duration_seconds)"></td>
+              <td style="color:var(--text-secondary);">›</td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </template>
+
+  <!-- ── Side drawer ── -->
+  <div class="drawer-backdrop" :class="{open: drawerOpen}" @click="closeDrawer()"></div>
+  <div class="drawer" :class="{open: drawerOpen}">
+    <button class="drawer-close" @click="closeDrawer()">✕</button>
+    <div x-show="drawerRecord" x-html="buildDrawer(drawerRecord)"></div>
+  </div>
+
+</div><!-- /x-data -->
+
+<script>
+function gpuApp() {
+  return {
+    tab:           'today',
+    tabLabel:      'Today',
+    records:       [],
+    stats:         {},
+    kpi:           { total:0, passed:0, warned:0, failed:0, info_only:0, pass_rate:0, avg_duration_seconds:0, start:'', end:'' },
+    compare:       { yesterday_total:0, yesterday_pass_rate:0, week_avg_total:0, week_avg_pass_rate:0 },
+    byStation:     [],
+    failReasons:   {},
+    yieldTiers:    {},
+    totalAllTime:  0,
+    searchQuery:   '',
+    searchResults: [],
+    searched:      false,
+    customStart:   '',
+    customEnd:     '',
+    filterFailed:  false,
+    drawerOpen:    false,
+    drawerSn:      null,
+    drawerRecord:  null,
+    dailyOpenDate: null,
+    dailyRecords:        [],
+    dailyRecordsLoading: false,
+    dailyLoadError:      '',
+    // Station-grouped Daily Breakdown state
+    closedStations: {},        // { stationName: true }  — collapsed stations
+    openStationDay: null,      // "stationName|YYYY-MM-DD"
+
+    async init() {
+      await this.loadToday();
+      this.refreshAllTime();
+      window._gpuSetDate = (date) => this.loadDayRecords(date);
+    },
+
+    get filteredRecords() {
+      if (this.filterFailed) return this.records.filter(r => r.overall_result !== 'PASS');
+      return this.records;
+    },
+
+    get visibleRows() {
+      return this.searched ? this.searchResults : this.filteredRecords;
+    },
+
+    // Today: group filteredRecords by test_station, sort by total desc, each group's records by time
+    get todayRecordsByStation() {
+      const map = {};
+      for (const r of this.filteredRecords) {
+        const name = r.test_station || 'Unknown';
+        if (!map[name]) map[name] = {
+          name, total: 0, passed: 0, warned: 0, failed: 0, info_only: 0, records: []
+        };
+        const g = map[name];
+        g.total += 1;
+        const res = r.overall_result;
+        if (res === 'PASS')           g.passed    += 1;
+        else if (res === 'WARN')      g.warned    += 1;
+        else if (res === 'FAIL')      g.failed    += 1;
+        else if (res === 'INFO_ONLY') g.info_only += 1;
+        g.records.push(r);
+      }
+      const out = Object.values(map);
+      for (const g of out) {
+        g.records.sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
+        const fullTier = g.passed + g.warned + g.failed;
+        g.pass_rate = fullTier ? Math.round(g.passed / fullTier * 1000) / 10 : 0;
+      }
+      out.sort((a, b) => b.total - a.total);
+      return out;
+    },
+
+    get topStation() {
+      return this.byStation[0] || { name: '', total: 0 };
+    },
+
+    get failReasonList() {
+      const map = {
+        VRAM_ERROR:    { icon: '🔴', label: 'VRAM errors' },
+        OVERHEAT:      { icon: '🔥', label: 'Overheat (>95°C)' },
+        DMESG_ERROR:   { icon: '⚠',  label: 'dmesg errors' },
+
+      };
+      return Object.entries(this.failReasons).map(([k, sns]) => ({
+        key: k, icon: map[k]?.icon || '·', label: map[k]?.label || k,
+        count: Array.isArray(sns) ? sns.length : sns,
+      })).sort((a,b) => b.count - a.count);
+    },
+
+    async refreshAllTime() {
+      try {
+        const d = await fetch('/gpu/api/stats/total').then(r => r.json());
+        this.totalAllTime = d.total ?? 0;
+      } catch (e) { /* ignore */ }
+    },
+
+    async loadToday() {
+      const d = await fetch('/gpu/api/today').then(r => r.json());
+      this.records     = d.records ?? [];
+      const s = d.stats ?? {};
+      this.kpi = {
+        total: s.total??0, passed: s.passed??0, warned: s.warned??0, failed: s.failed??0,
+        info_only: s.info_only??0,
+        pass_rate: s.pass_rate??0, avg_duration_seconds: s.avg_duration_seconds??0,
+        start:'', end:'',
+      };
+      this.compare     = d.compare     ?? this.compare;
+      this.byStation   = d.by_station  ?? [];
+      this.failReasons = d.fail_reasons ?? {};
+      this.yieldTiers  = d.yield_tiers ?? {};
+      // Populate stats for By Vendor / Subvendor / Fail Reasons panels
+      // (fail_reasons from today endpoint is {REASON: [sn,...]}, convert to [[reason, count], ...])
+      const frList = Object.entries(d.fail_reasons ?? {})
+        .map(([k, v]) => [k, Array.isArray(v) ? v.length : v])
+        .sort((a, b) => b[1] - a[1]);
+      // Convert today's by_station ({name,total,...}[]) into [name,count] tuples for the chart
+      const byStationTuples = (d.by_station ?? []).map(s => [s.name, s.total]);
+      this.stats = {
+        by_vendor:    d.by_vendor    ?? [],
+        by_station:   byStationTuples,
+        by_subvendor: d.by_subvendor ?? [],
+        fail_reasons: frList,
+      };
+    },
+
+    async loadRange(period, start, end) {
+      let url = `/gpu/api/stats?period=${period}`;
+      if (period === 'custom' && start && end) url += `&start=${start}&end=${end}`;
+      const d = await fetch(url).then(r => r.json());
+      this.stats = d;
+      this.kpi = {
+        total: d.total??0, passed: d.passed??0, warned: d.warned??0, failed: d.failed??0,
+        info_only: d.info_only??0,
+        pass_rate: d.pass_rate??0, avg_duration_seconds: 0,
+        start: d.start??'', end: d.end??'',
+      };
+      this.records = [];
+    },
+
+    async setTab(t) {
+      this.tab = t;
+      this.closeDrawer();
+      this.dailyOpenDate = null;
+      this.dailyRecords  = [];
+      this.openStationDay = null;
+      this.closedStations = {};
+      if (t === 'today')      { this.tabLabel = 'Today';        await this.loadToday(); }
+      else if (t === 'week')  { this.tabLabel = 'This Week';    await this.loadRange('week'); }
+      else if (t === 'month') { this.tabLabel = 'This Month';   await this.loadRange('month'); }
+      else if (t === 'custom'){
+        this.tabLabel = 'Custom';
+        // Clear previous tab's data so panels don't display stale info
+        this.stats = {};
+        this.kpi = { total:0, passed:0, warned:0, failed:0, info_only:0, pass_rate:0, avg_duration_seconds:0, start:'', end:'' };
+        this.records = [];
+      }
+    },
+
+    async loadCustom() {
+      if (!this.customStart || !this.customEnd) return;
+      this.tabLabel = 'Custom';
+      await this.loadRange('custom', this.customStart, this.customEnd);
+    },
+
+    async loadDayRecords(dateStr) {
+      this.dailyOpenDate = null;
+      const d = await fetch(`/gpu/api/day/${dateStr}`).then(r => r.json());
+      this.searchResults = d.records ?? [];
+      this.searchQuery   = dateStr;
+      this.searched      = true;
+      this.closeDrawer();
+    },
+
+    async runSearch() {
+      const q = this.searchQuery.trim();
+      if (!q) return;
+      const d = await fetch('/gpu/api/search?q=' + encodeURIComponent(q)).then(r => r.json());
+      this.searchResults = d.results ?? [];
+      this.searched = true;
+      this.closeDrawer();
+    },
+
+    clearSearch() {
+      this.searchQuery = ''; this.searchResults = [];
+      this.searched = false; this.closeDrawer();
+    },
+
+    // ── Drill-down filters ──────────────────────────────────────
+    _currentPeriodParams() {
+      const p = new URLSearchParams();
+      if (this.tab === 'today')      p.set('period', 'today');
+      else if (this.tab === 'week')  p.set('period', 'week');
+      else if (this.tab === 'month') p.set('period', 'month');
+      else if (this.tab === 'custom') {
+        p.set('period', 'custom');
+        if (this.customStart) p.set('start', this.customStart);
+        if (this.customEnd)   p.set('end',   this.customEnd);
+      }
+      return p;
+    },
+
+    async _runFilter(extraParams, label) {
+      const p = this._currentPeriodParams();
+      for (const [k, v] of Object.entries(extraParams)) p.set(k, v);
+      const d = await fetch('/gpu/api/filter?' + p.toString()).then(r => r.json());
+      this.searchResults = d.records ?? [];
+      this.searchQuery   = label;
+      this.searched      = true;
+      this.closeDrawer();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+
+    filterByVendor(vendor)       { this._runFilter({ vendor },       'Vendor: '       + vendor); },
+    filterBySubvendor(subvendor) { this._runFilter({ subvendor },    'Subvendor: '    + subvendor); },
+    filterByStation(station)     { this._runFilter({ station },      'Station: '      + station); },
+    filterByFailReason(reason)   { this._runFilter({ fail_reason: reason }, 'Fail reason: ' + reason); },
+
+    async jumpToDay(dateStr) {
+      // Expand the Daily Breakdown row for this date, then scroll to it
+      if (this.dailyOpenDate !== dateStr) {
+        await this.toggleDailyOpen(dateStr);
+      }
+      this.$nextTick(() => {
+        const el = document.getElementById('db-row-' + dateStr);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    },
+
+    openDrawer(r, i) {
+      this.drawerRecord = r;
+      this.drawerSn = r.sn + '_' + i;
+      this.drawerOpen = true;
+    },
+    closeDrawer() { this.drawerOpen = false; this.drawerSn = null; this.drawerRecord = null; },
+
+    // ── formatters ─────────────────────────────────
+    gpuSubLine(r) {
+      const g = (r.payload && r.payload.gpu) || {};
+      const parts = [g.vendor, g.chip, g.compute_arch].filter(Boolean);
+      if (g.legacy_driver_needed) parts.push(`needs ${g.legacy_driver_needed}`);
+      return parts.join('  •  ');
+    },
+
+    badgeClass(r) {
+      if (r === 'PASS')      return 'pass';
+      if (r === 'FAIL')      return 'fail';
+      if (r === 'INFO_ONLY') return 'info-only';
+      return 'warn';
+    },
+    resultDotClass(r) {
+      if (r === 'PASS')      return 'pass';
+      if (r === 'FAIL')      return 'fail';
+      if (r === 'INFO_ONLY') return 'info-only';
+      return 'warn';
+    },
+    resultLabel(r) {
+      if (r === 'INFO_ONLY') return 'INFO';
+      return r;
+    },
+    passRateClass(p) {
+      if (p >= 90) return 'pass';
+      if (p >= 75) return '';
+      return 'fail';
+    },
+    passRateCellClass(p) {
+      if (p >= 95) return 'cell-temp';                  // green-tinted via inline
+      return p < 75 ? 'cell-temp crit' : (p < 90 ? 'cell-temp warn' : '');
+    },
+    qualityFlag(p) {
+      if (p >= 95) return '✅';
+      if (p >= 80) return '';
+      if (p >= 60) return '⚠';
+      return '❌';
+    },
+    tempLevel(t) {
+      if (!t) return '';
+      if (t > 95) return 'crit';
+      if (t > 85) return 'warn';
+      return '';
+    },
+    stationRate(s) {
+      return s.total ? Math.round(s.passed / s.total * 100) : 0;
+    },
+    stationRateClass(s) {
+      const r = this.stationRate(s);
+      if (r >= 90) return 'good';
+      if (r >= 75) return 'mid';
+      return 'bad';
+    },
+    maxStation() { return Math.max(1, ...this.byStation.map(s => s.total)); },
+    pct(val, max) { if (!max) return 4; return Math.max(4, Math.round((val/max)*100)); },
+
+    activeDailyData() {
+      return this.paddedDailyData().filter(d => d.total > 0);
+    },
+
+    paddedDailyData() {
+      const daily = this.stats.daily ?? [];
+      const map = {};
+      daily.forEach(d => { map[d.date] = d; });
+      const empty = (date) => ({
+        date, total: 0, passed: 0, warned: 0, failed: 0, pass_rate: 0,
+        avg_duration_seconds: 0, stations: [], top_gpus: [], failures: []
+      });
+      if (this.tab === 'week') {
+        const slots = [];
+        for (let i = 6; i >= 0; i--) {
+          const dt = new Date(); dt.setDate(dt.getDate() - i);
+          const s = dt.toISOString().slice(0, 10);
+          slots.push(map[s] || empty(s));
+        }
+        return slots;
+      }
+      if (this.tab === 'month') {
+        const now = new Date();
+        const y = now.getFullYear(), m = now.getMonth();
+        const days = new Date(y, m + 1, 0).getDate();
+        const slots = [];
+        for (let i = 1; i <= days; i++) {
+          const s = `${y}-${String(m+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+          slots.push(map[s] || empty(s));
+        }
+        return slots;
+      }
+      if (this.tab === 'custom' && this.customStart && this.customEnd) {
+        const start = new Date(this.customStart + 'T00:00:00');
+        const end   = new Date(this.customEnd   + 'T00:00:00');
+        const spanDays = Math.round((end - start) / 86400000) + 1;
+        if (spanDays <= 30) {
+          const slots = [];
+          const cur = new Date(start);
+          while (cur <= end) {
+            const s = cur.toISOString().slice(0, 10);
+            slots.push(map[s] || empty(s));
+            cur.setDate(cur.getDate() + 1);
+          }
+          return slots;
+        }
+        // > 30 days: only days with data
+        return daily;
+      }
+      return daily;
+    },
+
+    maxDaily() {
+      return Math.max(1, ...this.paddedDailyData().map(d => d.total || 0));
+    },
+    dailyPct(val) {
+      if (!val) return 0;
+      return Math.max(2, (val / this.maxDaily()) * 100);
+    },
+    dailyLabel(dateStr) {
+      // dateStr: "YYYY-MM-DD" → "Mon 5/13"
+      if (!dateStr) return '';
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return dateStr.slice(5);
+      const weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      return weekdays[d.getDay()] + ' ' + (d.getMonth()+1) + '/' + d.getDate();
+    },
+    dailyLongLabel(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return dateStr;
+      const weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      return dateStr + ' (' + weekdays[d.getDay()] + ')';
+    },
+    // ── Station-grouped Daily Breakdown ────────────────
+    isStationOpen(name) {
+      return !this.closedStations[name];
+    },
+    toggleStationGroup(name) {
+      // Collapse the records drawer if it was opened under this station
+      if (this.openStationDay && this.openStationDay.split('|')[0] === name) {
+        this.openStationDay = null;
+        this.dailyRecords = [];
+      }
+      this.closedStations = { ...this.closedStations, [name]: !this.closedStations[name] };
+    },
+    async toggleStationDay(stationName, date) {
+      const key = stationName + '|' + date;
+      if (this.openStationDay === key) {
+        // Collapse
+        this.openStationDay  = null;
+        this.dailyRecords    = [];
+        this.dailyLoadError  = '';
+        return;
+      }
+      this.openStationDay  = key;
+      this.dailyRecords    = [];
+      this.dailyLoadError  = '';
+      this.dailyRecordsLoading = true;
+      try {
+        const params = new URLSearchParams({
+          period: 'custom',
+          start:  date,
+          end:    date,
+          station: stationName,
+        });
+        const resp = await fetch('/gpu/api/filter?' + params.toString());
+        if (!resp.ok) {
+          this.dailyLoadError = `HTTP ${resp.status} — server may need restart`;
+          return;
+        }
+        const data = await resp.json();
+        this.dailyRecords = data.records ?? [];
+      } catch (e) {
+        this.dailyLoadError = 'Failed to load records (' + e.message + ')';
+      } finally {
+        this.dailyRecordsLoading = false;
+      }
+    },
+
+    async toggleDailyOpen(date) {
+      if (this.dailyOpenDate === date) {
+        this.dailyOpenDate = null;
+        this.dailyRecords = [];
+        this.dailyLoadError = '';
+        return;
+      }
+      this.dailyOpenDate = date;
+      this.dailyRecords = [];
+      this.dailyLoadError = '';
+      this.dailyRecordsLoading = true;
+      try {
+        const resp = await fetch(`/gpu/api/records?date=${date}`);
+        if (!resp.ok) {
+          this.dailyLoadError = `HTTP ${resp.status} — server may need restart`;
+          return;
+        }
+        const data = await resp.json();
+        this.dailyRecords = data.records ?? [];
+      } catch(e) {
+        this.dailyLoadError = 'Failed to load records (' + e.message + ')';
+        console.error('Failed to load day records:', e);
+      } finally {
+        this.dailyRecordsLoading = false;
+      }
+    },
+    maxVendor() { const arr = this.stats.by_vendor ?? []; return arr.length ? Math.max(...arr.map(x=>x[1])) : 1; },
+    maxStationStat() { const arr = this.stats.by_station ?? []; return arr.length ? Math.max(...arr.map(x=>x[1])) : 1; },
+    maxFail()   { const arr = this.stats.fail_reasons ?? []; return arr.length ? Math.max(...arr.map(x=>x[1])) : 1; },
+
+    shortTime(ts) {
+      if (!ts) return '—';
+      // expect "YYYY-MM-DD HH:MM:SS" or ISO
+      const m = ts.replace('T', ' ').slice(11, 16);
+      return m || ts.slice(0, 10);
+    },
+    fmtDurShort(s) {
+      if (!s) return '—';
+      if (s < 60) return s + 's';
+      const m = Math.floor(s/60), sec = s % 60;
+      return m + 'm' + (sec ? ' ' + String(sec).padStart(2,'0') + 's' : '');
+    },
+    powerStr(r) {
+      const w = (r.payload?.thermal?.power_max_w);
+      return w ? Math.round(w) + 'W' : '—';
+    },
+
+    deltaHtml(cur, prev, label) {
+      if (!prev && !cur) return `<span class="flat">— vs ${label}</span>`;
+      const diff = cur - prev;
+      if (diff === 0) return `<span class="flat">→ same as ${label}</span>`;
+      const cls = diff > 0 ? 'up' : 'down';
+      const arr = diff > 0 ? '↑' : '↓';
+      return `<span class="${cls}">${arr} ${Math.abs(diff)}</span> <span style="color:var(--text-secondary);">vs ${label} (${prev})</span>`;
+    },
+    deltaPctHtml(cur, prev, label) {
+      if (!prev && !cur) return `<span class="flat">— vs ${label}</span>`;
+      const diff = +(cur - prev).toFixed(1);
+      if (diff === 0) return `<span class="flat">→ same as ${label}</span>`;
+      // higher pass rate is good; lower is bad
+      const cls = diff > 0 ? 'up' : 'down';
+      const arr = diff > 0 ? '↑' : '↓';
+      return `<span class="${cls}">${arr} ${Math.abs(diff)}%</span> <span style="color:var(--text-secondary);">vs ${label} (${prev}%)</span>`;
+    },
+
+    exportCsv() {
+      const rows = this.visibleRows;
+      if (rows.length === 0) return;
+      const cols = ['timestamp','sn','test_station','gpu_name','vendor','vram_mb','glmark2_score','temp_max_c','overall_result','total_duration_seconds'];
+      const head = cols.join(',');
+      const body = rows.map(r => cols.map(c => {
+        const v = r[c] ?? '';
+        return String(v).includes(',') ? `"${String(v).replace(/"/g,'""')}"` : v;
+      }).join(',')).join('\n');
+      const blob = new Blob([head + '\n' + body], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `gpu_${this.tab}_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+
+    // ── Drawer detail body ─────────────────────────
+    buildDrawer(r) {
+      if (!r) return '';
+      const p   = r.payload || {};
+      const gpu = p.gpu || {};
+      const th  = p.thermal || {};
+      const vt  = p.vram_test || {};
+      const vk  = p.vulkan_benchmark || {};
+      const dmesg = p.dmesg_gpu_errors || [];
+      const ti  = p.test_info || {};
+      const fmtDur = this.fmtDurShort;
+
+      const kv = (l, v) => (v !== undefined && v !== null && v !== '')
+        ? `<div class="kv-label">${l}</div><div class="kv-value">${v}</div>` : '';
+
+      const bwStr = gpu.vram_bandwidth_gbps ? gpu.vram_bandwidth_gbps + ' GB/s' : 'N/A';
+      const pcieGen = gpu.pcie_gen != null
+        ? `Gen ${gpu.pcie_gen}${gpu.pcie_width_current ? ' x' + gpu.pcie_width_current : ''}${gpu.pcie_width_max ? ' / x' + gpu.pcie_width_max + ' max' : ''}` : null;
+
+      const tempVal = th.temp_max_c;
+      const tempCls = tempVal > 95 ? 'temp-crit' : tempVal > 85 ? 'temp-warn' : '';
+      const tempStr = `<span class="${tempCls}">${tempVal ?? '—'}°C</span>`;
+
+      const dmesgBox = dmesg.length
+        ? `<div class="dmesg-box">${dmesg.map(e => `<div class="dmesg-line">${e}</div>`).join('')}</div>` : '';
+
+      const cls = this.badgeClass(r.overall_result);
+      const subLine1 = this.gpuSubLine(r);
+      const subBits = [];
+      if (gpu.subvendor) subBits.push(gpu.subvendor.split(' ')[0]);
+      if (r.vram_mb)     subBits.push(r.vram_mb + ' MB' + (gpu.vram_type ? ' ' + gpu.vram_type : ''));
+      if (r.timestamp)   subBits.push(r.timestamp.replace('T',' '));
+
+      const pdfBtn = r.sn
+        ? `<a class="pdf-btn" href="/gpu/report/${encodeURIComponent(r.sn)}.pdf" target="_blank">⬇ Download PDF Report</a>` : '';
+
+      return `
+        <div class="drawer-head">
+          <span class="head-badge badge ${cls}">${r.overall_result || ''}</span>
+          <div style="flex:1;min-width:0;">
+            <div class="drawer-title">${gpu.name || r.gpu_name || '—'}</div>
+            ${subLine1 ? `<div class="drawer-meta" style="font-weight:600;color:var(--text-primary);opacity:0.85;">${subLine1}</div>` : ''}
+            <div class="drawer-meta">${subBits.join(' · ')}</div>
+          </div>
+        </div>
+
+        ${dmesgBox}
+
+        <div class="kv-section-title">Graphics Card</div>
+        <div class="kv-grid-2">
+          <div class="kv-grid">
+            ${kv('Name', gpu.name)}
+            ${kv('Chip', gpu.chip)}
+            ${kv('Vendor', gpu.vendor)}
+            ${kv('Subvendor', gpu.subvendor)}
+            ${kv('Compute Arch', gpu.compute_arch)}
+          </div>
+          <div class="kv-grid">
+            ${kv('Device ID', gpu.device_id)}
+            ${kv('BIOS', gpu.bios_version)}
+            ${kv('Driver', gpu.driver_version)}
+            ${kv('Legacy Driver Needed', gpu.legacy_driver_needed)}
+            ${kv('GPU SN', gpu.gpu_sn || r.sn)}
+          </div>
+        </div>
+
+        <div class="kv-section-title">Memory</div>
+        <div class="kv-grid-2">
+          <div class="kv-grid">
+            ${kv('Size', gpu.vram_mb != null ? gpu.vram_mb + ' MB' : null)}
+            ${kv('Type', gpu.vram_type)}
+            ${kv('BAR1 Size', gpu.bar1_mb ? gpu.bar1_mb + ' MB' : null)}
+          </div>
+          <div class="kv-grid">
+            ${kv('Bus width', gpu.vram_bus_width != null ? gpu.vram_bus_width + '-bit' : null)}
+            ${kv('Bandwidth', bwStr)}
+          </div>
+        </div>
+
+        <div class="kv-section-title">Interface &amp; Clocks</div>
+        <div class="kv-grid-2">
+          <div class="kv-grid">
+            ${kv('PCIe Gen',   gpu.pcie_gen != null ? `Gen ${gpu.pcie_gen}${gpu.pcie_gen_current != null && gpu.pcie_gen_current !== gpu.pcie_gen ? ` (negotiated Gen ${gpu.pcie_gen_current})` : ''}` : null)}
+            ${kv('PCIe Width', (gpu.pcie_width_current != null || gpu.pcie_width_max != null) ? `x${gpu.pcie_width_current ?? '?'} / x${gpu.pcie_width_max ?? '?'} max` : null)}
+            ${kv('Power Limit', gpu.power_limit_w ? gpu.power_limit_w + ' W' : null)}
+          </div>
+          <div class="kv-grid">
+            ${kv('GPU Clock (Boost)', gpu.clock_boost_gpu_mhz != null ? gpu.clock_boost_gpu_mhz + ' MHz' : null)}
+            ${kv('GPU Clock (Base)',  gpu.clock_base_gpu_mhz  != null ? gpu.clock_base_gpu_mhz  + ' MHz' : null)}
+            ${kv('Mem Clock (Boost)', gpu.clock_boost_mem_mhz != null ? gpu.clock_boost_mem_mhz + ' MHz' : null)}
+            ${kv('Mem Clock (Base)',  gpu.clock_base_mem_mhz  != null ? gpu.clock_base_mem_mhz  + ' MHz' : null)}
+          </div>
+        </div>
+
+        ${r.overall_result === 'INFO_ONLY' ? `
+        <div class="info-only-banner-inline">
+          <div class="head">INFO ONLY &mdash; Stress Tests Skipped</div>
+          <div class="row"><span class="lbl">Reason</span>VRAM ${gpu.vram_mb ?? '?'} MB is below the 4096 MB threshold.</div>
+          <div class="row"><span class="lbl">Suitable for</span>Office use, display output, light workloads.</div>
+          <div class="row"><span class="lbl">Tests run</span>L1 hardware identification only (no VRAM burn, no glmark2).</div>
+          ${ti.total_duration_seconds ? `<div class="row"><span class="lbl">L1 ID time</span>${fmtDur(ti.total_duration_seconds)}</div>` : ''}
+        </div>
+        ` : `
+        <div class="kv-section-title">Test Results</div>
+        <div class="kv-grid-2">
+          <div class="kv-grid">
+            <div class="kv-label">VRAM test</div>
+            <div class="kv-value">${vt.status ? `<span class="badge ${vt.status==='PASS'?'pass':'fail'}">${vt.status}</span>` : '—'}</div>
+            ${kv('VRAM errors', vt.errors != null ? vt.errors : null)}
+            ${kv('Burn duration', fmtDur(ti.burn_duration_seconds ?? vt.duration_seconds))}
+          </div>
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <span class="kv-label">glmark2</span>
+              <span class="badge ${vk.status==='PASS'?'pass':'fail'}">${vk.status ?? ''}</span>
+            </div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;">
+              <span class="kv-label">Score</span>
+              <span class="score-big">${vk.score ?? '—'}</span>
+            </div>
+            <div class="kv-grid">
+              ${kv('Duration', fmtDur(ti.glmark2_duration_seconds))}
+            </div>
+          </div>
+        </div>
+
+        <div class="kv-section-title">Thermal</div>
+        <div class="kv-grid-2">
+          <div class="kv-grid">
+            <div class="kv-label">Temp max</div><div class="kv-value">${tempStr}</div>
+            ${kv('Temp avg', th.temp_avg_c != null ? th.temp_avg_c + '°C' : null)}
+          </div>
+          <div class="kv-grid">
+            ${kv('Util avg',  th.util_avg_pct != null ? th.util_avg_pct + '%' : null)}
+            ${kv('Power max', th.power_max_w != null ? th.power_max_w + ' W' : null)}
+          </div>
+        </div>
+        `}
+
+        ${(ti.test_station || ti.total_duration_seconds) ? `
+        <div class="kv-section-title">Test Info</div>
+        <div class="kv-grid-2">
+          <div class="kv-grid">
+            ${kv('Station', ti.test_station)}
+            ${kv('Hostname', ti.hostname || p.hostname)}
+          </div>
+          <div class="kv-grid">
+            ${kv('Script ver', ti.script_version)}
+            ${kv('Total time', fmtDur(ti.total_duration_seconds))}
+          </div>
+        </div>` : ''}
+
+        ${pdfBtn}
+      `;
+    },
+  };
+}
+</script>
+
+{% endblock %}

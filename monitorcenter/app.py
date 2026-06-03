@@ -273,6 +273,28 @@ def api_summary():
     except Exception:
         out["cpu"] = {"today": 0, "week": 0, "month": 0}
 
+    # ── GPU (JSON history files) ─────────────────────────────────────
+    try:
+        gpu_today = len(storage.read_latest("gpu"))
+        gpu_base = config.BASE_DIR / "gpu" / "history"
+
+        def _count_gpu(d_from, d_to):
+            n, cur = 0, d_from
+            while cur <= d_to:
+                day_dir = gpu_base / cur.strftime("%Y") / cur.strftime("%m-%d")
+                if day_dir.exists():
+                    n += sum(1 for _ in day_dir.glob("*.json"))
+                cur += timedelta(days=1)
+            return n
+
+        out["gpu"] = {
+            "today": gpu_today,
+            "week":  _count_gpu(week_start, week_end),
+            "month": _count_gpu(month_start, month_end),
+        }
+    except Exception:
+        out["gpu"] = {"today": 0, "week": 0, "month": 0}
+
     return jsonify(out)
 
 
