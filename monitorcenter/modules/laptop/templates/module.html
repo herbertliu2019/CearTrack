@@ -137,7 +137,18 @@
     </div>
 
     <!-- Today's records as cards -->
-    <div style="display:flex;flex-direction:column;gap:8px;">
+    <div x-show="(today.records ?? []).length > 0"
+         style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+      <div style="display:flex;gap:4px;">
+        <button @click="todayGroupBy='all'" class="tab-btn" :class="{active:todayGroupBy==='all'}"
+                style="padding:3px 10px;font-size:0.72em;">All</button>
+        <button @click="todayGroupBy='operator'" class="tab-btn" :class="{active:todayGroupBy==='operator'}"
+                style="padding:3px 10px;font-size:0.72em;">By Operator</button>
+      </div>
+    </div>
+
+    <!-- All (flat list) -->
+    <div x-show="todayGroupBy==='all'" style="display:flex;flex-direction:column;gap:8px;">
       <template x-for="r in today.records" :key="r.sn + r.timestamp">
         <div :class="'result-card ' + resultClass(r.overall_result)" style="margin:0;">
           <div class="card-summary" @click="toggleDetail(r.sn + r.timestamp)"
@@ -167,6 +178,10 @@
                         x-text="'Batt: ' + r.payload.battery.status"></span>
                 </template>
               </div>
+              <div x-show="r.payload?.battery?.status === 'WARNING'"
+                   style="font-size:0.78em;color:var(--warn);padding:4px 16px 0;">
+                ⚠ Battery warning — mark note in Cyclelution
+              </div>
             </div>
             <div style="display:flex;gap:10px;padding:6px 16px;
                         border-top:1px solid var(--border);flex-wrap:wrap;">
@@ -194,11 +209,103 @@
           </template>
         </div>
       </template>
-      <div x-show="(today.records ?? []).length === 0"
-           style="color:var(--text-secondary);text-align:center;padding:48px;
-                  background:var(--bg-card);border-radius:8px;border:1px solid var(--border);">
-        No laptops tested today.
-      </div>
+    </div>
+
+    <!-- By Operator -->
+    <div x-show="todayGroupBy==='operator'">
+      <template x-for="og in todayByOperator()" :key="og.op">
+        <div style="margin-bottom:12px;">
+          <!-- Operator header -->
+          <div style="display:flex;justify-content:space-between;align-items:center;
+                      padding:8px 14px;background:rgba(0,212,255,0.06);
+                      border-left:3px solid var(--accent);border-radius:4px;cursor:pointer;margin-bottom:6px;"
+               @click="toggleOp('top_'+og.op)"
+               @mouseenter="$el.style.background='rgba(0,212,255,0.1)'"
+               @mouseleave="$el.style.background='rgba(0,212,255,0.06)'">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <span style="color:var(--accent);font-weight:700;font-size:0.92em;">👤 <span x-text="og.op"></span></span>
+              <span style="font-size:0.78em;color:var(--text-secondary);" x-text="og.total+' tests'"></span>
+              <span style="font-size:0.78em;color:var(--pass);" x-text="og.passed+' ✓'"></span>
+              <span x-show="og.warned>0" style="font-size:0.78em;color:var(--warn);" x-text="og.warned+' △'"></span>
+              <span x-show="og.failed>0" style="font-size:0.78em;color:var(--fail);" x-text="og.failed+' ✗'"></span>
+            </div>
+            <span style="color:var(--text-secondary);font-size:0.8em;"
+                  x-text="isOpOpen('top_'+og.op)?'▲':'▼'"></span>
+          </div>
+          <!-- Operator's cards -->
+          <template x-if="isOpOpen('top_'+og.op)">
+            <div style="display:flex;flex-direction:column;gap:8px;padding-left:8px;">
+              <template x-for="r in og.records" :key="r.sn + r.timestamp">
+                <div :class="'result-card ' + resultClass(r.overall_result)" style="margin:0;">
+                  <div class="card-summary" @click="toggleDetail('top_'+r.sn + r.timestamp)"
+                       style="cursor:pointer;">
+                    <div class="card-header">
+                      <div>
+                        <div class="card-sn" x-text="r.sn"></div>
+                        <div class="card-model"
+                             x-text="(r.payload?.system?.vendor ?? '') + ' ' + (r.payload?.system?.model ?? '')">
+                        </div>
+                      </div>
+                      <span class="badge" :class="resultClass(r.overall_result)"
+                            x-text="r.overall_result"></span>
+                    </div>
+                    <div class="card-body">
+                      <div class="card-spec" x-text="(r.payload?.cpu?.model ?? '')"></div>
+                      <div class="card-spec" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <span x-text="(r.payload?.memory?.total_gb ?? '') + ' GB ' + (r.payload?.memory?.type ?? '') + '  •  Battery ' + (r.payload?.battery?.health_percent ?? '?') + '%'"></span>
+                        <template x-if="r.payload?.battery?.battery_condition">
+                          <span style="font-size:0.82em;color:var(--text-secondary);"
+                                x-text="'Cond: ' + r.payload.battery.battery_condition"></span>
+                        </template>
+                        <template x-if="r.payload?.battery?.status">
+                          <span class="badge"
+                                :class="r.payload.battery.status === 'PASS' ? 'pass' : r.payload.battery.status === 'WARN' ? 'warn' : 'fail'"
+                                style="font-size:0.72em;padding:1px 6px;"
+                                x-text="'Batt: ' + r.payload.battery.status"></span>
+                        </template>
+                      </div>
+                      <div x-show="r.payload?.battery?.status === 'WARNING'"
+                           style="font-size:0.78em;color:var(--warn);padding:4px 16px 0;">
+                        ⚠ Battery warning — mark note in Cyclelution
+                      </div>
+                    </div>
+                    <div style="display:flex;gap:10px;padding:6px 16px;
+                                border-top:1px solid var(--border);flex-wrap:wrap;">
+                      <template x-for="item in [
+                        {label:'Screen', val: r.payload?.screen?.dead_pixel_check},
+                        {label:'Cam',    val: r.payload?.camera?.device_status},
+                        {label:'Audio',  val: r.payload?.audio?.speaker_quality_check},
+                        {label:'KB',     val: r.payload?.keyboard?.keys_check},
+                        {label:'Net',    val: r.payload?.network?.internet_test},
+                        {label:'Batt',   val: r.payload?.battery?.status}
+                      ]" :key="item.label">
+                        <span class="status-dot" :class="resultClass(item.val)">
+                          <span x-text="item.label"></span>
+                        </span>
+                      </template>
+                    </div>
+                    <div class="card-footer"
+                         x-text="(r.timestamp ?? '').replace('T',' ').slice(0,16)"></div>
+                  </div>
+                  <template x-if="detailOpen === 'top_'+r.sn + r.timestamp">
+                    <div class="detail-panel"
+                         style="margin:0;border-radius:0;border-top:1px solid var(--border);">
+                      <div x-html="renderDetails(r)"></div>
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </template>
+    </div>
+
+    <!-- Empty state (both modes) -->
+    <div x-show="(today.records ?? []).length === 0"
+         style="color:var(--text-secondary);text-align:center;padding:48px;
+                background:var(--bg-card);border-radius:8px;border:1px solid var(--border);">
+      No laptops tested today.
     </div>
   </div>
 

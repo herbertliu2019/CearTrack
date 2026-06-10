@@ -18,7 +18,8 @@ function laptopApp(moduleName) {
     customTo:   '',
     detailOpen: null,   // single record expand key
     openSections: {},   // brand/day expand keys
-    groupBy: 'date',    // 'date' | 'operator'
+    groupBy: 'date',    // 'date' | 'operator'  (week/month/custom)
+    todayGroupBy: 'all', // 'all'  | 'operator'  (today tab)
     schema: null,
     allTotal: 0,
 
@@ -140,6 +141,27 @@ function laptopApp(moduleName) {
 
     recordsForDay(tab, date) {
       return (this[tab].records ?? []).filter(r => (r.timestamp ?? '').slice(0, 10) === date);
+    },
+
+    // Today tab: group the day's records by operator (no date sub-level).
+    todayByOperator() {
+      const records = (this.today.records ?? []);
+      const opMap = {};
+      for (const rec of records) {
+        const op = rec.payload?.test_info?.operator_id || '—';
+        if (!opMap[op]) opMap[op] = [];
+        opMap[op].push(rec);
+      }
+      return Object.entries(opMap)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([op, recs]) => ({
+          op,
+          total:  recs.length,
+          passed: recs.filter(r => r.overall_result === 'PASS').length,
+          warned: recs.filter(r => r.overall_result === 'WARN').length,
+          failed: recs.filter(r => r.overall_result === 'FAIL').length,
+          records: recs,
+        }));
     },
 
     groupByOperator(tab) {

@@ -57,6 +57,11 @@ class LaptopModule(TestModule):
         bat_cond = payload.get("battery", {}).get("battery_condition", "")
         if bat_cond == "DATA_UNAVAILABLE":
             warnings.append("Battery data unreadable — verify manually")
+        bat_status = payload.get("battery", {}).get("status", "")
+        bat_health = payload.get("battery", {}).get("health_percent", "")
+        if bat_status == "WARNING":
+            health_str = f" ({bat_health}%)" if bat_health and bat_health != "unknown" else ""
+            warnings.append(f"Battery low{health_str} — mark note in Cyclelution")
 
         if overall == "FAIL":
             failed = []
@@ -79,7 +84,7 @@ class LaptopModule(TestModule):
             if len(warned) > 3:
                 summary += f" (+{len(warned) - 3} more)"
         elif warnings:
-            summary = f"PASS with {len(warnings)} warning(s)"
+            summary = f"PASS — {len(warnings)} warning(s): {'; '.join(warnings[:2])}"
         else:
             summary = "All tests passed"
 
