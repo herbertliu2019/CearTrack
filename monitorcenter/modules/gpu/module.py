@@ -395,13 +395,14 @@ def api_stats():
 
     today = date.today()
     if period == "week":
-        weekday = (today.weekday() + 1) % 7
+        # Sunday → today (do not include future days)
+        weekday = (today.weekday() + 1) % 7   # 0=Sun, 6=Sat
         date_from = today - timedelta(days=weekday)
-        date_to = date_from + timedelta(days=6)
+        date_to = today
     elif period == "month":
+        # 1st of this month → today (do not include future days)
         date_from = today.replace(day=1)
-        last_day = calendar.monthrange(today.year, today.month)[1]
-        date_to = today.replace(day=last_day)
+        date_to = today
     elif period == "custom" and from_param and to_param:
         try:
             date_from = datetime.strptime(from_param, "%Y-%m-%d").date()
@@ -437,7 +438,7 @@ def api_stats():
     fail_reasons: dict[str, int] = {}
     from collections import defaultdict
     daily_map = defaultdict(lambda: {
-        "total": 0, "passed": 0, "warned": 0, "failed": 0,
+        "total": 0, "passed": 0, "warned": 0, "failed": 0, "info_only": 0,
         "dur_sum": 0, "dur_n": 0,
         "stations": defaultdict(lambda: {"total": 0, "passed": 0, "failed": 0, "warned": 0}),
         "gpus":     defaultdict(lambda: {"total": 0, "passed": 0, "failed": 0, "warned": 0}),
@@ -506,9 +507,10 @@ def api_stats():
         dm = daily_map[day]
         dm["total"] += 1
         res_day = r.get("overall_result", "")
-        if res_day == "PASS":   dm["passed"] += 1
-        elif res_day == "WARN": dm["warned"] += 1
-        elif res_day == "FAIL": dm["failed"] += 1
+        if res_day == "PASS":         dm["passed"]    += 1
+        elif res_day == "WARN":       dm["warned"]    += 1
+        elif res_day == "FAIL":       dm["failed"]    += 1
+        elif res_day == "INFO_ONLY":  dm["info_only"] += 1
 
         ti_day = p.get("test_info", {}) or {}
         dur = ti_day.get("total_duration_seconds") or 0
@@ -574,6 +576,7 @@ def api_stats():
             "passed":    v["passed"],
             "warned":    v["warned"],
             "failed":    v["failed"],
+            "info_only": v.get("info_only", 0),
             "pass_rate": round(v["passed"] / v["total"] * 100, 1) if v["total"] else 0.0,
             "avg_duration_seconds": round(v["dur_sum"] / v["dur_n"]) if v["dur_n"] else 0,
             "stations":  stations_rows,
@@ -762,13 +765,14 @@ def api_filter():
     if period == "today":
         date_from = date_to = today
     elif period == "week":
+        # Sunday → today
         weekday = (today.weekday() + 1) % 7
         date_from = today - timedelta(days=weekday)
-        date_to   = date_from + timedelta(days=6)
+        date_to   = today
     elif period == "month":
+        # 1st of this month → today
         date_from = today.replace(day=1)
-        last_day  = calendar.monthrange(today.year, today.month)[1]
-        date_to   = today.replace(day=last_day)
+        date_to   = today
     elif period == "custom":
         try:
             date_from = datetime.strptime(request.args.get("start", ""), "%Y-%m-%d").date()

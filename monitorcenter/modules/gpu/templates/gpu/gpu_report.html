@@ -183,13 +183,13 @@ body {
 .overall-pass  { color: #16a34a; border-color: #16a34a; }
 .overall-fail  { color: #dc2626; border-color: #dc2626; }
 .overall-warn  { color: #d97706; border-color: #d97706; }
-.overall-info  { color: #334155; border-color: #64748b; }
+.overall-info  { color: #334155; border-color: #8fbc8f; }
 .overall-footer { font-size: 8pt; color: #888; margin-top: 5px; }
 
 /* ── INFO_ONLY banner ── */
 .info-only-banner {
   background: #f1f5f9;
-  border-left: 4px solid #64748b;
+  border-left: 4px solid #8fbc8f;
   border: 1px solid #cbd5e1;
   border-left-width: 4px;
   border-radius: 4px;
@@ -205,7 +205,7 @@ body {
 }
 .info-only-banner table { width: 100%; border-collapse: collapse; }
 .info-only-banner td { padding: 4px 0; font-size: 9pt; vertical-align: top; }
-.info-only-banner td.lbl { color: #64748b; width: 130px; font-weight: 600; }
+.info-only-banner td.lbl { color: #6b8b6b; width: 130px; font-weight: 600; }
 .info-only-banner td.val { color: #334155; }
 </style>
 </head>
@@ -256,7 +256,7 @@ body {
   </div>
   <div class="header-center-cell">
     <div class="header-title">GPU TEST REPORT</div>
-    <div class="header-sub">CEAR INC</div>
+    <div class="header-sub">CEAR LLC</div>
     <div class="header-meta">
       SN: {{ sn }} &nbsp;|&nbsp; Date: {{ (test_time or '')[:10] }}
       {% if ti.get('test_station') %}&nbsp;|&nbsp; Station: {{ ti.get('test_station') }}{% endif %}

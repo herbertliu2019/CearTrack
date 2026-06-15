@@ -108,14 +108,14 @@
 .result-dot.pass { background: var(--pass); }
 .result-dot.fail { background: var(--fail); }
 .result-dot.warn { background: #d97706; }
-.result-dot.info-only { background: #64748b; }
-.kpi-value.info-only { color: #64748b; }
-.badge.info-only { background: rgba(100,116,139,0.18); color: #cbd5e1; border: 1px solid rgba(100,116,139,0.4); }
-tr.info-only-row { background: rgba(100,116,139,0.06); }
+.result-dot.info-only { background: #8fbc8f; }
+.kpi-value.info-only { color: #8fbc8f; }
+.badge.info-only { background: rgba(143,188,143,0.18); color: #cbd5e1; border: 1px solid rgba(143,188,143,0.4); }
+tr.info-only-row { background: rgba(143,188,143,0.06); }
 .info-only-banner-inline {
-  background: rgba(100,116,139,0.10);
-  border-left: 4px solid #64748b;
-  border: 1px solid rgba(100,116,139,0.3);
+  background: rgba(143,188,143,0.10);
+  border-left: 4px solid #8fbc8f;
+  border: 1px solid rgba(143,188,143,0.3);
   border-left-width: 4px;
   border-radius: 4px;
   padding: 12px 14px;
@@ -227,6 +227,7 @@ tr.info-only-row { background: rgba(100,116,139,0.06); }
 .legend-dot.pass { background: var(--pass); }
 .legend-dot.warn { background: #d97706; }
 .legend-dot.fail { background: var(--fail); }
+.legend-dot.info { background: #8fbc8f; }
 
 .daily-chart {
   display: flex; align-items: flex-end; gap: 4px;
@@ -244,6 +245,7 @@ tr.info-only-row { background: rgba(100,116,139,0.06); }
 .daily-seg.pass { background: var(--pass); }
 .daily-seg.warn { background: #d97706; }
 .daily-seg.fail { background: var(--fail); }
+.daily-seg.info { background: #8fbc8f; }
 .daily-col:hover .daily-seg { opacity: 0.85; }
 .daily-label {
   position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%);
@@ -409,7 +411,7 @@ tr.info-only-row { background: rgba(100,116,139,0.06); }
       <div class="kpi-delta">
         <span style="color:var(--fail);" x-text="kpi.failed + ' failed'"></span>
         <span x-show="kpi.warned > 0"    style="color:#d97706;margin-left:8px;" x-text="'· ' + kpi.warned + ' warned'"></span>
-        <span x-show="kpi.info_only > 0" style="color:#64748b;margin-left:8px;" x-text="'· ' + kpi.info_only + ' info'"></span>
+        <span x-show="kpi.info_only > 0" style="color:#8fbc8f;margin-left:8px;" x-text="'· ' + kpi.info_only + ' info'"></span>
       </div>
     </div>
 
@@ -494,7 +496,7 @@ tr.info-only-row { background: rgba(100,116,139,0.06); }
       <div class="kpi-top"><span class="kpi-label">Failed</span></div>
       <div class="kpi-value" :class="kpi.failed > 0 ? 'fail' : 'muted'" x-text="kpi.failed"></div>
       <div class="kpi-sub" x-show="kpi.warned > 0"    style="color:#d97706;" x-text="kpi.warned + ' warned'"></div>
-      <div class="kpi-sub" x-show="kpi.info_only > 0" style="color:#64748b;" x-text="kpi.info_only + ' info only'"></div>
+      <div class="kpi-sub" x-show="kpi.info_only > 0" style="color:#8fbc8f;" x-text="kpi.info_only + ' info only'"></div>
     </div>
     <div class="kpi-card" style="background:rgba(99,102,241,0.12);border-right:3px solid #6366f1;border-left:2px solid rgba(99,102,241,0.22);">
       <div class="kpi-top"><span class="kpi-label" style="color:#818cf8;">All Time</span></div>
@@ -588,6 +590,7 @@ tr.info-only-row { background: rgba(100,116,139,0.06); }
         <span><span class="legend-dot pass"></span>Pass</span>
         <span><span class="legend-dot warn"></span>Warn</span>
         <span><span class="legend-dot fail"></span>Fail</span>
+        <span><span class="legend-dot info"></span>Info Only</span>
       </div>
     </div>
     <div class="daily-chart">
@@ -596,15 +599,17 @@ tr.info-only-row { background: rgba(100,116,139,0.06); }
              @click="d.total > 0 && loadDayRecords(d.date)"
              :title="d.total > 0 ? 'View records on ' + d.date : ''">
           <div class="daily-total" x-show="d.total > 0" x-text="d.total"></div>
+          <div class="daily-seg info" :style="'height:' + dailyPct(d.info_only || 0) + '%'"></div>
           <div class="daily-seg fail" :style="'height:' + dailyPct(d.failed) + '%'"></div>
           <div class="daily-seg warn" :style="'height:' + dailyPct(d.warned) + '%'"></div>
           <div class="daily-seg pass" :style="'height:' + dailyPct(d.passed) + '%'"></div>
           <div class="daily-label" x-text="dailyLabel(d.date)"></div>
           <div class="daily-tooltip">
             <div style="font-weight:700;margin-bottom:3px;" x-text="d.date"></div>
-            <div><span class="legend-dot pass"></span>Pass <span x-text="d.passed"></span></div>
+            <div x-show="d.passed > 0"><span class="legend-dot pass"></span>Pass <span x-text="d.passed"></span></div>
             <div x-show="d.warned > 0"><span class="legend-dot warn"></span>Warn <span x-text="d.warned"></span></div>
             <div x-show="d.failed > 0"><span class="legend-dot fail"></span>Fail <span x-text="d.failed"></span></div>
+            <div x-show="(d.info_only || 0) > 0"><span class="legend-dot info"></span>Info Only <span x-text="d.info_only"></span></div>
           </div>
         </div>
       </template>
@@ -631,7 +636,7 @@ tr.info-only-row { background: rgba(100,116,139,0.06); }
           <span style="color:var(--pass);font-size:0.82em;font-weight:700;" x-text="st.passed + '✓'"></span>
           <span x-show="st.warned > 0" style="color:#d97706;font-size:0.82em;font-weight:700;" x-text="st.warned + '⚠'"></span>
           <span x-show="st.failed > 0" style="color:var(--fail);font-size:0.82em;font-weight:700;" x-text="st.failed + '✗'"></span>
-          <span x-show="st.info_only > 0" style="color:#64748b;font-size:0.82em;" x-text="st.info_only + ' info'"></span>
+          <span x-show="st.info_only > 0" style="color:#8fbc8f;font-size:0.82em;" x-text="st.info_only + ' info'"></span>
           <span style="font-size:0.82em;font-weight:700;min-width:46px;text-align:right;"
                 :class="passRateCellClass(st.pass_rate)" x-text="st.pass_rate + '%'"></span>
         </div>
@@ -772,7 +777,7 @@ tr.info-only-row { background: rgba(100,116,139,0.06); }
             <span style="color:var(--pass);font-size:0.82em;font-weight:700;" x-text="st.passed + '✓'"></span>
             <span x-show="st.warned > 0"    style="color:#d97706;font-size:0.82em;font-weight:700;" x-text="st.warned + '⚠'"></span>
             <span x-show="st.failed > 0"    style="color:var(--fail);font-size:0.82em;font-weight:700;" x-text="st.failed + '✗'"></span>
-            <span x-show="st.info_only > 0" style="color:#64748b;font-size:0.82em;" x-text="st.info_only + ' info'"></span>
+            <span x-show="st.info_only > 0" style="color:#8fbc8f;font-size:0.82em;" x-text="st.info_only + ' info'"></span>
             <span style="font-size:0.82em;font-weight:700;min-width:46px;text-align:right;"
                   :class="passRateCellClass(st.pass_rate)" x-text="st.pass_rate + '%'"></span>
           </div>
@@ -1185,26 +1190,39 @@ function gpuApp() {
       const map = {};
       daily.forEach(d => { map[d.date] = d; });
       const empty = (date) => ({
-        date, total: 0, passed: 0, warned: 0, failed: 0, pass_rate: 0,
+        date, total: 0, passed: 0, warned: 0, failed: 0, info_only: 0, pass_rate: 0,
         avg_duration_seconds: 0, stations: [], top_gpus: [], failures: []
       });
+      const fmtLocal = (dt) => {
+        const y = dt.getFullYear();
+        const m = String(dt.getMonth() + 1).padStart(2, '0');
+        const d = String(dt.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      };
       if (this.tab === 'week') {
+        // Sunday → today (only past + today; no future days)
+        const today = new Date(); today.setHours(0,0,0,0);
+        const offsetToSun = today.getDay();   // 0=Sun, 6=Sat
+        const start = new Date(today); start.setDate(start.getDate() - offsetToSun);
         const slots = [];
-        for (let i = 6; i >= 0; i--) {
-          const dt = new Date(); dt.setDate(dt.getDate() - i);
-          const s = dt.toISOString().slice(0, 10);
+        const cur = new Date(start);
+        while (cur <= today) {
+          const s = fmtLocal(cur);
           slots.push(map[s] || empty(s));
+          cur.setDate(cur.getDate() + 1);
         }
         return slots;
       }
       if (this.tab === 'month') {
-        const now = new Date();
-        const y = now.getFullYear(), m = now.getMonth();
-        const days = new Date(y, m + 1, 0).getDate();
+        // 1st of this month → today (no future days)
+        const today = new Date(); today.setHours(0,0,0,0);
+        const y = today.getFullYear(), m = today.getMonth();
         const slots = [];
-        for (let i = 1; i <= days; i++) {
-          const s = `${y}-${String(m+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+        const cur = new Date(y, m, 1);
+        while (cur <= today) {
+          const s = fmtLocal(cur);
           slots.push(map[s] || empty(s));
+          cur.setDate(cur.getDate() + 1);
         }
         return slots;
       }
