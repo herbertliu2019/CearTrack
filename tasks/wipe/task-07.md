@@ -1,20 +1,43 @@
-TASK-07｜init.py + app.py 集成
-文件：
+文件：/opt/monitorcenter/templates/wipe/dashboard.html
 
-/opt/monitorcenter/modules/wipe/__init__.py
-/opt/monitorcenter/app.py（末尾追加两行）
+先读取现有文件内容，在已有功能基础上追加：
 
-__init__.py 内容：
-  from .routes import wipe_bp
-  from .integration import register_wipe_module
-  __all__ = ["wipe_bp", "register_wipe_module"]
+1. Header 区域追加状态栏：
+   Last scan: {last_scan_at}  |  Next in: {X} min
+   [⟳ Scan Now]  [↺ Full Rebuild]
 
-app.py 追加（仅末尾两行）：
-  from modules.wipe.integration import register_wipe_module
-  register_wipe_module(app)
+2. 全量扫描进度 Banner（顶部固定）：
+   x-show="scanState.running === 1"
+   显示：INDEXING: {done} / {total} files...
 
-验收：
-flask run
-访问 http://localhost:5000/wipe/
-无报错，Today Tab 数据正常，
-日志出现 "Wipe poller started"
+3. Alpine.js app() 追加：
+
+   scanState: {
+     running:0, total:0, done:0,
+     poller_running:false,
+     last_scan_at:null, next_scan_at:null, interval:600
+   },
+   prevRunning: 0,
+
+   async loadScanStatus()
+     fetch /wipe/api/scan/status
+     更新 scanState
+     running 从 1→0 时自动刷新 loadToday()
+     每 30 秒自动轮询
+
+   async scanNow()
+     POST /wipe/api/scan/poll
+     3秒后 loadScanStatus()
+
+   nextScanIn()
+     计算 next_scan_at 距现在的分钟数
+     <= 0 → "< 1 min"
+
+   init() 末尾追加：
+     await this.loadScanStatus()
+     setInterval(() => this.loadScanStatus(), 30000)
+
+4. Search 结果展示多条记录：
+   第一条（is_latest=true）标注 "LATEST" badge
+   其余标注 "HISTORY" badge（灰色）
+   全部显示 win_path + COPY 按钮

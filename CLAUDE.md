@@ -172,6 +172,7 @@ SN 是跨模块主键。客户端不需要格式化 envelope，服务端负责�
 - 修改代码后运行 `python -m py_compile <file>` 验证语法
 - 不重写未改动的函数，用 targeted edit
 - Nginx `proxy_pass` 无 trailing slash，Flask 须用 `static_url_path='/laptop/static'`
+- 每次会话开始时读取 `tasks/shared_changes.md`，了解公共代码（core/、static/js/、templates/）的最新改动
 
 ---
 
@@ -180,6 +181,7 @@ SN 是跨模块主键。客户端不需要格式化 envelope，服务端负责�
 - `.claude/skills/laptop-test/SKILL.md` — laptop_test.sh 脚本规范
 - `.claude/skills/monitorcenter/SKILL.md` — monitorcenter 平台架构
 - `PROJECT_SUMMARY.md` — 完整技术文档（字段定义、已知问题、Nginx 配置）
+- `monitorcenter/docs/cpu_module.md` — CPU 模块详细文档（架构/DB/扫描/SharePoint/调试）
 
 ---
 

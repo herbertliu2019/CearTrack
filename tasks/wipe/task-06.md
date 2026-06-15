@@ -1,43 +1,33 @@
+文件：
+  /opt/monitorcenter/modules/wipe/routes.py
+  /opt/monitorcenter/modules/wipe/integration.py
 
-TASK-06｜dashboard.html
-文件：/opt/monitorcenter/templates/wipe/dashboard.html
+先读取两个文件的现有内容，然后：
 
-基于已有前端框架，完成数据绑定与扫描进度 UI。
+routes.py 修改点：
 
-数据绑定检查清单：
+1. 顶部追加 import：
+   from modules.wipe.scheduler import get_poll_state
 
-Today Tab：
-  ✓ /wipe/api/today → stats + records
-  ✓ 顶部卡片：total / passed / warning / failed / pass_rate
-  ✓ 记录卡片：drive_sn / sys_manufacturer / sys_model
-              result / grade / health_score / duration_min
-  ✓ 点击卡片 → 右侧详情面板
-  ✓ 详情面板显示 win_path
-  ✓ COPY WINDOWS PATH 按钮：navigator.clipboard.writeText(win_path)
+2. 更新 GET /api/scan/status：
+   合并 db_status 和 get_poll_state()
+   返回字段包含：
+     running/total/done/errors/scan_type（来自DB）
+     poller_running/last_scan_at/next_scan_at/interval（来自scheduler）
 
-Stats Tab：
-  ✓ /wipe/api/stats?period=week|month|custom
-  ✓ This Week 旁显示日期范围（MM.DD - MM.DD）
-  ✓ Custom Range 显示两个 date input
-  ✓ 二级统计卡片：total / passed / warning / failed / pass_rate
-  ✓ By Manufacturer 面板：by_manufacturer 数组
-  ✓ Common Fail Reasons 面板：fail_reasons 数组
+3. 新增 POST /api/scan/poll：
+   检查 running==1 → {"status":"already_running"}
+   否则后台线程执行 WipeScanner.run_poll()
+   返回 {"status":"started","type":"poll"}
 
-Search Tab：
-  ✓ /wipe/api/search?q=输入值
-  ✓ 支持 drive_sn 和 system_sn（service tag）搜索
-  ✓ 结果卡片完整字段 + win_path
-  ✓ COPY WINDOWS PATH 按钮
+4. GET /api/search 确认实现：
+   query_by_sn(conn, q) 返回全部历史记录
+   结果中第一条（最新）标注 "is_latest": True
+   其余标注 "is_latest": False
 
-扫描进度 Banner（全量扫描专用）：
-  - 页面顶部固定 banner，默认隐藏
-  - POST /wipe/api/scan 后显示
-  - 每 2 秒轮询 /wipe/api/scan/status
-  - 显示：INDEXING: {done} / {total} files...
-  - running=0 时隐藏 banner，自动刷新 Today 数据
+integration.py 修改点：
 
-样式规范（不变）：
-  cyan=#00bcd4  green=#4caf50
-  yellow=#ff9800  red=#f44336
-  Tab active = border-box
-  背景 #0d1520 / #141f2e / #1a2840
+在 register_wipe_module(app) 末尾追加：
+  from modules.wipe.scheduler import start_poll_scheduler
+  if not app.testing:
+      start_poll_scheduler(app.config["WIPE_CFG"])

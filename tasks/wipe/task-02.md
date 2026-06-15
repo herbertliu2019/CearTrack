@@ -1,51 +1,30 @@
-TASK-02｜db.py
+文件：/opt/monitorcenter/modules/wipe/parser_makor.py
 
-文件：/opt/monitorcenter/modules/wipe/db.py
-实现数据库初始化与查询封装。
+实现：
+def parse_makor_xml(xml_path: Path) -> dict | None
+  - 使用 xml.etree.ElementTree 解析
+  - 提取 skill.md 中 EDE xml 字段提取表的所有字段
+  - 必须存在 ErasureResults 节点才有效，否则返回 None
+  - result：PASS → PASSED，FAIL → FAILED，统一大写
+  - wipe_date：MM/DD/YYYY → YYYY-MM-DD
+  - wipe_datetime：wipe_date + T + ErasureTime → ISO 8601
+  - duration_min：
+      ErasureDuration 格式为 "MM:SS"
+      转换：int(MM) + int(SS)/60 → float
+      "00:00" → 0.0
+  - ssd_life：XML 无此字段 → None
+  - 任何字段提取失败值为 None，不抛异常
+  - 不处理 log_path / win_path / source 字段
 
-函数清单：
-
-init_db(db_path: str) -> None
-  建三张表（见 skill.md Schema），幂等
-
-get_conn(db_path: str) -> sqlite3.Connection
-  row_factory = sqlite3.Row
-  PRAGMA journal_mode=WAL
-  PRAGMA synchronous=NORMAL
-
-insert_record(conn, record: dict) -> bool
-  INSERT OR IGNORE INTO wipe_records
-  返回 True=实际插入，False=已存在跳过
-
-query_today(conn) -> list[dict]
-  WHERE wipe_date = date('now', 'localtime')
-
-query_period(conn, start: str, end: str) -> list[dict]
-  WHERE wipe_date BETWEEN start AND end
-
-query_by_sn(conn, q: str) -> list[dict]
-  WHERE UPPER(drive_sn)=UPPER(?) OR UPPER(system_sn)=UPPER(?)
-  ORDER BY wipe_datetime DESC
-
-stats_summary(records: list[dict]) -> dict
-  返回 total/passed/failed/warning/pass_rate/avg_duration
-  warning：result=PASSED AND (health_score<70 OR ssd_life<50)
-
-by_manufacturer(records: list[dict]) -> list[dict]
-  按 sys_manufacturer 分组计数，降序
-  返回 [{"name": "Dell", "count": 12}, ...]
-
-fail_reasons(records: list[dict]) -> list[dict]
-  筛选 result=FAILED，按 method 分组计数，降序
-  返回 [{"reason": "...", "count": N}, ...]
-
-get_scan_status(conn) -> dict
-  SELECT FROM scan_status WHERE id=1
-  不存在时返回：
-  {"running": 0, "total": 0, "done": 0,
-   "errors": 0, "scan_type": None,
-   "started_at": None, "updated_at": None}
-
-upsert_scan_status(conn, **kwargs) -> None
-  INSERT OR REPLACE，id 固定为 1
-  自动写入 updated_at = datetime.now().isoformat()
+验收：
+  python3 -c "
+  from pathlib import Path
+  from modules.wipe.parser_makor import parse_makor_xml
+  import json
+  r = parse_makor_xml(Path('test_logs/sample_makor.xml'))
+  assert r is not None
+  assert r['result'] in ('PASSED', 'FAILED')
+  assert r['wipe_date'] is not None
+  print(json.dumps(r, indent=2))
+  print('parser_makor.py OK')
+  "
