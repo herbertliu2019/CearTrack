@@ -1,7 +1,10 @@
 import argparse
 import json
+import logging
 from datetime import datetime
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from modules.wipe.parser import parse_log
 from modules.wipe.parser_makor import parse_makor_xml
@@ -17,14 +20,18 @@ MONTH_DIRS = {
     10: "10 October", 11: "11 November", 12: "12 December",
 }
 
-# Month names without numeric prefix (as found in actual log dirs)
+# Month names without numeric prefix (as found in actual log dirs).
+# Includes both full names ("June") and 3-letter abbreviations ("Jun")
+# because real CIFS dirs use either style.
 _MONTH_NAMES = {
     "january", "february", "march", "april", "may", "june",
     "july", "august", "september", "october", "november", "december",
+    "jan", "feb", "mar", "apr", "jun",
+    "jul", "aug", "sep", "sept", "oct", "nov", "dec",
 }
 
 def _is_month_dir(name: str) -> bool:
-    """Accept 'January', '01 January', '05 May', 'may', etc."""
+    """Accept 'January', '01 January', '05 May', 'may', 'Jun', etc."""
     return name.lower().split()[-1] in _MONTH_NAMES
 
 
@@ -90,32 +97,54 @@ class WipeScanner:
         Handles structures like:
           root/2026/May/          → direct year dir
           root/Makor/2026/May/    → one-level sub-source (Makor, Verify, logs_previous…)
+
+        Returns [] for a root that is unreachable (e.g. stale CIFS mount), so a
+        single dead share never aborts the whole scan.
         """
         year_dirs: list[Path] = []
-        if not root.exists():
+        try:
+            if not root.exists():
+                logger.warning(f"[WipeScanner] root does not exist, skipping: {root}")
+                return year_dirs
+            items = list(root.iterdir())
+        except OSError as e:
+            logger.error(f"[WipeScanner] cannot read root {root}: {e}")
             return year_dirs
-        for item in root.iterdir():
-            if not item.is_dir():
+        for item in items:
+            try:
+                if not item.is_dir():
+                    continue
+                if item.name.isdigit() and len(item.name) == 4:
+                    year_dirs.append(item)          # direct: root/YYYY/
+                else:
+                    # sub-source dir: root/Makor/, root/Verify/, root/logs_previous/ …
+                    for sub in item.iterdir():
+                        if sub.is_dir() and sub.name.isdigit() and len(sub.name) == 4:
+                            year_dirs.append(sub)   # root/Makor/YYYY/
+            except OSError as e:
+                logger.warning(f"[WipeScanner] skip subtree {item}: {e}")
                 continue
-            if item.name.isdigit() and len(item.name) == 4:
-                year_dirs.append(item)          # direct: root/YYYY/
-            else:
-                # sub-source dir: root/Makor/, root/Verify/, root/logs_previous/ …
-                for sub in item.iterdir():
-                    if sub.is_dir() and sub.name.isdigit() and len(sub.name) == 4:
-                        year_dirs.append(sub)   # root/Makor/YYYY/
         return year_dirs
 
     def _collect_from_root(self, root: Path) -> list[Path]:
         files = []
         for year_dir in sorted(self._find_year_dirs(root)):
-            for month_dir in sorted(year_dir.iterdir()):
+            try:
+                month_iter = sorted(year_dir.iterdir())
+            except OSError as e:
+                logger.warning(f"[WipeScanner] cannot list {year_dir}: {e}")
+                continue
+            for month_dir in month_iter:
                 if not month_dir.is_dir() or not _is_month_dir(month_dir.name):
                     continue
-                # rglob("*") catches .log and .xml; should_skip filters unwanted files
-                for f in sorted(month_dir.rglob("*")):
-                    if f.is_file() and not self.should_skip(f):
-                        files.append(f)
+                try:
+                    # rglob("*") catches .log and .xml; should_skip filters unwanted files
+                    for f in sorted(month_dir.rglob("*")):
+                        if f.is_file() and not self.should_skip(f):
+                            files.append(f)
+                except OSError as e:
+                    logger.warning(f"[WipeScanner] cannot walk {month_dir}: {e}")
+                    continue
         return files
 
     def collect_all(self) -> list[Path]:
@@ -134,15 +163,19 @@ class WipeScanner:
     def collect_current_month(self) -> list[Path]:
         now = datetime.now()
         cur_year = str(now.year)
-        cur_month = now.strftime("%B")   # e.g. "May" — matches bare month dir names
+        # Match both full ("June") and abbreviated ("Jun") dir names
+        cur_full  = now.strftime("%B").lower()   # "june"
+        cur_abbr  = now.strftime("%b").lower()   # "jun"
         files = []
         for r in self.log_roots:
             for year_dir in self._find_year_dirs(r["path"]):
                 if year_dir.name != cur_year:
                     continue
                 for month_dir in year_dir.iterdir():
-                    if month_dir.is_dir() and _is_month_dir(month_dir.name) \
-                            and month_dir.name.lower().endswith(cur_month.lower()):
+                    if not (month_dir.is_dir() and _is_month_dir(month_dir.name)):
+                        continue
+                    last = month_dir.name.lower().split()[-1]
+                    if last == cur_full or last == cur_abbr:
                         files.extend(sorted(month_dir.rglob("*.log")))
         return files
 
