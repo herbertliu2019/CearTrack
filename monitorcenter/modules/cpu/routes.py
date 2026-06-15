@@ -87,10 +87,15 @@ def api_stats():
 @cpu_bp.get("/api/day/<date_str>")
 def api_day(date_str):
     records = db.query_period(_db_path(), date_str, date_str)
+    sanitized = _sanitize(records)
+    pass_c = sum(1 for r in records if r.get("overall_result") == "Pass")
+    fail_c = sum(1 for r in records if r.get("overall_result") == "Fail")
     return jsonify({
         "date":    date_str,
-        "records": _sanitize(records),
-        "count":   len(records),
+        "records": sanitized,
+        "total":   len(records),
+        "passed":  pass_c,
+        "failed":  fail_c,
     })
 
 

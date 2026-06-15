@@ -166,24 +166,42 @@ class CpuScanner:
 
         if not minimal:
             logger.debug("[CpuScanner] incremental: no changes detected")
+            set_scan_status(self.db_path, status="done",
+                            finished_at=datetime.now().isoformat(),
+                            total=0, done=0, inserted=0, skipped=0, errors=0)
             return {"total": 0, "inserted": 0, "skipped": 0, "errors": 0}
 
         logger.info(f"[CpuScanner] incremental: {len(minimal)} changed subtree(s): "
                     + ", ".join(os.path.basename(p) for p in minimal[:5]))
 
-        total = inserted = updated = skipped = errors = 0
+        # Collect all files first so we can report total
+        all_files = []
         for subtree in minimal:
-            for log_path in self.collect_log_paths(subtree):
-                total += 1
-                outcome = self.process_file(log_path)
-                if outcome == "inserted":
-                    inserted += 1
-                elif outcome == "updated":
-                    updated += 1
-                elif outcome == "skipped":
-                    skipped += 1
-                else:
-                    errors += 1
+            all_files.extend(self.collect_log_paths(subtree))
+
+        set_scan_status(self.db_path, status="running",
+                        started_at=datetime.now().isoformat(),
+                        finished_at=None,
+                        total=len(all_files), done=0,
+                        inserted=0, skipped=0, errors=0)
+
+        total = inserted = updated = skipped = errors = 0
+        for log_path in all_files:
+            total += 1
+            outcome = self.process_file(log_path)
+            if outcome == "inserted":
+                inserted += 1
+            elif outcome == "updated":
+                updated += 1
+            elif outcome == "skipped":
+                skipped += 1
+            else:
+                errors += 1
+
+        set_scan_status(self.db_path, status="done",
+                        finished_at=datetime.now().isoformat(),
+                        total=total, done=total,
+                        inserted=inserted + updated, skipped=skipped, errors=errors)
 
         self._save_state(current)
         logger.info(f"[CpuScanner] incremental done: "
