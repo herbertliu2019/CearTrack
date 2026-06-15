@@ -1,0 +1,864 @@
+{% extends "base.html" %}
+{% block title %}Laptop — CEARTrack{% endblock %}
+{% block content %}
+<script src="{{ url_for('static', filename='js/renderer.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<style>
+/* ── Daily volume chart ──────────────────────────────────── */
+.daily-panel { background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:14px; }
+.daily-head  { display:flex;justify-content:space-between;align-items:center;margin-bottom:10px; }
+.daily-legend{ display:flex;gap:14px;font-size:0.78em;color:var(--text-secondary); }
+.legend-dot  { display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle; }
+.legend-dot.pass { background:var(--pass); }
+.legend-dot.warn { background:#d97706; }
+.legend-dot.fail { background:var(--fail); }
+.daily-chart { display:flex;align-items:flex-end;gap:4px;height:140px;padding:18px 0 26px;border-bottom:1px solid rgba(255,255,255,0.08);position:relative; }
+.daily-col   { flex:1;height:100%;display:flex;flex-direction:column-reverse;min-width:14px;position:relative;cursor:default; }
+.daily-col:hover .daily-tooltip { display:block; }
+.daily-seg   { width:100%;transition:opacity 0.15s; }
+.daily-seg.pass { background:var(--pass); }
+.daily-seg.warn { background:#d97706; }
+.daily-seg.fail { background:var(--fail); }
+.daily-col:hover .daily-seg { opacity:0.85; }
+.daily-label { position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--text-secondary);white-space:nowrap; }
+.daily-total { position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--text-secondary);white-space:nowrap; }
+.daily-tooltip { display:none;position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--bg-primary,#1a1a1a);border:1px solid var(--border);border-radius:5px;padding:6px 10px;font-size:0.75em;white-space:nowrap;z-index:5;pointer-events:none;margin-bottom:4px; }
+</style>
+
+<div x-data="laptopApp('{{ module_name }}')" x-init="init()">
+
+  <!-- ── Module Identity Header ───────────────────────────────────── -->
+  <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;
+              padding-bottom:16px;border-bottom:1px solid var(--border);">
+    <span style="font-size:2em;line-height:1;">💻</span>
+    <div>
+      <div style="font-size:1.15em;font-weight:700;color:var(--accent);
+                  letter-spacing:0.08em;text-transform:uppercase;">Laptop</div>
+      <div style="font-size:0.8em;color:var(--text-secondary);margin-top:2px;">
+        Hardware Test Dashboard
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Top Bar: Search ──────────────────────────────────────────── -->
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;">
+    <div class="search-box" style="width:60%;flex-shrink:0;margin-bottom:0;">
+      <input type="text" x-model="searchQ" @keydown.enter="runSearch()"
+             placeholder="Search by SN / Service Tag...">
+      <button @click="runSearch()">Search</button>
+      <button x-show="searched" @click="clearSearch()"
+              style="background:transparent;color:var(--text-secondary);
+                     border:1px solid var(--border);padding:6px 12px;
+                     border-radius:4px;cursor:pointer;font-size:0.85em;">
+        ✕ Clear
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Search Results ────────────────────────────────────────────── -->
+  <div x-show="searched" style="margin-bottom:24px;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+      <span style="font-size:0.85em;font-weight:700;text-transform:uppercase;
+                   letter-spacing:0.08em;color:var(--accent);">Search Results</span>
+      <span style="color:var(--text-secondary);font-size:0.85em;"
+            x-text="searchResults.length
+              ? searchResults.length + ' record(s) found for \'' + searchQ + '\''
+              : 'No records found for \'' + searchQ + '\''"></span>
+    </div>
+    <template x-for="r in searchResults" :key="r.sn + r.timestamp">
+      <div class="detail-panel" style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;
+                    margin-bottom:12px;cursor:pointer;"
+             @click="toggleDetail('s_' + r.sn + r.timestamp)">
+          <div>
+            <div style="font-family:monospace;font-weight:700;font-size:1.05em;"
+                 x-text="r.sn"></div>
+            <div style="color:var(--text-secondary);font-size:0.85em;margin-top:2px;"
+                 x-text="(r.payload?.system?.vendor ?? '') + ' ' + (r.payload?.system?.model ?? '') + '  •  ' + (r.timestamp ?? '').slice(0,10)">
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="badge" :class="resultClass(r.overall_result)"
+                  x-text="r.overall_result"></span>
+            <span style="color:var(--text-secondary);font-size:0.8em;"
+                  x-text="detailOpen === 's_' + r.sn + r.timestamp ? '▲' : '▼'"></span>
+          </div>
+        </div>
+        <template x-if="detailOpen === 's_' + r.sn + r.timestamp">
+          <div x-html="renderDetails(r)"></div>
+        </template>
+      </div>
+    </template>
+  </div>
+
+  <!-- ── Tabs ─────────────────────────────────────────────────────── -->
+  <div class="tabs">
+    <button class="tab-btn" :class="{active: activeTab==='today'}"
+            @click="activeTab='today'"><strong>Today</strong></button>
+    <button class="tab-btn" :class="{active: activeTab==='week'}"
+            @click="activeTab='week'"><strong>This Week</strong></button>
+    <button class="tab-btn" :class="{active: activeTab==='month'}"
+            @click="activeTab='month'"><strong>This Month</strong></button>
+    <button class="tab-btn" :class="{active: activeTab==='custom'}"
+            @click="activeTab='custom'"><strong>Custom Range</strong></button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       TAB: TODAY
+  ══════════════════════════════════════════════════════════════ -->
+  <div x-show="activeTab==='today'">
+    <!-- KPI strip -->
+    <div class="stats-strip" style="grid-template-columns:repeat(5,1fr) 1px 1.1fr;margin-bottom:24px;">
+      <div class="stat-card">
+        <div class="stat-label">Today</div>
+        <div class="stat-value" x-text="today.stats.total ?? 0"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Passed</div>
+        <div class="stat-value" style="color:var(--pass);" x-text="today.stats.passed ?? 0"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Warn</div>
+        <div class="stat-value" style="color:var(--warn);" x-text="today.stats.warned ?? 0"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Failed</div>
+        <div class="stat-value" style="color:var(--fail);" x-text="today.stats.failed ?? 0"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Pass Rate</div>
+        <div class="stat-value" x-text="(today.stats.pass_rate ?? 0) + '%'"></div>
+      </div>
+      <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
+      <div class="stat-card" style="background:rgba(99,102,241,0.12);border-right:3px solid #6366f1;border-left:2px solid rgba(99,102,241,0.22);">
+        <div class="stat-label" style="color:#818cf8;">All Time</div>
+        <div class="stat-value" style="color:#818cf8;" x-text="allTotal"></div>
+      </div>
+    </div>
+
+    <!-- Today's records as cards -->
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <template x-for="r in today.records" :key="r.sn + r.timestamp">
+        <div :class="'result-card ' + resultClass(r.overall_result)" style="margin:0;">
+          <div class="card-summary" @click="toggleDetail(r.sn + r.timestamp)"
+               style="cursor:pointer;">
+            <div class="card-header">
+              <div>
+                <div class="card-sn" x-text="r.sn"></div>
+                <div class="card-model"
+                     x-text="(r.payload?.system?.vendor ?? '') + ' ' + (r.payload?.system?.model ?? '')">
+                </div>
+              </div>
+              <span class="badge" :class="resultClass(r.overall_result)"
+                    x-text="r.overall_result"></span>
+            </div>
+            <div class="card-body">
+              <div class="card-spec" x-text="(r.payload?.cpu?.model ?? '')"></div>
+              <div class="card-spec"
+                   x-text="(r.payload?.memory?.total_gb ?? '') + ' GB ' + (r.payload?.memory?.type ?? '') + '  •  Battery ' + (r.payload?.battery?.health_percent ?? '?') + '%'">
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;padding:6px 16px;
+                        border-top:1px solid var(--border);flex-wrap:wrap;">
+              <template x-for="item in [
+                {label:'Screen', val: r.payload?.screen?.dead_pixel_check},
+                {label:'Cam',    val: r.payload?.camera?.device_status},
+                {label:'Audio',  val: r.payload?.audio?.speaker_quality_check},
+                {label:'KB',     val: r.payload?.keyboard?.keys_check},
+                {label:'Net',    val: r.payload?.network?.internet_test},
+                {label:'Batt',   val: r.payload?.battery?.status}
+              ]" :key="item.label">
+                <span class="status-dot" :class="resultClass(item.val)">
+                  <span x-text="item.label"></span>
+                </span>
+              </template>
+            </div>
+            <div class="card-footer"
+                 x-text="(r.timestamp ?? '').replace('T',' ').slice(0,16)"></div>
+          </div>
+          <template x-if="detailOpen === r.sn + r.timestamp">
+            <div class="detail-panel"
+                 style="margin:0;border-radius:0;border-top:1px solid var(--border);">
+              <div x-html="renderDetails(r)"></div>
+            </div>
+          </template>
+        </div>
+      </template>
+      <div x-show="(today.records ?? []).length === 0"
+           style="color:var(--text-secondary);text-align:center;padding:48px;
+                  background:var(--bg-card);border-radius:8px;border:1px solid var(--border);">
+        No laptops tested today.
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       TAB: THIS WEEK
+  ══════════════════════════════════════════════════════════════ -->
+  <div x-show="activeTab==='week'">
+    <div class="stats-strip" style="grid-template-columns:repeat(5,1fr) 1px 1.1fr;margin-bottom:24px;">
+      <div class="stat-card">
+        <div class="stat-label">This Week</div>
+        <div class="stat-value" x-text="week.stats?.total ?? 0"></div>
+        <div style="font-size:0.75em;color:var(--text-secondary);margin-top:4px;"
+             x-text="fmtRange(week.start, week.end)"></div>
+      </div>
+      <div class="stat-card"><div class="stat-label">Passed</div>
+        <div class="stat-value" style="color:var(--pass);" x-text="week.stats?.passed ?? 0"></div></div>
+      <div class="stat-card"><div class="stat-label">Warn</div>
+        <div class="stat-value" style="color:var(--warn);" x-text="week.stats?.warned ?? 0"></div></div>
+      <div class="stat-card"><div class="stat-label">Failed</div>
+        <div class="stat-value" style="color:var(--fail);" x-text="week.stats?.failed ?? 0"></div></div>
+      <div class="stat-card"><div class="stat-label">Pass Rate</div>
+        <div class="stat-value" x-text="(week.stats?.pass_rate ?? 0) + '%'"></div></div>
+      <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
+      <div class="stat-card" style="background:rgba(99,102,241,0.12);border-right:3px solid #6366f1;border-left:2px solid rgba(99,102,241,0.22);">
+        <div class="stat-label" style="color:#818cf8;">All Time</div>
+        <div class="stat-value" style="color:#818cf8;" x-text="allTotal"></div>
+      </div>
+    </div>
+
+    <!-- By Brand + Fail Reasons -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+      <div class="detail-panel" style="padding:16px 20px;">
+        <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                    letter-spacing:0.06em;color:var(--accent);margin-bottom:14px;">By Brand</div>
+        <template x-if="!(week.by_brand ?? []).length">
+          <div style="color:var(--text-secondary);font-size:0.88em;">No data</div>
+        </template>
+        <template x-for="item in (week.by_brand ?? [])" :key="item.name">
+          <div style="margin-bottom:4px;">
+            <!-- Brand row — clickable -->
+            <div style="display:flex;justify-content:space-between;align-items:center;
+                        margin-bottom:5px;cursor:pointer;padding:4px 6px;border-radius:4px;
+                        transition:background 0.15s;"
+                 @click="toggleSection('week_brand_' + item.name)"
+                 @mouseenter="$el.style.background='rgba(255,255,255,0.04)'"
+                 @mouseleave="$el.style.background='transparent'">
+              <span style="font-size:0.9em;" x-text="item.name"></span>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-weight:700;color:var(--accent);" x-text="item.count"></span>
+                <span style="color:var(--text-secondary);font-size:0.75em;"
+                      x-text="isOpen('week_brand_' + item.name) ? '▲' : '▼'"></span>
+              </div>
+            </div>
+            <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;margin-bottom:6px;">
+              <div style="height:100%;background:var(--accent);border-radius:2px;transition:width 0.5s;"
+                   :style="'width:' + Math.round(item.count/(week.stats?.total||1)*100) + '%'"></div>
+            </div>
+            <!-- Expanded records for this brand -->
+            <template x-if="isOpen('week_brand_' + item.name)">
+              <div style="margin-bottom:10px;padding:8px 0 4px;
+                          border-top:1px solid rgba(255,255,255,0.06);">
+                <template x-for="rec in recordsForBrand('week', item.name)" :key="rec.sn + rec.timestamp">
+                  <div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;
+                                padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);
+                                cursor:pointer;"
+                         @click="toggleDetail('wb_' + rec.sn + rec.timestamp)">
+                      <div>
+                        <span style="font-family:monospace;font-size:0.88em;font-weight:600;"
+                              x-text="rec.sn"></span>
+                        <span style="color:var(--text-secondary);font-size:0.78em;margin-left:7px;"
+                              x-text="rec.vendor + ' ' + rec.model"></span>
+                      </div>
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <span class="badge" :class="resultClass(rec.overall_result)"
+                              x-text="rec.overall_result"></span>
+                        <span style="color:var(--text-secondary);font-size:0.72em;"
+                              x-text="detailOpen === 'wb_' + rec.sn + rec.timestamp ? '▲' : '▼'"></span>
+                      </div>
+                    </div>
+                    <template x-if="detailOpen === 'wb_' + rec.sn + rec.timestamp">
+                      <div style="padding:8px 0;" x-html="renderDetails(rec)"></div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+      <div class="detail-panel" style="padding:16px 20px;">
+        <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                    letter-spacing:0.06em;color:#e07b3a;margin-bottom:14px;">Fail Reasons</div>
+        <template x-if="!(week.fail_reasons ?? []).length">
+          <div style="color:var(--pass);font-size:0.88em;">No failures this week 🎉</div>
+        </template>
+        <template x-for="item in (week.fail_reasons ?? [])" :key="item.reason">
+          <div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+              <span style="font-size:0.9em;" x-text="item.reason"></span>
+              <span style="font-weight:700;color:#e07b3a;" x-text="item.count"></span>
+            </div>
+            <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+              <div style="height:100%;background:#e07b3a;border-radius:2px;transition:width 0.5s;"
+                   :style="'width:' + Math.round(item.count/(week.stats?.failed||1)*100) + '%'"></div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Daily Volume chart -->
+    <div class="daily-panel">
+      <div class="daily-head">
+        <div style="font-size:0.7em;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-secondary);">Daily Volume</div>
+        <div class="daily-legend">
+          <span><span class="legend-dot pass"></span>Pass</span>
+          <span><span class="legend-dot warn"></span>Warn</span>
+          <span><span class="legend-dot fail"></span>Fail</span>
+        </div>
+      </div>
+      <div class="daily-chart">
+        <template x-for="d in paddedDailyData('week')" :key="d.date">
+          <div class="daily-col"
+               :style="d.total > 0 ? 'cursor:pointer;' : ''"
+               @click="d.total > 0 && jumpToDay(d.date, 'week')"
+               :title="d.total > 0 ? 'View ' + d.total + ' records for ' + d.date : ''">
+            <div class="daily-total" x-show="d.total > 0" x-text="d.total"></div>
+            <div class="daily-seg fail" :style="'height:' + dailyPct(d.failed, 'week') + '%'"></div>
+            <div class="daily-seg warn" :style="'height:' + dailyPct(d.warned ?? 0, 'week') + '%'"></div>
+            <div class="daily-seg pass" :style="'height:' + dailyPct(d.passed, 'week') + '%'"></div>
+            <div class="daily-label" x-text="dailyLabel(d.date)"></div>
+            <div class="daily-tooltip">
+              <div style="font-weight:700;margin-bottom:3px;" x-text="d.date"></div>
+              <div><span class="legend-dot pass"></span>Pass <span x-text="d.passed"></span></div>
+              <div x-show="(d.warned ?? 0) > 0"><span class="legend-dot warn"></span>Warn <span x-text="d.warned"></span></div>
+              <div x-show="d.failed > 0"><span class="legend-dot fail"></span>Fail <span x-text="d.failed"></span></div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Daily Breakdown -->
+    <div class="detail-panel" style="padding:16px 20px;">
+      <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                  letter-spacing:0.06em;color:var(--text-secondary);margin-bottom:12px;">
+        Daily Breakdown
+      </div>
+      <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;gap:8px;
+                  padding-bottom:8px;border-bottom:1px solid var(--border);
+                  color:var(--text-secondary);font-size:0.75em;text-transform:uppercase;font-weight:600;">
+        <span>Date</span><span>Total</span>
+        <span style="color:var(--pass);">Passed</span>
+        <span style="color:var(--warn);">Warn</span>
+        <span style="color:var(--fail);">Failed</span><span></span><span></span>
+      </div>
+      <template x-for="d in (week.daily ?? [])" :key="d.date">
+        <div :id="'db-row-week-' + d.date">
+          <!-- Day row — clickable -->
+          <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;
+                      gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);
+                      align-items:center;font-size:0.88em;cursor:pointer;"
+               @click="toggleSection('week_day_' + d.date)"
+               @mouseenter="$el.style.background='rgba(255,255,255,0.03)'"
+               @mouseleave="$el.style.background='transparent'">
+            <span style="color:var(--text-secondary);" x-text="d.date"></span>
+            <span style="font-weight:600;" x-text="d.total"></span>
+            <span style="color:var(--pass);font-weight:600;" x-text="d.passed"></span>
+            <span style="color:var(--warn);font-weight:600;" x-text="d.warned ?? 0"></span>
+            <span style="color:var(--fail);font-weight:600;" x-text="d.failed"></span>
+            <div style="height:5px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;">
+              <div style="height:100%;background:var(--pass);border-radius:3px;"
+                   :style="'width:' + Math.round(d.passed/(d.total||1)*100) + '%'"></div>
+            </div>
+            <span style="color:var(--text-secondary);font-size:0.8em;text-align:right;"
+                  x-text="isOpen('week_day_' + d.date) ? '▲' : '▼'"></span>
+          </div>
+          <!-- Expanded records for this day -->
+          <template x-if="isOpen('week_day_' + d.date)">
+            <div style="padding:8px 0 4px 8px;border-bottom:1px solid rgba(255,255,255,0.06);">
+              <template x-for="rec in recordsForDay('week', d.date)" :key="rec.sn + rec.timestamp">
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;
+                              padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);
+                              cursor:pointer;"
+                       @click="toggleDetail('wd_' + rec.sn + rec.timestamp)">
+                    <div>
+                      <span style="font-family:monospace;font-size:0.88em;font-weight:600;"
+                            x-text="rec.sn"></span>
+                      <span style="color:var(--text-secondary);font-size:0.78em;margin-left:7px;"
+                            x-text="rec.vendor + ' ' + rec.model"></span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <span class="badge" :class="resultClass(rec.overall_result)"
+                            x-text="rec.overall_result"></span>
+                      <span style="color:var(--text-secondary);font-size:0.72em;"
+                            x-text="detailOpen === 'wd_' + rec.sn + rec.timestamp ? '▲' : '▼'"></span>
+                    </div>
+                  </div>
+                  <template x-if="detailOpen === 'wd_' + rec.sn + rec.timestamp">
+                    <div style="padding:8px 0;" x-html="renderDetails(rec)"></div>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </template>
+      <div x-show="!(week.daily ?? []).length"
+           style="color:var(--text-secondary);font-size:0.85em;padding:12px 0;">
+        No data this week.
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       TAB: THIS MONTH
+  ══════════════════════════════════════════════════════════════ -->
+  <div x-show="activeTab==='month'">
+    <div class="stats-strip" style="grid-template-columns:repeat(5,1fr) 1px 1.1fr;margin-bottom:24px;">
+      <div class="stat-card">
+        <div class="stat-label">This Month</div>
+        <div class="stat-value" x-text="month.stats?.total ?? 0"></div>
+        <div style="font-size:0.75em;color:var(--text-secondary);margin-top:4px;"
+             x-text="fmtRange(month.start, month.end)"></div>
+      </div>
+      <div class="stat-card"><div class="stat-label">Passed</div>
+        <div class="stat-value" style="color:var(--pass);" x-text="month.stats?.passed ?? 0"></div></div>
+      <div class="stat-card"><div class="stat-label">Warn</div>
+        <div class="stat-value" style="color:var(--warn);" x-text="month.stats?.warned ?? 0"></div></div>
+      <div class="stat-card"><div class="stat-label">Failed</div>
+        <div class="stat-value" style="color:var(--fail);" x-text="month.stats?.failed ?? 0"></div></div>
+      <div class="stat-card"><div class="stat-label">Pass Rate</div>
+        <div class="stat-value" x-text="(month.stats?.pass_rate ?? 0) + '%'"></div></div>
+      <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
+      <div class="stat-card" style="background:rgba(99,102,241,0.12);border-right:3px solid #6366f1;border-left:2px solid rgba(99,102,241,0.22);">
+        <div class="stat-label" style="color:#818cf8;">All Time</div>
+        <div class="stat-value" style="color:#818cf8;" x-text="allTotal"></div>
+      </div>
+    </div>
+
+    <!-- By Brand + Fail Reasons -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+      <div class="detail-panel" style="padding:16px 20px;">
+        <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                    letter-spacing:0.06em;color:var(--accent);margin-bottom:14px;">By Brand</div>
+        <template x-if="!(month.by_brand ?? []).length">
+          <div style="color:var(--text-secondary);font-size:0.88em;">No data</div>
+        </template>
+        <template x-for="item in (month.by_brand ?? [])" :key="item.name">
+          <div style="margin-bottom:4px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;
+                        margin-bottom:5px;cursor:pointer;padding:4px 6px;border-radius:4px;
+                        transition:background 0.15s;"
+                 @click="toggleSection('month_brand_' + item.name)"
+                 @mouseenter="$el.style.background='rgba(255,255,255,0.04)'"
+                 @mouseleave="$el.style.background='transparent'">
+              <span style="font-size:0.9em;" x-text="item.name"></span>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-weight:700;color:var(--accent);" x-text="item.count"></span>
+                <span style="color:var(--text-secondary);font-size:0.75em;"
+                      x-text="isOpen('month_brand_' + item.name) ? '▲' : '▼'"></span>
+              </div>
+            </div>
+            <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;margin-bottom:6px;">
+              <div style="height:100%;background:var(--accent);border-radius:2px;transition:width 0.5s;"
+                   :style="'width:' + Math.round(item.count/(month.stats?.total||1)*100) + '%'"></div>
+            </div>
+            <template x-if="isOpen('month_brand_' + item.name)">
+              <div style="margin-bottom:10px;padding:8px 0 4px;
+                          border-top:1px solid rgba(255,255,255,0.06);">
+                <template x-for="rec in recordsForBrand('month', item.name)" :key="rec.sn + rec.timestamp">
+                  <div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;
+                                padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);
+                                cursor:pointer;"
+                         @click="toggleDetail('mb_' + rec.sn + rec.timestamp)">
+                      <div>
+                        <span style="font-family:monospace;font-size:0.88em;font-weight:600;"
+                              x-text="rec.sn"></span>
+                        <span style="color:var(--text-secondary);font-size:0.78em;margin-left:7px;"
+                              x-text="rec.vendor + ' ' + rec.model"></span>
+                      </div>
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <span class="badge" :class="resultClass(rec.overall_result)"
+                              x-text="rec.overall_result"></span>
+                        <span style="color:var(--text-secondary);font-size:0.72em;"
+                              x-text="detailOpen === 'mb_' + rec.sn + rec.timestamp ? '▲' : '▼'"></span>
+                      </div>
+                    </div>
+                    <template x-if="detailOpen === 'mb_' + rec.sn + rec.timestamp">
+                      <div style="padding:8px 0;" x-html="renderDetails(rec)"></div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+      <div class="detail-panel" style="padding:16px 20px;">
+        <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                    letter-spacing:0.06em;color:#e07b3a;margin-bottom:14px;">Fail Reasons</div>
+        <template x-if="!(month.fail_reasons ?? []).length">
+          <div style="color:var(--pass);font-size:0.88em;">No failures this month 🎉</div>
+        </template>
+        <template x-for="item in (month.fail_reasons ?? [])" :key="item.reason">
+          <div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+              <span style="font-size:0.9em;" x-text="item.reason"></span>
+              <span style="font-weight:700;color:#e07b3a;" x-text="item.count"></span>
+            </div>
+            <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+              <div style="height:100%;background:#e07b3a;border-radius:2px;transition:width 0.5s;"
+                   :style="'width:' + Math.round(item.count/(month.stats?.failed||1)*100) + '%'"></div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Daily Volume chart -->
+    <div class="daily-panel">
+      <div class="daily-head">
+        <div style="font-size:0.7em;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-secondary);">Daily Volume</div>
+        <div class="daily-legend">
+          <span><span class="legend-dot pass"></span>Pass</span>
+          <span><span class="legend-dot warn"></span>Warn</span>
+          <span><span class="legend-dot fail"></span>Fail</span>
+        </div>
+      </div>
+      <div class="daily-chart">
+        <template x-for="d in paddedDailyData('month')" :key="d.date">
+          <div class="daily-col"
+               :style="d.total > 0 ? 'cursor:pointer;' : ''"
+               @click="d.total > 0 && jumpToDay(d.date, 'month')"
+               :title="d.total > 0 ? 'View ' + d.total + ' records for ' + d.date : ''">
+            <div class="daily-total" x-show="d.total > 0" x-text="d.total"></div>
+            <div class="daily-seg fail" :style="'height:' + dailyPct(d.failed, 'month') + '%'"></div>
+            <div class="daily-seg warn" :style="'height:' + dailyPct(d.warned ?? 0, 'month') + '%'"></div>
+            <div class="daily-seg pass" :style="'height:' + dailyPct(d.passed, 'month') + '%'"></div>
+            <div class="daily-label" x-text="dailyLabel(d.date)"></div>
+            <div class="daily-tooltip">
+              <div style="font-weight:700;margin-bottom:3px;" x-text="d.date"></div>
+              <div><span class="legend-dot pass"></span>Pass <span x-text="d.passed"></span></div>
+              <div x-show="(d.warned ?? 0) > 0"><span class="legend-dot warn"></span>Warn <span x-text="d.warned"></span></div>
+              <div x-show="d.failed > 0"><span class="legend-dot fail"></span>Fail <span x-text="d.failed"></span></div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Daily Breakdown -->
+    <div class="detail-panel" style="padding:16px 20px;">
+      <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                  letter-spacing:0.06em;color:var(--text-secondary);margin-bottom:12px;">
+        Daily Breakdown
+      </div>
+      <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;gap:8px;
+                  padding-bottom:8px;border-bottom:1px solid var(--border);
+                  color:var(--text-secondary);font-size:0.75em;text-transform:uppercase;font-weight:600;">
+        <span>Date</span><span>Total</span>
+        <span style="color:var(--pass);">Passed</span>
+        <span style="color:var(--warn);">Warn</span>
+        <span style="color:var(--fail);">Failed</span><span></span><span></span>
+      </div>
+      <template x-for="d in (month.daily ?? [])" :key="d.date">
+        <div :id="'db-row-month-' + d.date">
+          <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;
+                      gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);
+                      align-items:center;font-size:0.88em;cursor:pointer;"
+               @click="toggleSection('month_day_' + d.date)"
+               @mouseenter="$el.style.background='rgba(255,255,255,0.03)'"
+               @mouseleave="$el.style.background='transparent'">
+            <span style="color:var(--text-secondary);" x-text="d.date"></span>
+            <span style="font-weight:600;" x-text="d.total"></span>
+            <span style="color:var(--pass);font-weight:600;" x-text="d.passed"></span>
+            <span style="color:var(--warn);font-weight:600;" x-text="d.warned ?? 0"></span>
+            <span style="color:var(--fail);font-weight:600;" x-text="d.failed"></span>
+            <div style="height:5px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;">
+              <div style="height:100%;background:var(--pass);border-radius:3px;"
+                   :style="'width:' + Math.round(d.passed/(d.total||1)*100) + '%'"></div>
+            </div>
+            <span style="color:var(--text-secondary);font-size:0.8em;text-align:right;"
+                  x-text="isOpen('month_day_' + d.date) ? '▲' : '▼'"></span>
+          </div>
+          <template x-if="isOpen('month_day_' + d.date)">
+            <div style="padding:8px 0 4px 8px;border-bottom:1px solid rgba(255,255,255,0.06);">
+              <template x-for="rec in recordsForDay('month', d.date)" :key="rec.sn + rec.timestamp">
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;
+                              padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);
+                              cursor:pointer;"
+                       @click="toggleDetail('md_' + rec.sn + rec.timestamp)">
+                    <div>
+                      <span style="font-family:monospace;font-size:0.88em;font-weight:600;"
+                            x-text="rec.sn"></span>
+                      <span style="color:var(--text-secondary);font-size:0.78em;margin-left:7px;"
+                            x-text="rec.vendor + ' ' + rec.model"></span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <span class="badge" :class="resultClass(rec.overall_result)"
+                            x-text="rec.overall_result"></span>
+                      <span style="color:var(--text-secondary);font-size:0.72em;"
+                            x-text="detailOpen === 'md_' + rec.sn + rec.timestamp ? '▲' : '▼'"></span>
+                    </div>
+                  </div>
+                  <template x-if="detailOpen === 'md_' + rec.sn + rec.timestamp">
+                    <div style="padding:8px 0;" x-html="renderDetails(rec)"></div>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </template>
+      <div x-show="!(month.daily ?? []).length"
+           style="color:var(--text-secondary);font-size:0.85em;padding:12px 0;">
+        No data this month.
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       TAB: CUSTOM RANGE
+  ══════════════════════════════════════════════════════════════ -->
+  <div x-show="activeTab==='custom'">
+    <div style="font-size:1em;font-weight:700;text-transform:uppercase;
+                letter-spacing:0.08em;color:var(--text-primary);margin-bottom:16px;">
+      Custom Range
+    </div>
+
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap;">
+      <input type="date" x-model="customFrom"
+             style="background:var(--bg-card);border:1px solid var(--border);
+                    color:var(--text-primary);padding:8px 14px;border-radius:4px;font-size:0.9em;">
+      <span style="color:var(--text-secondary);">to</span>
+      <input type="date" x-model="customTo"
+             style="background:var(--bg-card);border:1px solid var(--border);
+                    color:var(--text-primary);padding:8px 14px;border-radius:4px;font-size:0.9em;">
+      <button @click="loadCustom()"
+              style="padding:8px 22px;background:var(--accent);color:var(--bg-primary);
+                     border:none;border-radius:4px;cursor:pointer;font-weight:700;font-size:0.9em;">
+        Apply
+      </button>
+    </div>
+
+    <template x-if="custom.stats">
+      <div>
+        <div style="margin-bottom:16px;">
+          <span style="color:var(--text-secondary);font-size:0.88em;"
+                x-text="fmtRange(customFrom, customTo) + '  (' + (custom.stats?.total ?? 0) + ' records)'">
+          </span>
+        </div>
+
+        <div class="stats-strip" style="grid-template-columns:repeat(5,1fr) 1px 1.1fr;margin-bottom:24px;">
+          <div class="stat-card">
+            <div class="stat-label">Selected</div>
+            <div class="stat-value" x-text="custom.stats?.total ?? 0"></div>
+            <div style="font-size:0.75em;color:var(--text-secondary);margin-top:4px;"
+                 x-text="fmtRange(customFrom, customTo)"></div>
+          </div>
+          <div class="stat-card"><div class="stat-label">Passed</div>
+            <div class="stat-value" style="color:var(--pass);" x-text="custom.stats?.passed ?? 0"></div></div>
+          <div class="stat-card"><div class="stat-label">Warn</div>
+            <div class="stat-value" style="color:var(--warn);" x-text="custom.stats?.warned ?? 0"></div></div>
+          <div class="stat-card"><div class="stat-label">Failed</div>
+            <div class="stat-value" style="color:var(--fail);" x-text="custom.stats?.failed ?? 0"></div></div>
+          <div class="stat-card"><div class="stat-label">Pass Rate</div>
+            <div class="stat-value" x-text="(custom.stats?.pass_rate ?? 0) + '%'"></div></div>
+          <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
+          <div class="stat-card" style="background:rgba(99,102,241,0.12);border-right:3px solid #6366f1;border-left:2px solid rgba(99,102,241,0.22);">
+            <div class="stat-label" style="color:#818cf8;">All Time</div>
+            <div class="stat-value" style="color:#818cf8;" x-text="allTotal"></div>
+          </div>
+        </div>
+
+        <!-- By Brand + Fail Reasons -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+          <div class="detail-panel" style="padding:16px 20px;">
+            <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                        letter-spacing:0.06em;color:var(--accent);margin-bottom:14px;">By Brand</div>
+            <template x-if="!(custom.by_brand ?? []).length">
+              <div style="color:var(--text-secondary);font-size:0.88em;">No data</div>
+            </template>
+            <template x-for="item in (custom.by_brand ?? [])" :key="item.name">
+              <div style="margin-bottom:4px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;
+                            margin-bottom:5px;cursor:pointer;padding:4px 6px;border-radius:4px;
+                            transition:background 0.15s;"
+                     @click="toggleSection('custom_brand_' + item.name)"
+                     @mouseenter="$el.style.background='rgba(255,255,255,0.04)'"
+                     @mouseleave="$el.style.background='transparent'">
+                  <span style="font-size:0.9em;" x-text="item.name"></span>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-weight:700;color:var(--accent);" x-text="item.count"></span>
+                    <span style="color:var(--text-secondary);font-size:0.75em;"
+                          x-text="isOpen('custom_brand_' + item.name) ? '▲' : '▼'"></span>
+                  </div>
+                </div>
+                <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;margin-bottom:6px;">
+                  <div style="height:100%;background:var(--accent);border-radius:2px;transition:width 0.5s;"
+                       :style="'width:' + Math.round(item.count/(custom.stats?.total||1)*100) + '%'"></div>
+                </div>
+                <template x-if="isOpen('custom_brand_' + item.name)">
+                  <div style="margin-bottom:10px;padding:8px 0 4px;
+                              border-top:1px solid rgba(255,255,255,0.06);">
+                    <template x-for="rec in recordsForBrand('custom', item.name)" :key="rec.sn + rec.timestamp">
+                      <div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;
+                                    padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);
+                                    cursor:pointer;"
+                             @click="toggleDetail('cb_' + rec.sn + rec.timestamp)">
+                          <div>
+                            <span style="font-family:monospace;font-size:0.88em;font-weight:600;"
+                                  x-text="rec.sn"></span>
+                            <span style="color:var(--text-secondary);font-size:0.78em;margin-left:7px;"
+                                  x-text="rec.vendor + ' ' + rec.model"></span>
+                          </div>
+                          <div style="display:flex;align-items:center;gap:6px;">
+                            <span class="badge" :class="resultClass(rec.overall_result)"
+                                  x-text="rec.overall_result"></span>
+                            <span style="color:var(--text-secondary);font-size:0.72em;"
+                                  x-text="detailOpen === 'cb_' + rec.sn + rec.timestamp ? '▲' : '▼'"></span>
+                          </div>
+                        </div>
+                        <template x-if="detailOpen === 'cb_' + rec.sn + rec.timestamp">
+                          <div style="padding:8px 0;" x-html="renderDetails(rec)"></div>
+                        </template>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+          <div class="detail-panel" style="padding:16px 20px;">
+            <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                        letter-spacing:0.06em;color:#e07b3a;margin-bottom:14px;">Fail Reasons</div>
+            <template x-if="!(custom.fail_reasons ?? []).length">
+              <div style="color:var(--pass);font-size:0.88em;">No failures in this period 🎉</div>
+            </template>
+            <template x-for="item in (custom.fail_reasons ?? [])" :key="item.reason">
+              <div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+                  <span style="font-size:0.9em;" x-text="item.reason"></span>
+                  <span style="font-weight:700;color:#e07b3a;" x-text="item.count"></span>
+                </div>
+                <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+                  <div style="height:100%;background:#e07b3a;border-radius:2px;transition:width 0.5s;"
+                       :style="'width:' + Math.round(item.count/(custom.stats?.failed||1)*100) + '%'"></div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Daily Volume chart -->
+        <div class="daily-panel">
+          <div class="daily-head">
+            <div style="font-size:0.7em;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-secondary);">Daily Volume</div>
+            <div class="daily-legend">
+              <span><span class="legend-dot pass"></span>Pass</span>
+              <span><span class="legend-dot warn"></span>Warn</span>
+              <span><span class="legend-dot fail"></span>Fail</span>
+            </div>
+          </div>
+          <div class="daily-chart">
+            <template x-for="d in paddedDailyData('custom')" :key="d.date">
+              <div class="daily-col"
+                   :style="d.total > 0 ? 'cursor:pointer;' : ''"
+                   @click="d.total > 0 && jumpToDay(d.date, 'custom')"
+                   :title="d.total > 0 ? 'View ' + d.total + ' records for ' + d.date : ''">
+                <div class="daily-total" x-show="d.total > 0" x-text="d.total"></div>
+                <div class="daily-seg fail" :style="'height:' + dailyPct(d.failed, 'custom') + '%'"></div>
+                <div class="daily-seg warn" :style="'height:' + dailyPct(d.warned ?? 0, 'custom') + '%'"></div>
+                <div class="daily-seg pass" :style="'height:' + dailyPct(d.passed, 'custom') + '%'"></div>
+                <div class="daily-label" x-text="dailyLabel(d.date)"></div>
+                <div class="daily-tooltip">
+                  <div style="font-weight:700;margin-bottom:3px;" x-text="d.date"></div>
+                  <div><span class="legend-dot pass"></span>Pass <span x-text="d.passed"></span></div>
+                  <div x-show="(d.warned ?? 0) > 0"><span class="legend-dot warn"></span>Warn <span x-text="d.warned"></span></div>
+                  <div x-show="d.failed > 0"><span class="legend-dot fail"></span>Fail <span x-text="d.failed"></span></div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Daily Breakdown -->
+        <div class="detail-panel" style="padding:16px 20px;">
+          <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                      letter-spacing:0.06em;color:var(--text-secondary);margin-bottom:12px;">
+            Daily Breakdown
+          </div>
+          <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;gap:8px;
+                      padding-bottom:8px;border-bottom:1px solid var(--border);
+                      color:var(--text-secondary);font-size:0.75em;text-transform:uppercase;font-weight:600;">
+            <span>Date</span><span>Total</span>
+            <span style="color:var(--pass);">Passed</span>
+            <span style="color:var(--warn);">Warn</span>
+            <span style="color:var(--fail);">Failed</span><span></span><span></span>
+          </div>
+          <template x-for="d in (custom.daily ?? [])" :key="d.date">
+            <div :id="'db-row-custom-' + d.date">
+              <div style="display:grid;grid-template-columns:140px 70px 80px 70px 70px 1fr 20px;
+                          gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);
+                          align-items:center;font-size:0.88em;cursor:pointer;"
+                   @click="toggleSection('custom_day_' + d.date)"
+                   @mouseenter="$el.style.background='rgba(255,255,255,0.03)'"
+                   @mouseleave="$el.style.background='transparent'">
+                <span style="color:var(--text-secondary);" x-text="d.date"></span>
+                <span style="font-weight:600;" x-text="d.total"></span>
+                <span style="color:var(--pass);font-weight:600;" x-text="d.passed"></span>
+                <span style="color:var(--warn);font-weight:600;" x-text="d.warned ?? 0"></span>
+                <span style="color:var(--fail);font-weight:600;" x-text="d.failed"></span>
+                <div style="height:5px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;">
+                  <div style="height:100%;background:var(--pass);border-radius:3px;"
+                       :style="'width:' + Math.round(d.passed/(d.total||1)*100) + '%'"></div>
+                </div>
+                <span style="color:var(--text-secondary);font-size:0.8em;text-align:right;"
+                      x-text="isOpen('custom_day_' + d.date) ? '▲' : '▼'"></span>
+              </div>
+              <template x-if="isOpen('custom_day_' + d.date)">
+                <div style="padding:8px 0 4px 8px;border-bottom:1px solid rgba(255,255,255,0.06);">
+                  <template x-for="rec in recordsForDay('custom', d.date)" :key="rec.sn + rec.timestamp">
+                    <div>
+                      <div style="display:flex;justify-content:space-between;align-items:center;
+                                  padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);
+                                  cursor:pointer;"
+                           @click="toggleDetail('cd_' + rec.sn + rec.timestamp)">
+                        <div>
+                          <span style="font-family:monospace;font-size:0.88em;font-weight:600;"
+                                x-text="rec.sn"></span>
+                          <span style="color:var(--text-secondary);font-size:0.78em;margin-left:7px;"
+                                x-text="rec.vendor + ' ' + rec.model"></span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                          <span class="badge" :class="resultClass(rec.overall_result)"
+                                x-text="rec.overall_result"></span>
+                          <span style="color:var(--text-secondary);font-size:0.72em;"
+                                x-text="detailOpen === 'cd_' + rec.sn + rec.timestamp ? '▲' : '▼'"></span>
+                        </div>
+                      </div>
+                      <template x-if="detailOpen === 'cd_' + rec.sn + rec.timestamp">
+                        <div style="padding:8px 0;" x-html="renderDetails(rec)"></div>
+                      </template>
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </template>
+          <div x-show="!(custom.daily ?? []).length"
+               style="color:var(--text-secondary);font-size:0.85em;padding:12px 0;">
+            No data for this period.
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <div x-show="!custom.stats"
+         style="color:var(--text-secondary);text-align:center;padding:48px;
+                background:var(--bg-card);border-radius:8px;border:1px solid var(--border);
+                font-size:0.9em;">
+      Select a date range and click <strong style="color:var(--accent);">Apply</strong> to view data.
+    </div>
+  </div>
+
+</div><!-- /x-data -->
+{% endblock %}

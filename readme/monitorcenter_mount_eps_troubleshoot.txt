@@ -1,0 +1,110 @@
+# 是的，完成后**无人工干预**
+
+文档化总结：
+
+---
+
+## WIPE Mount 自愈机制 — 安装与说明
+
+### 一次性安装（部署 monitorcenter 时执行）
+
+```bash
+# 1. 创建恢复 service
+sudo tee /etc/systemd/system/wipe-mount-recover.service > /dev/null <<'EOF'
+[Unit]
+Description=Recover failed WIPE mounts (eps + pxe)
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c '\
+  for u in mnt-WIPE-eps mnt-WIPE-pxe; do \
+    if systemctl is-failed --quiet $u.automount || systemctl is-failed --quiet $u.mount; then \
+      systemctl reset-failed $u.mount $u.automount 2>/dev/null; \
+      systemctl start $u.automount 2>/dev/null; \
+      echo "recovered $u"; \
+    fi; \
+  done; true'
+EOF
+
+# 2. 创建 timer
+sudo tee /etc/systemd/system/wipe-mount-recover.timer > /dev/null <<'EOF'
+[Unit]
+Description=Periodically recover failed WIPE mounts
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Unit=wipe-mount-recover.service
+
+[Install]
+WantedBy=timers.target
+EOF
+
+# 3. 启用
+sudo systemctl daemon-reload
+sudo systemctl enable --now wipe-mount-recover.timer
+
+# 4. 验证
+systemctl list-timers wipe-mount-recover.timer
+```
+
+---
+
+### 之后所有场景都自动处理
+
+| 场景 | 自动恢复时间 | 需要人工干预？ |
+|------|------|------|
+| eps 关机 → 开机 | ≤ 5 分钟自动挂回 | ❌ 不需要 |
+| pxe 关机 → 开机 | ≤ 5 分钟自动挂回 | ❌ 不需要 |
+| eps 和 pxe **同时**关机 → 开机 | ≤ 5 分钟两个都挂回 | ❌ 不需要 |
+| eps 关着时点 SCAN | 只扫 pxe，eps 日志 warning | ❌ 不需要 |
+| monitorcenter 服务重启 | timer 不受影响，照常工作 | ❌ 不需要 |
+| Linux 服务器重启 | OnBootSec=2min 启动后 2 分钟开始检查 | ❌ 不需要 |
+| scanner crash（任一 mount stale） | scanner 已加固，跳过死 mount 继续扫 | ❌ 不需要 |
+
+---
+
+### 仅以下罕见场景需要人工处理
+
+| 异常 | 处理 |
+|------|------|
+| Windows 共享 IP 变了 | 改 `/etc/fstab` |
+| Windows 共享密码变了 | 改 `/etc/cifs-credentials` 或 fstab 里的 username |
+| 网络/路由器问题（两端通不了） | 修网络 |
+| 误删了 `/etc/fstab` 里的 mount 行 | 重新加回 |
+
+---
+
+### 故障排查命令（备用）
+
+```bash
+# 看 timer 健康
+systemctl status wipe-mount-recover.timer
+journalctl -u wipe-mount-recover.service -n 50
+
+# 看 mount unit 状态
+systemctl status mnt-WIPE-eps.automount mnt-WIPE-pxe.automount
+
+# 手动触发一次恢复
+sudo systemctl start wipe-mount-recover.service
+
+# 看 monitorcenter scanner 日志（确认能跳过死 mount）
+sudo journalctl -u monitorcenter -n 100 | grep -i 'WipeScanner\|cannot read\|skip'
+```
+
+---
+
+### 注意事项
+
+⚠️ **不要执行** `umount -f -l /mnt/WIPE/*` —— 这会把 systemd 的 automount unit 也搞挂（与正常 mount fail 不同）。如果一定要手动清理，用：
+
+```bash
+# 正确做法
+sudo systemctl stop mnt-WIPE-eps.mount   # 只停 mount，保留 automount
+```
+
+---
+
+## 一句话回答
+
+**是的**，一次性装完上面的 timer 后，eps 和 pxe 任意一个或两个关机/重启都不需要你做任何事 —— 最迟 5 分钟内自动恢复，monitorcenter 仪表盘上的扫描会自动收到新文件。

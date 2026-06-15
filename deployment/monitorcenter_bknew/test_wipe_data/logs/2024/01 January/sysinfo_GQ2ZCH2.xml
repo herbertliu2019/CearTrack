@@ -1,0 +1,2925 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+
+<SYSINFO>
+
+
+<SYSTEM_INVENTORY>
+    <Report_Info>
+        <Product>Enterprise Data Erasure</Product>
+        <Version>14.22.5a</Version>
+        <Date>01/29/2024</Date>
+        <Time>14:47:37</Time>
+    </Report_Info>
+    <Processing_Information>
+        <SystemName>BSN_9CD741</SystemName>
+        <Location1></Location1>
+        <Location2></Location2>
+        <Operator></Operator>
+        <UserFieldCount>0</UserFieldCount>
+    </Processing_Information>
+    <System_Information>
+        <Asset_Identifier></Asset_Identifier>
+        <System_Chassis_Type>Tower</System_Chassis_Type>
+        <System_FallbackChassis_Type>Desktop</System_FallbackChassis_Type>
+        <System_Manufacturer>Dell Inc</System_Manufacturer>
+        <System_ProductName>Precision Tower 7810</System_ProductName>
+        <System_Description>Computer System Product</System_Description>
+        <System_SKU>0618</System_SKU>
+        <System_UUID>4C4C4544-0051-3210-805A-C7C04F434832</System_UUID>
+        <System_Version></System_Version>
+        <System_Serial_Number>GQ2ZCH2</System_Serial_Number>
+        <System_Memory>32.0GB</System_Memory>
+        <System_Memory_Details>32.0GB DDR4 2400MHz (4 units)</System_Memory_Details>
+        <Processor>Xeon E5-2623 v3 @ 3.00GHz</Processor>
+        <Computrace>unknown</Computrace>
+        <MdmAutopilot>unknown</MdmAutopilot>
+        <MAC_Address>48:4d:7e:eb:88:66</MAC_Address>
+        <Display_Resolution></Display_Resolution>
+        <Display_Size></Display_Size>
+        <Display_Aspect></Display_Aspect>
+        <Display_Aspect_Name></Display_Aspect_Name>
+        <Display_Color></Display_Color>
+        <Display_Refresh></Display_Refresh>
+        <Video>NVIDIA NVS 310</Video>
+        <Webcam></Webcam>
+        <Mobile_Data></Mobile_Data>
+        <WiFi>No</WiFi>
+        <Optical>PLDS DH-16AES (DVDW)</Optical>
+        <Fingerprint>No</Fingerprint>
+        <Touchscreen>No</Touchscreen>
+        <GPS_Navigation>No</GPS_Navigation>
+        <Original_Operating_System></Original_Operating_System>
+        <Original_Product_ID></Original_Product_ID>
+        <Original_Product_Key></Original_Product_Key>
+        <Original_Organization></Original_Organization>
+        <Original_User></Original_User>
+        <Functional_Grade></Functional_Grade>
+        <Cosmetic_Grade></Cosmetic_Grade>
+    </System_Information>
+    <Devices>
+        <Component>
+                <Type>Multimedia</Type>
+                <Manufacturer>Intel</Manufacturer>
+                <Model>High Definition Audio Controller</Model>
+                <Description>High Definition Audio Controller</Description>
+        </Component>
+        <Component>
+                <Type>Storage Controller</Type>
+                <Manufacturer>ATTO</Manufacturer>
+                <Model>ATTO ExpressSAS H6F0 Host Adapter</Model>
+                <Description>ATTO ExpressSAS H6F0 Host Adapter</Description>
+        </Component>
+        <Component>
+                <Type>Management</Type>
+                <Manufacturer>Intel</Manufacturer>
+                <Model>Intel(R) Management Engine Interface</Model>
+                <Description>Intel(R) Management Engine Interface</Description>
+        </Component>
+        <Component>
+                <Type>Multimedia</Type>
+                <Manufacturer>Nvidia</Manufacturer>
+                <Model>High Definition Audio Controller</Model>
+                <Description>High Definition Audio Controller</Description>
+        </Component>
+        <Component>
+                <Type>Video Adapter</Type>
+                <Manufacturer>Nvidia</Manufacturer>
+                <Model>NVIDIA NVS 310</Model>
+                <Description>NVIDIA NVS 310</Description>
+        </Component>
+        <Component>
+                <Type>Storage Controller</Type>
+                <Manufacturer>Intel</Manufacturer>
+                <Model>Standard SATA AHCI Controller</Model>
+                <Description>Standard SATA AHCI Controller</Description>
+        </Component>
+        <Component>
+                <Type>Network Device</Type>
+                <Manufacturer>Intel</Manufacturer>
+                <Model>Intel(R) Ethernet Connection I217-LM</Model>
+                <Description>Intel(R) Ethernet Connection I217-LM</Description>
+        </Component>
+        <Component>
+                <Type>Storage Controller</Type>
+                <Manufacturer>Intel</Manufacturer>
+                <Model>Standard SATA AHCI Controller</Model>
+                <Description>Standard SATA AHCI Controller</Description>
+        </Component>
+        <Optical>
+                <Type>DVD Writer</Type>
+                <Manufacturer>PLDS</Manufacturer>
+                <Model>DH-16AES</Model>
+                <Description>DVD+-RW</Description>
+        </Optical>
+        <Processor>
+                <Qty>1</Qty>
+                <Manufacturer>Intel</Manufacturer>
+                <Model>E5-2623 v3</Model>
+                <SerialNumber>BFEBFBFF000306F2</SerialNumber>
+                <Speed>3.00GHz</Speed>
+                <Cores>4</Cores>
+                <Type>Xeon</Type>
+                <Generation></Generation>
+        </Processor>
+        <Memory>
+                <Qty>1</Qty>
+                <Manufacturer>Hynix Semiconductor</Manufacturer>
+                <Model>HMA81GR7MFR8N-UH</Model>
+                <SerialNumber>41E171CB</SerialNumber>
+                <Speed>2400</Speed>
+                <Size>8.00GB</Size>
+                <Type>DDR4</Type>
+                <FormFactor>RIMM</FormFactor>
+                <ErrorCorrection>Multi-bit ECC</ErrorCorrection>
+        </Memory>
+        <Memory>
+                <Qty>1</Qty>
+                <Manufacturer>Hynix Semiconductor</Manufacturer>
+                <Model>HMA81GR7MFR8N-UH</Model>
+                <SerialNumber>41E171C8</SerialNumber>
+                <Speed>2400</Speed>
+                <Size>8.00GB</Size>
+                <Type>DDR4</Type>
+                <FormFactor>RIMM</FormFactor>
+                <ErrorCorrection>Multi-bit ECC</ErrorCorrection>
+        </Memory>
+        <Memory>
+                <Qty>1</Qty>
+                <Manufacturer>Hynix Semiconductor</Manufacturer>
+                <Model>HMA81GR7MFR8N-UH</Model>
+                <SerialNumber>41E171CD</SerialNumber>
+                <Speed>2400</Speed>
+                <Size>8.00GB</Size>
+                <Type>DDR4</Type>
+                <FormFactor>RIMM</FormFactor>
+                <ErrorCorrection>Multi-bit ECC</ErrorCorrection>
+        </Memory>
+        <Memory>
+                <Qty>1</Qty>
+                <Manufacturer>Hynix Semiconductor</Manufacturer>
+                <Model>HMA81GR7MFR8N-UH</Model>
+                <SerialNumber>41E171CA</SerialNumber>
+                <Speed>2400</Speed>
+                <Size>8.00GB</Size>
+                <Type>DDR4</Type>
+                <FormFactor>RIMM</FormFactor>
+                <ErrorCorrection>Multi-bit ECC</ErrorCorrection>
+        </Memory>
+        <StorageCount>67</StorageCount>
+        <Storage>
+                <SerialNumber>SJ93N272110103R30</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SK</Manufacturer>
+                <Model>hynix SC401 SATA 1TB</Model>
+                <Code>9000012</Code>
+                <DeviceType>2.5 SATA3 SSD</DeviceType>
+                <Size>1TB</Size>
+                <MaxLBA>773BD2AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>2.5</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>14271</PowerOnHours>
+                <ErasureDate>01/26/2024</ErasureDate>
+                <ErasureTime>11:33:16</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> ac3f8764 8ceb872f b9042d39 05f0fca7 4822ca9a</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>ZA1FH56J</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SEAGATE</Manufacturer>
+                <Model>ST8000VN0022-2EL112</Model>
+                <Code>SC61</Code>
+                <DeviceType>3.5 SATA3 7200</DeviceType>
+                <Size>8TB</Size>
+                <MaxLBA>3A3812AAF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>3.5</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>HDD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>80</ReallocatedSectors>
+                <PowerOnHours>18984</PowerOnHours>
+                <ErasureDate>01/26/2024</ErasureDate>
+                <ErasureTime>11:33:16</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note></Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+                <Certified>FALSE</Certified>
+                <LogHash></LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>ZA1FH8Q5</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SEAGATE</Manufacturer>
+                <Model>ST8000VN0022-2EL112</Model>
+                <Code>SC61</Code>
+                <DeviceType>3.5 SATA3 7200</DeviceType>
+                <Size>8TB</Size>
+                <MaxLBA>3A3812AAF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>3.5</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>HDD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>648</ReallocatedSectors>
+                <PowerOnHours>18984</PowerOnHours>
+                <ErasureDate>01/26/2024</ErasureDate>
+                <ErasureTime>11:33:16</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note></Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+                <Certified>FALSE</Certified>
+                <LogHash></LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>ZA1FH6YL</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SEAGATE</Manufacturer>
+                <Model>ST8000VN0022-2EL112</Model>
+                <Code>SC61</Code>
+                <DeviceType>3.5 SATA3 7200</DeviceType>
+                <Size>8TB</Size>
+                <MaxLBA>3A3812AAF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>3.5</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>HDD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>88</ReallocatedSectors>
+                <PowerOnHours>18984</PowerOnHours>
+                <ErasureDate>01/26/2024</ErasureDate>
+                <ErasureTime>11:33:16</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note></Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+                <Certified>FALSE</Certified>
+                <LogHash></LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>ZA1FH6V6</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SEAGATE</Manufacturer>
+                <Model>ST8000VN0022-2EL112</Model>
+                <Code>SC61</Code>
+                <DeviceType>3.5 SATA3 7200</DeviceType>
+                <Size>8TB</Size>
+                <MaxLBA>3A3812AAF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>3.5</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>HDD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>88</ReallocatedSectors>
+                <PowerOnHours>19437</PowerOnHours>
+                <ErasureDate>01/26/2024</ErasureDate>
+                <ErasureTime>11:33:16</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note></Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+                <Certified>FALSE</Certified>
+                <LogHash></LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>ZA1FH71Q</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SEAGATE</Manufacturer>
+                <Model>ST8000VN0022-2EL112</Model>
+                <Code>SC61</Code>
+                <DeviceType>3.5 SATA3 7200</DeviceType>
+                <Size>8TB</Size>
+                <MaxLBA>3A3812AAF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>3.5</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>HDD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>72</ReallocatedSectors>
+                <PowerOnHours>19437</PowerOnHours>
+                <ErasureDate>01/26/2024</ErasureDate>
+                <ErasureTime>11:33:16</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note></Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+                <Certified>FALSE</Certified>
+                <LogHash></LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>ZA1FEBKE</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SEAGATE</Manufacturer>
+                <Model>ST8000VN0022-2EL112</Model>
+                <Code>SC61</Code>
+                <DeviceType>3.5 SATA3 7200</DeviceType>
+                <Size>8TB</Size>
+                <MaxLBA>3A3812AAF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>3.5</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>HDD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>120</ReallocatedSectors>
+                <PowerOnHours>19437</PowerOnHours>
+                <ErasureDate>01/26/2024</ErasureDate>
+                <ErasureTime>11:33:16</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note></Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+                <Certified>FALSE</Certified>
+                <LogHash></LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>002443118622</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>LITEON</Manufacturer>
+                <Model>IT LCS-128L9S-HP</Model>
+                <Code>9C08</Code>
+                <DeviceType>2.5 SATA3 SSD</DeviceType>
+                <Size>128GB</Size>
+                <MaxLBA>EE7C2AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>2.5</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>1136</PowerOnHours>
+                <ErasureDate>01/26/2024</ErasureDate>
+                <ErasureTime>11:33:16</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 3dcced61 74626932 9bbff7b4 58f539ad 63276a35</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>CVTR551504TG180BGN</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>INTEL</Manufacturer>
+                <Model>SSDSC2BF180A5H REF</Model>
+                <Code>LWDi</Code>
+                <DeviceType>M.2 SATA3 SSD</DeviceType>
+                <Size>180GB</Size>
+                <MaxLBA>14F5C82F</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>M.2</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>5879</PowerOnHours>
+                <ErasureDate>01/26/2024</ErasureDate>
+                <ErasureTime>11:33:16</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 929e4287 bb65b8f4 4507064c 98d16916 ff2ae829</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>002524136829</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>LITEON</Manufacturer>
+                <Model>IT LCS-128L9S-HP</Model>
+                <Code>9C08</Code>
+                <DeviceType>2.5 SATA3 SSD</DeviceType>
+                <Size>128GB</Size>
+                <MaxLBA>EE7C2AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>2.5</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>221</PowerOnHours>
+                <ErasureDate>01/26/2024</ErasureDate>
+                <ErasureTime>11:33:16</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 9acb8118 2810de29 28b01575 fdce0890 270a4772</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>192022EFA869</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>MICRON</Manufacturer>
+                <Model>1300 SATA 1024GB</Model>
+                <Code>1300003</Code>
+                <DeviceType>2.5 SATA3 SSD</DeviceType>
+                <Size>1TB</Size>
+                <MaxLBA>773BD2AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>2.5</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>21502</PowerOnHours>
+                <ErasureDate>01/26/2024</ErasureDate>
+                <ErasureTime>11:33:16</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 38d01f85 93b7b8e8 f6e4d9b1 282062ee 4559ab10</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>141069401537</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SanDisk</Manufacturer>
+                <Model>SD6SB1M-128G-1006</Model>
+                <Code>X231706</Code>
+                <DeviceType>SATADOM SATA3 SSD</DeviceType>
+                <Size>128GB</Size>
+                <MaxLBA>EE7C2AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>SATADOM</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>9835</PowerOnHours>
+                <ErasureDate>01/26/2024</ErasureDate>
+                <ErasureTime>11:33:16</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 3fc86b02 bdf8994a bbfedee2 82b04a35 13a3a8a9</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>CVTR617401JR180BGN</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>INTEL</Manufacturer>
+                <Model>SSDSC2BF180A5H REF</Model>
+                <Code>LWDi</Code>
+                <DeviceType>M.2 SATA3 SSD</DeviceType>
+                <Size>180GB</Size>
+                <MaxLBA>14F5C82F</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>M.2</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>287</PowerOnHours>
+                <ErasureDate>01/26/2024</ErasureDate>
+                <ErasureTime>11:33:16</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> b5137177 9e40e53f 89dbae71 072e90b9 6bddcc84</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>S5HZNS0N602462Z</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SAMSUNG</Manufacturer>
+                <Model>860 EVO</Model>
+                <Code>RVT04B6</Code>
+                <DeviceType>2.5 SATA3 SSD</DeviceType>
+                <Size>500GB</Size>
+                <MaxLBA>3A38602F</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>2.5</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>1605</PowerOnHours>
+                <ErasureDate>01/26/2024</ErasureDate>
+                <ErasureTime>11:33:16</ErasureTime>
+                <ErasureDuration>00:25</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> db0984a0 d9212dd2 9461d131 75c2b70b 132a22bc</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>CVTR549505HT180BGN</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>INTEL</Manufacturer>
+                <Model>SSDSC2BF180A5H REF</Model>
+                <Code>LWDi</Code>
+                <DeviceType>M.2 SATA3 SSD</DeviceType>
+                <Size>180GB</Size>
+                <MaxLBA>14F5C82F</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>M.2</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>3702</PowerOnHours>
+                <ErasureDate>01/26/2024</ErasureDate>
+                <ErasureTime>11:33:16</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 06c73336 8406ae3f 9c5f8d1c 61a1e7da e8679000</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>CVTR617401K2180BGN</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>INTEL</Manufacturer>
+                <Model>SSDSC2BF180A5H REF</Model>
+                <Code>LWDi</Code>
+                <DeviceType>M.2 SATA3 SSD</DeviceType>
+                <Size>180GB</Size>
+                <MaxLBA>14F5C82F</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>M.2</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>1394</PowerOnHours>
+                <ErasureDate>01/26/2024</ErasureDate>
+                <ErasureTime>11:33:16</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> db1fb5f0 b3e34bd0 1f70a5f8 2717c604 28c71815</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>CVTR549504A1180BGN</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>INTEL</Manufacturer>
+                <Model>SSDSC2BF180A5H REF</Model>
+                <Code>LXDi</Code>
+                <DeviceType>M.2 SATA3 SSD</DeviceType>
+                <Size>180GB</Size>
+                <MaxLBA>14F5C82F</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>M.2</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>2</ReallocatedSectors>
+                <PowerOnHours>2921</PowerOnHours>
+                <ErasureDate>01/26/2024</ErasureDate>
+                <ErasureTime>11:33:16</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> a3bd04f7 51bb151c cb7526f8 e94bb97e 847f0570</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>CVTR61730155180BGN</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>INTEL</Manufacturer>
+                <Model>SSDSC2BF180A5H REF</Model>
+                <Code>LWDi</Code>
+                <DeviceType>M.2 SATA3 SSD</DeviceType>
+                <Size>180GB</Size>
+                <MaxLBA>14F5C82F</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>M.2</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>1977</PowerOnHours>
+                <ErasureDate>01/26/2024</ErasureDate>
+                <ErasureTime>11:33:16</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 3b214b6a e54ef0af f9d1df7b 593cd625 cc232ffc</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>TW032GYJ5508543C7166</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>LITEONIT</Manufacturer>
+                <Model>LCS-128M6S 2_5 7mm 128GB</Model>
+                <Code>DC7110E</Code>
+                <DeviceType>M.2 SATA3 SSD</DeviceType>
+                <Size>128GB</Size>
+                <MaxLBA>EE7C2AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>M.2</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>0</PowerOnHours>
+                <ErasureDate>01/26/2024</ErasureDate>
+                <ErasureTime>11:33:16</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 00352a1e b78762a4 6f7f4033 30d00b06 152c9b8f</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>CVTR549000R2180BGN</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>INTEL</Manufacturer>
+                <Model>SSDSC2BF180A5H REF</Model>
+                <Code>LWDi</Code>
+                <DeviceType>M.2 SATA3 SSD</DeviceType>
+                <Size>180GB</Size>
+                <MaxLBA>14F5C82F</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>M.2</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>2881</PowerOnHours>
+                <ErasureDate>01/26/2024</ErasureDate>
+                <ErasureTime>11:33:16</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 402ad6fa 473f9366 88c9db52 6a44e12d 8d2a57ad</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>151250402919</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SanDisk</Manufacturer>
+                <Model>SD6SB1M-128G-1006</Model>
+                <Code>X231706</Code>
+                <DeviceType>SATADOM SATA3 SSD</DeviceType>
+                <Size>128GB</Size>
+                <MaxLBA>EE7C2AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>SATADOM</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>2372</PowerOnHours>
+                <ErasureDate>01/26/2024</ErasureDate>
+                <ErasureTime>11:33:16</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> dd194924 6c611195 9bc13a18 378eb33d 302c3272</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>ZGS0P9HA</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SEAGATE</Manufacturer>
+                <Model>ST1000LM049-2GH172</Model>
+                <Code>RPM2</Code>
+                <DeviceType>2.5 SATA3 SSHD</DeviceType>
+                <Size>1TB</Size>
+                <MaxLBA>74706DAF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>2.5</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>HDD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>5603</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>08:43:12</ErasureTime>
+                <ErasureDuration>02:49</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>w 00, v Pass</ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 9ad53d59 62edcc83 182b5ff6 5af03afb a2337546</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>WL1AB7R5</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SEAGATE</Manufacturer>
+                <Model>ST1000LM035-1RK172</Model>
+                <Code>SDM3</Code>
+                <DeviceType>2.5 SATA3 5400</DeviceType>
+                <Size>1TB</Size>
+                <MaxLBA>74706DAF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>2.5</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>HDD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>2312</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>08:43:12</ErasureTime>
+                <ErasureDuration>03:05</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>w 00, v Pass</ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 12220745 a54d33e3 1350f735 d46b0ee0 0e495262</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>S3PZNF0JA19781T</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SAMSUNG</Manufacturer>
+                <Model>850 EVO</Model>
+                <Code>EMT03B6</Code>
+                <DeviceType>2.5 SATA3 SSD</DeviceType>
+                <Size>250GB</Size>
+                <MaxLBA>1D1C596F</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>2.5</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>838</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>08:43:12</ErasureTime>
+                <ErasureDuration>00:10</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 654c52e9 5205e256 21ef31e9 a948a45e 01077d97</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>UGXVK01ZRBYW8U</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>ATA</Manufacturer>
+                <Model>MTFDDAK256TBN-1AR1ZABHA</Model>
+                <Code>HPC0014</Code>
+                <DeviceType>2.5 SATA3 SSD</DeviceType>
+                <Size>256GB</Size>
+                <MaxLBA>1DCF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>2.5</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>2</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>08:43:12</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>blkers 00, v Pass</ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 25e26ef0 0a0c192d 3be170d3 52ef0186 70671705</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>FJ5CN4229112AC53O</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SK</Manufacturer>
+                <Model>hynix SC300 2_5 7MM 256GB</Model>
+                <Code>20100P0</Code>
+                <DeviceType>2.5 SATA3 SSD</DeviceType>
+                <Size>256GB</Size>
+                <MaxLBA>1DCF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>2.5</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>46656</PowerOnHours>
+                <ErasureDate></ErasureDate>
+                <ErasureTime></ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod></ErasureMethod>
+                <Rule></Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note></Note>
+                <ErasureResults></ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+                <Certified>FALSE</Certified>
+                <LogHash></LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>1826E145BB3C</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>ATA</Manufacturer>
+                <Model>CT250MX500SSD1</Model>
+                <Code>M3CR020</Code>
+                <DeviceType>2.5 SATA3 SSD</DeviceType>
+                <Size>250GB</Size>
+                <MaxLBA>1D1C596F</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>2.5</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>5762</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>08:43:39</ErasureTime>
+                <ErasureDuration>00:42</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>w 00, v Pass</ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> e33e67b2 a6d32b7c d6791dff 15b02aa7 a8745847</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>UGXVK01ZRBYW8T</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>ATA</Manufacturer>
+                <Model>MTFDDAK256TBN-1AR1ZABHA</Model>
+                <Code>HPC0014</Code>
+                <DeviceType>2.5 SATA3 SSD</DeviceType>
+                <Size>256GB</Size>
+                <MaxLBA>1DCF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>2.5</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>9</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>08:43:12</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>blkers 00, v Pass</ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> fa30ca0a 2340df3b 81c8bb38 f98b2d21 52447845</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>UGXVK01ZRBYW8W</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>ATA</Manufacturer>
+                <Model>MTFDDAK256TBN-1AR1ZABHA</Model>
+                <Code>HPC0014</Code>
+                <DeviceType>2.5 SATA3 SSD</DeviceType>
+                <Size>256GB</Size>
+                <MaxLBA>1DCF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>2.5</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>1</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>08:43:12</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>blkers 00, v Pass</ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 951b01e3 b6fecdf8 744aa851 6abcc80e 4737fb42</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>UGXVK01ZRBYW8V</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>ATA</Manufacturer>
+                <Model>MTFDDAK256TBN-1AR1ZABHA</Model>
+                <Code>HPC0014</Code>
+                <DeviceType>2.5 SATA3 SSD</DeviceType>
+                <Size>256GB</Size>
+                <MaxLBA>1DCF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>2.5</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>1</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>08:43:12</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>blkers 00, v Pass</ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 130a3e0c 293f2f35 6511d9f7 ca442df0 8b73892a</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>UGXVK01ZRBYW8Y</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>ATA</Manufacturer>
+                <Model>MTFDDAK256TBN-1AR1ZABHA</Model>
+                <Code>HPC0014</Code>
+                <DeviceType>2.5 SATA3 SSD</DeviceType>
+                <Size>256GB</Size>
+                <MaxLBA>1DCF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>2.5</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>24</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>08:43:12</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>blkers 00, v Pass</ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> bf54b4da bd144890 93f389dd 95c88b76 5580945c</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>151250402861</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SanDisk</Manufacturer>
+                <Model>SD6SB1M-128G-1006</Model>
+                <Code>X231706</Code>
+                <DeviceType>SATADOM SATA3 SSD</DeviceType>
+                <Size>128GB</Size>
+                <MaxLBA>EE7C2AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>SATADOM</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>5334</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>08:43:12</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>blkers 00, v Pass</ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> e7c99a5a 8640405c ce42e113 77a8696b 51972450</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>162012A70751</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>ATA</Manufacturer>
+                <Model>MTFDDAV512MBF-1AN15ABHA</Model>
+                <Code>M6T3</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>512GB</Size>
+                <MaxLBA>3B9E12AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>-1</ReallocatedSectors>
+                <PowerOnHours>789</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>09:03:23</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Failed</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 5f6e7a2e 49a77aae 06e9abc3 1fe7aa94 2ca7e765</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>S205NXAH234465</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SAMSUNG</Manufacturer>
+                <Model>MZNLN256HCHP-000H1</Model>
+                <Code>EMT22H0</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>256GB</Size>
+                <MaxLBA>1DCF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>9854</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>08:57:47</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>blkers 00, v Pass</ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 6f185937 d29d804b 7d709633 f0b3f5c8 c6c68b88</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>165120428841</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SanDisk</Manufacturer>
+                <Model>SD8SN8U-256G-1006</Model>
+                <Code>X412000</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>7GB</Size>
+                <MaxLBA>CF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>10102</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>08:58:13</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Failed</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> d15c0f12 116d0990 a6b1dcd4 7462c707 68b0d0df</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>162012A70BD3</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>ATA</Manufacturer>
+                <Model>MTFDDAV512MBF-1AN15ABHA</Model>
+                <Code>M6T3</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>512GB</Size>
+                <MaxLBA>3B9E12AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>-1</ReallocatedSectors>
+                <PowerOnHours>971</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>09:03:30</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Failed</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 4d120ae3 de2637ea 98112b81 89c16813 f3c570da</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>181433804707</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SanDisk</Manufacturer>
+                <Model>SD9SN8W-128G-1006</Model>
+                <Code>X610300</Code>
+                <DeviceType>M.2 SATA3 SSD</DeviceType>
+                <Size>128GB</Size>
+                <MaxLBA>EE7C2AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>M.2</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>748</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>08:57:47</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>blkers 00, v Pass</ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 9ba38eea 7920fd97 4187dd7e 0e22b01a d029908c</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>S2Y2NX2HB06225</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SAMSUNG</Manufacturer>
+                <Model>MZNLN256HMHQ-000H1</Model>
+                <Code>MAV21H3</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>256GB</Size>
+                <MaxLBA>1DCF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>10702</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>08:57:47</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>blkers 00, v Pass</ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> d083514b 918812f8 b5129fe5 b58ae67c 18f7d643</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>170302803147</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SanDisk</Manufacturer>
+                <Model>SD8SN8U-256G-1006</Model>
+                <Code>X412000</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>7GB</Size>
+                <MaxLBA>CF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>4641</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>08:58:16</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Failed</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> abf16bdf edc39fda 87efde0b 47d60624 718bf8ab</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>170302802763</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SanDisk</Manufacturer>
+                <Model>SD8SN8U-256G-1006</Model>
+                <Code>X412000</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>7GB</Size>
+                <MaxLBA>CF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>830</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>08:58:16</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Failed</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> a3edc541 81aa92ff c2217143 e03b9c3e ed116a76</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>170303803485</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SanDisk</Manufacturer>
+                <Model>SD8SN8U-256G-1006</Model>
+                <Code>X412000</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>7GB</Size>
+                <MaxLBA>CF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>600</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>10:50:07</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Failed</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 2a04ef12 9113b96c d12eeb07 a4d8cff0 f40cca07</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>171312801000</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SanDisk</Manufacturer>
+                <Model>SD8SN8U-256G-1006</Model>
+                <Code>X412000</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>7GB</Size>
+                <MaxLBA>CF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>8845</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>10:50:07</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Failed</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> bf365d9b ea50d08e 98ac28b8 932dc737 e33fde7b</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>002924100V67</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>LITEON</Manufacturer>
+                <Model>CV8-8E128-HP</Model>
+                <Code>V881</Code>
+                <DeviceType>M.2 SATA3 SSD</DeviceType>
+                <Size>128GB</Size>
+                <MaxLBA>EE7C2B0</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>M.2</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>1108</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>10:49:44</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>blkers 00, v Pass</ErasurePlan>
+                <Note>Failed</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 40ee6c4b 61746ab4 afb4a02d c3c286ea fdae7df4</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>160312735800</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>ATA</Manufacturer>
+                <Model>MTFDDAV512MBF-1AN15ABHA</Model>
+                <Code>M6T3</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>512GB</Size>
+                <MaxLBA>3B9E12AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>-1</ReallocatedSectors>
+                <PowerOnHours>1127</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>10:55:20</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Failed</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 839f363a cc098511 75ba1ef3 a6788c56 f592cc2c</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>UFZNC01J1AGVIK</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>ATA</Manufacturer>
+                <Model>MTFDDAV256TBN-1AR1ZABHA</Model>
+                <Code>HPC0012</Code>
+                <DeviceType>M.2 SATA3 SSD</DeviceType>
+                <Size>256GB</Size>
+                <MaxLBA>1DCF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>M.2</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>557</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>10:49:44</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>blkers 00, v Pass</ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 3c974d20 cbbdabc8 87e216bf 6c6f5bad 60fe3a87</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>162012A78846</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>ATA</Manufacturer>
+                <Model>MTFDDAV512MBF-1AN15ABHA</Model>
+                <Code>M6T3</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>512GB</Size>
+                <MaxLBA>3B9E12AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>-1</ReallocatedSectors>
+                <PowerOnHours>915</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>10:55:20</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Failed</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 0394d016 36de7c79 9deda1fc 1f032c4c 728fd3ea</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>162012A7030E</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>ATA</Manufacturer>
+                <Model>MTFDDAV512MBF-1AN15ABHA</Model>
+                <Code>M6T3</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>512GB</Size>
+                <MaxLBA>3B9E12AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>-1</ReallocatedSectors>
+                <PowerOnHours>1565</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>10:55:28</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Failed</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 2cdfc52a 91e23a5a b3e88c9b 9823b0cd 1d189307</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>170325802052</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SanDisk</Manufacturer>
+                <Model>SD8TN8U-256G-1006</Model>
+                <Code>X413010</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>7GB</Size>
+                <MaxLBA>CF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>6862</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>10:50:12</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Failed</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> b4477d7e 78a5261c 8e75f0e7 94cb9e4f 6c8b739b</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>151250402861</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SanDisk</Manufacturer>
+                <Model>SD6SB1M-128G-1006</Model>
+                <Code>X231706</Code>
+                <DeviceType>SATADOM SATA3 SSD</DeviceType>
+                <Size>128GB</Size>
+                <MaxLBA>EE7C2AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>SATADOM</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>5334</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>08:43:12</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> e7c99a5a 8640405c ce42e113 77a8696b 51972450</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>UGXVK01ZRBYW8V</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>ATA</Manufacturer>
+                <Model>MTFDDAK256TBN-1AR1ZABHA</Model>
+                <Code>HPC0014</Code>
+                <DeviceType>2.5 SATA3 SSD</DeviceType>
+                <Size>256GB</Size>
+                <MaxLBA>1DCF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>2.5</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>4</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>08:43:12</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 130a3e0c 293f2f35 6511d9f7 ca442df0 8b73892a</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>162012A77FE9</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>ATA</Manufacturer>
+                <Model>MTFDDAV512MBF-1AN15ABHA</Model>
+                <Code>M6T3</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>512GB</Size>
+                <MaxLBA>3B9E12AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>-1</ReallocatedSectors>
+                <PowerOnHours>1139</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>12:07:03</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Failed</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> dfe487cb 9c4eb057 82764066 8ae1bf30 10a708e0</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>MI94T002610404H07</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SK</Manufacturer>
+                <Model>hynix SC401 SATA 512GB</Model>
+                <Code>9000012</Code>
+                <DeviceType>M.2 SATA3 SSD</DeviceType>
+                <Size>512GB</Size>
+                <MaxLBA>3B9E12AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>M.2</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>27541</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>12:01:35</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>blkers 00, v Pass</ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> f14ab687 3f1f3d5c 0f982b16 2c56699f 6736301e</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>160312735847</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>ATA</Manufacturer>
+                <Model>MTFDDAV512MBF-1AN15ABHA</Model>
+                <Code>M6T3</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>512GB</Size>
+                <MaxLBA>3B9E12AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>-1</ReallocatedSectors>
+                <PowerOnHours>1342</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>12:07:04</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Failed</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 63bec3b7 b4ad887d 22adcf15 e2819594 5c12c4e5</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>163918809119</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SanDisk</Manufacturer>
+                <Model>SD8SN8U-128G-1006</Model>
+                <Code>X412000</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>7.8GB</Size>
+                <MaxLBA>E7C2AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>2047</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>12:01:56</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Failed</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 50cbd2af c584aada 032b5da8 952850dd c1c59029</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>S1EVNSAG360077</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SAMSUNG</Manufacturer>
+                <Model>SSD PM851 mSATA 256GB</Model>
+                <Code>EXT4AD0</Code>
+                <DeviceType>M.2 SATA3 SSD</DeviceType>
+                <Size>256GB</Size>
+                <MaxLBA>1DCF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>M.2</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>0</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>12:01:35</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> ff2410bd 95b22760 9788be82 f014f719 01346739</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>S3T8NF0K783952</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SAMSUNG</Manufacturer>
+                <Model>MZNLN128HAHQ-000H1</Model>
+                <Code>MVT23H3</Code>
+                <DeviceType>M.2 SATA3 SSD</DeviceType>
+                <Size>128GB</Size>
+                <MaxLBA>EE7C2AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>M.2</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>2264</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>12:01:35</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Purge</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>blkers 00, v Pass</ErasurePlan>
+                <Note>Passed</Note>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 003dfd0a de5a69d9 8fe93373 082b1828 cbc298de</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>170242800787</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SanDisk</Manufacturer>
+                <Model>SD8SN8U-256G-1006</Model>
+                <Code>X412000</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>7GB</Size>
+                <MaxLBA>CF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>2005</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>14:35:29</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Failed</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> abb30791 42e5852e 8fa1ea7f e1358569 983109b5</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>170302801746</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SanDisk</Manufacturer>
+                <Model>SD8SN8U-256G-1006</Model>
+                <Code>X412000</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>7GB</Size>
+                <MaxLBA>CF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>4129</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>14:35:30</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Failed</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> c1b849b8 04ae390c 271dfc60 a290a8ad 8f379ef1</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>170303804019</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SanDisk</Manufacturer>
+                <Model>SD8SN8U-256G-1006</Model>
+                <Code>X412000</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>7GB</Size>
+                <MaxLBA>CF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>3062</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>14:35:30</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Failed</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 311c1338 f427b396 c2a97cc7 e79e30a6 e067a224</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>NONE</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>NONE</Manufacturer>
+                <Model>UNAVAILABLE</Model>
+                <Code>0000</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>256GB</Size>
+                <MaxLBA>1DCF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>HDD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>6479</PowerOnHours>
+                <ErasureDate></ErasureDate>
+                <ErasureTime></ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod></ErasureMethod>
+                <Rule></Rule>
+                <ErasurePlan></ErasurePlan>
+                <Note></Note>
+                <ErasureResults></ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+                <Certified>FALSE</Certified>
+                <LogHash></LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>170334803116</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SanDisk</Manufacturer>
+                <Model>SD8SN8U-256G-1006</Model>
+                <Code>X412000</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>7GB</Size>
+                <MaxLBA>CF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>1024</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>14:35:31</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Failed</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> d25c7e8f 562bef85 992514d8 052cf1c9 5c08c00f</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>170334800598</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SanDisk</Manufacturer>
+                <Model>SD8SN8U-256G-1006</Model>
+                <Code>X412000</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>7GB</Size>
+                <MaxLBA>CF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>433</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>14:35:32</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Failed</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> b1e10e89 9ac70502 e6043253 76dbee44 f2372a47</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>170367804018</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SanDisk</Manufacturer>
+                <Model>SD8SN8U-256G-1006</Model>
+                <Code>X412000</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>7GB</Size>
+                <MaxLBA>CF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>6479</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>14:35:33</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Failed</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> ec7b17bf 3a4f72a2 f44623a2 5222f36e c046f5a5</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>170242804190</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SanDisk</Manufacturer>
+                <Model>SD8SN8U-256G-1006</Model>
+                <Code>X412000</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>7GB</Size>
+                <MaxLBA>CF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>2976</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>14:35:33</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Failed</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+        <Certified>TRUE</Certified>
+                <LogHash> 7e2c13c5 80d37203 02da2cdc 59c50940 87c23c72</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>170302803046</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SanDisk</Manufacturer>
+                <Model>SD8SN8U-256G-1006</Model>
+                <Code>X412000</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>7GB</Size>
+                <MaxLBA>CF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>2729</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>14:47:35</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Primary-_Fallback</Note>
+                <ErasureResults>STARTED</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+                <Certified>FALSE</Certified>
+                <LogHash></LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>170246800939</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SanDisk</Manufacturer>
+                <Model>SD8SN8U-256G-1006</Model>
+                <Code>X412000</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>7GB</Size>
+                <MaxLBA>CF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>1922</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>14:47:36</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>secure 00, v Pass</ErasurePlan>
+                <Note>Primary-_Fallback</Note>
+                <ErasureResults></ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+                <Certified>FALSE</Certified>
+                <LogHash></LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>170246802798</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <Location1></Location1>
+                <Location2></Location2>
+                <Manufacturer>SanDisk</Manufacturer>
+                <Model>SD8SN8U-256G-1006</Model>
+                <Code>X412000</Code>
+                <DeviceType>Small SATA3 SSD</DeviceType>
+                <Size>7GB</Size>
+                <MaxLBA>CF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>Small</FormFactor>
+                <Interface>SATA3</Interface>
+                <Type>SSD</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>289</PowerOnHours>
+                <ErasureDate>01/29/2024</ErasureDate>
+                <ErasureTime>14:47:23</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod></ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>blkers 00, v Pass</ErasurePlan>
+                <Note>Seed Failure</Note>
+                <ErasureResults></ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+                <Certified>FALSE</Certified>
+                <LogHash></LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>N/A</SelfDiagnostic>
+            </Health>
+        </Storage>
+    </Devices>
+</SYSTEM_INVENTORY>
+
+
+<HASHES>
+        <TESTING_HASH>58017e6f13c067</TESTING_HASH>
+</HASHES>
+</SYSINFO>
+

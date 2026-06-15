@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+{% block title %}All CPU Tests — CEARTrack{% endblock %}
+{% block content %}
+
+<style>
+.page-header {
+  display: flex; align-items: center; gap: 16px; margin-bottom: 20px;
+}
+.back-link {
+  font-size: 0.82em; color: var(--accent); text-decoration: none;
+  padding: 5px 12px; border: 1px solid var(--accent); border-radius: 5px;
+  transition: background 0.15s;
+}
+.back-link:hover { background: rgba(99,102,241,0.12); }
+.page-title {
+  font-size: 1.1em; font-weight: 700; color: var(--text-primary);
+}
+.record-count {
+  font-size: 0.78em; color: var(--text-secondary);
+  margin-left: auto;
+}
+
+/* Table */
+.cpu-table { width: 100%; border-collapse: collapse; font-size: 0.87em; }
+.cpu-table th {
+  text-align: left; padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.7em; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--text-secondary); cursor: pointer; user-select: none;
+}
+.cpu-table th:hover { color: var(--accent); }
+.cpu-table td { padding: 9px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.cpu-table tr.data-row:hover { background: rgba(255,255,255,0.03); cursor: pointer; }
+.cpu-table tr.expanded-row td { padding: 0; border: none; }
+.result-pass { color: var(--pass); font-weight: 700; }
+.result-fail { color: var(--fail); font-weight: 700; }
+
+/* Pagination */
+.pagination {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; margin-top: 20px;
+}
+.page-btn {
+  padding: 6px 14px; border-radius: 6px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text-secondary); cursor: pointer; font-size: 0.82em;
+  transition: all 0.15s;
+}
+.page-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.page-btn.active   { border-color: var(--accent); color: var(--accent); background: rgba(99,102,241,0.1); }
+.page-info { font-size: 0.8em; color: var(--text-secondary); }
+
+/* Detail panel (same as dashboard) */
+.detail-panel {
+  background: rgba(99,102,241,0.04);
+  border: 1px solid rgba(99,102,241,0.18);
+  border-radius: 8px; padding: 18px 20px; margin: 2px 0 10px;
+}
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.kv-section-title {
+  font-size: 0.7em; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--accent); margin-bottom: 8px;
+}
+.kv-grid { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; }
+.kv-label { font-size: 0.78em; color: var(--text-secondary); padding: 1px 0; }
+.kv-value { font-size: 0.78em; color: var(--text-primary); padding: 1px 0; }
+.module-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.module-row { font-size: 0.77em; padding: 3px 6px; border-radius: 4px; }
+.mod-pass { color: var(--pass); background: rgba(16,185,129,0.07); }
+.mod-fail { color: var(--fail); background: rgba(239,68,68,0.1); }
+.freq-anomaly { color: #f59e0b; font-weight: 700; }
+.freq-normal  { color: var(--pass); }
+
+/* Filter bar */
+.filter-bar {
+  display: flex; gap: 10px; align-items: center;
+  margin-bottom: 14px; flex-wrap: wrap;
+}
+.filter-input {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 12px; color: var(--text-primary);
+  font-size: 0.85em; min-width: 160px;
+}
+.filter-input:focus { outline: none; border-color: var(--accent); }
+
+@media (max-width: 800px) {
+  .detail-grid { grid-template-columns: 1fr; }
+}
+</style>
+
+<div x-data="cpuAllApp()" x-init="init()">
+
+  <div class="page-header">
+    <a class="back-link" href="/cpu/">← Dashboard</a>
+    <span class="page-title">All CPU Tests</span>
+    <span class="record-count"
+          x-text="total > 0 ? total.toLocaleString() + ' total records' : ''"></span>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <input class="filter-input" type="text" placeholder="Filter by SN / Model…"
+           x-model="filterQ" @input.debounce.400ms="applyFilter()">
+    <select class="filter-input" x-model="filterResult" @change="applyFilter()">
+      <option value="">All Results</option>
+      <option value="Pass">Pass</option>
+      <option value="Fail">Fail</option>
+    </select>
+    <span style="font-size:0.78em;color:var(--text-secondary);"
+          x-show="filterQ || filterResult"
+          x-text="'Showing ' + records.length + ' of ' + total">&nbsp;</span>
+  </div>
+
+  <!-- Table -->
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+    <table class="cpu-table">
+      <thead>
+        <tr>
+          <th @click="sort('sn')">SN <span x-text="sortIcon('sn')"></span></th>
+          <th>Series</th>
+          <th @click="sort('cpu_full_name')">Model <span x-text="sortIcon('cpu_full_name')"></span></th>
+          <th @click="sort('physical_cores')">Cores <span x-text="sortIcon('physical_cores')"></span></th>
+          <th>Duration</th>
+          <th @click="sort('test_date')">Date <span x-text="sortIcon('test_date')"></span></th>
+          <th @click="sort('overall_result')">Result <span x-text="sortIcon('overall_result')"></span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-if="records.length === 0 && !loading">
+          <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-secondary);">No records found.</td></tr>
+        </template>
+        <template x-for="r in records" :key="r.id">
+          <>
+            <tr class="data-row" @click="toggleExpand(r.id)">
+              <td x-text="r.sn"></td>
+              <td x-text="r.cpu_series ?? '—'"></td>
+              <td x-text="r.cpu_full_name ?? r.processor_name?.substring(0,30) ?? '—'"></td>
+              <td x-text="r.physical_cores ?? '—'"></td>
+              <td x-text="r.duration_sec ? fmtDuration(r.duration_sec) : '—'"></td>
+              <td x-text="r.test_date ?? '—'"></td>
+              <td :class="r.overall_result==='Pass' ? 'result-pass' : 'result-fail'"
+                  x-text="r.overall_result ?? '—'"></td>
+            </tr>
+            <tr class="expanded-row" x-show="expandedId === r.id">
+              <td colspan="7">
+                <div x-html="buildDetail(r)"></div>
+              </td>
+            </tr>
+          </>
+        </template>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pagination" x-show="totalPages > 1">
+    <button class="page-btn" @click="goPage(currentPage-1)" :disabled="currentPage===1">‹ Prev</button>
+    <template x-for="p in visiblePages()" :key="p">
+      <button class="page-btn" :class="{active: p===currentPage}"
+              @click="p !== '…' && goPage(p)"
+              :disabled="p==='…'"
+              x-text="p"></button>
+    </template>
+    <button class="page-btn" @click="goPage(currentPage+1)" :disabled="currentPage===totalPages">Next ›</button>
+    <span class="page-info" x-text="'Page ' + currentPage + ' of ' + totalPages"></span>
+  </div>
+
+</div>
+
+<script>
+const GEN_NAMES = {
+  4:'Gen 4 · Haswell', 5:'Gen 5 · Broadwell', 6:'Gen 6 · Skylake',
+  7:'Gen 7 · Kaby Lake', 8:'Gen 8 · Coffee Lake', 9:'Gen 9 · CFL Refresh',
+  10:'Gen 10 · Comet Lake', 11:'Gen 11 · Tiger Lake',
+  12:'Gen 12 · Alder Lake', 13:'Gen 13 · Raptor Lake', 14:'Gen 14 · Raptor Lake+',
+};
+const CPU_MODULES = [
+  'Genuine Intel','BrandString','Cache','MMXSSE','IMC',
+  'Prime Number','Floating Point','Math','GPUStressW','CPULoad','CPUFreq'
+];
+const PAGE_SIZE = 50;
+
+function cpuAllApp() {
+  return {
+    records:     [],
+    total:       0,
+    loading:     false,
+    currentPage: 1,
+    totalPages:  1,
+    expandedId:  null,
+    sortKey:     'test_date',
+    sortDir:     'desc',
+    filterQ:     '',
+    filterResult:'',
+
+    async init() {
+      await this.loadPage(1);
+    },
+
+    async loadPage(page) {
+      this.loading = true;
+      const offset = (page - 1) * PAGE_SIZE;
+      let url = `/cpu/api/records?offset=${offset}&limit=${PAGE_SIZE}`;
+      const r = await fetch(url).then(r => r.json());
+      this.records     = r.records ?? [];
+      this.total       = r.total   ?? 0;
+      this.currentPage = page;
+      this.totalPages  = Math.max(1, Math.ceil(this.total / PAGE_SIZE));
+      this.loading     = false;
+      this.expandedId  = null;
+      // client-side sort
+      this._applySort();
+    },
+
+    async applyFilter() {
+      // For simplicity: filter client-side on current page, or reload page 1
+      await this.loadPage(1);
+    },
+
+    async goPage(p) {
+      if (p < 1 || p > this.totalPages) return;
+      await this.loadPage(p);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+
+    sort(key) {
+      if (this.sortKey === key) {
+        this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        this.sortKey = key; this.sortDir = 'desc';
+      }
+      this._applySort();
+    },
+
+    _applySort() {
+      const key = this.sortKey, dir = this.sortDir;
+      this.records = [...this.records].sort((a, b) => {
+        const av = a[key] ?? '', bv = b[key] ?? '';
+        const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+        return dir === 'asc' ? cmp : -cmp;
+      });
+      // apply filter
+      if (this.filterQ || this.filterResult) {
+        const q = this.filterQ.toLowerCase();
+        this.records = this.records.filter(r => {
+          const matchQ = !q ||
+            (r.sn ?? '').toLowerCase().includes(q) ||
+            (r.cpu_full_name ?? '').toLowerCase().includes(q) ||
+            (r.processor_name ?? '').toLowerCase().includes(q);
+          const matchR = !this.filterResult || r.overall_result === this.filterResult;
+          return matchQ && matchR;
+        });
+      }
+    },
+
+    sortIcon(key) {
+      if (this.sortKey !== key) return '';
+      return this.sortDir === 'asc' ? '↑' : '↓';
+    },
+
+    visiblePages() {
+      const total = this.totalPages, cur = this.currentPage;
+      if (total <= 7) return Array.from({length: total}, (_, i) => i + 1);
+      const pages = [1];
+      if (cur > 3) pages.push('…');
+      for (let p = Math.max(2, cur-1); p <= Math.min(total-1, cur+1); p++) pages.push(p);
+      if (cur < total - 2) pages.push('…');
+      pages.push(total);
+      return pages;
+    },
+
+    toggleExpand(id) {
+      this.expandedId = this.expandedId === id ? null : id;
+    },
+
+    fmtDuration(sec) {
+      if (sec == null) return '—';
+      if (sec < 60) return sec + 's';
+      const h = Math.floor(sec / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      const s = sec % 60;
+      if (h > 0) return h + 'h ' + m + 'm';
+      return m + 'm ' + String(s).padStart(2,'0') + 's';
+    },
+
+    buildDetail(r) {
+      const kv = (l, v) => (v != null && v !== '')
+        ? `<div class="kv-label">${l}</div><div class="kv-value">${v}</div>` : '';
+      const freqHtml = r.freq_ratio != null
+        ? `<span class="${r.freq_ratio < 0.5 ? 'freq-anomaly' : 'freq-normal'}">${(r.freq_ratio * 100).toFixed(2)}%</span>`
+        : '—';
+      const modGrid = CPU_MODULES.map(m => {
+        const fail = r.fail_module && r.fail_module.toLowerCase().includes(m.toLowerCase());
+        return `<div class="module-row ${fail ? 'mod-fail' : 'mod-pass'}">${fail ? '✗' : '✓'} ${m}</div>`;
+      }).join('');
+      const imgHtml = r.has_image
+        ? `<div style="margin-top:14px;">
+             <div class="kv-section-title">Test Screenshot</div>
+             <img src="/cpu/api/image/${r.id}"
+                  style="max-height:260px;max-width:100%;object-fit:contain;border-radius:6px;border:1px solid var(--border);"
+                  loading="lazy" alt="IPDT result">
+           </div>` : '';
+      return `
+        <div class="detail-panel">
+          <div class="detail-grid">
+            <div>
+              <div class="kv-section-title">CPU Specs</div>
+              <div class="kv-grid">
+                ${kv('SN',         r.sn)}
+                ${kv('Processor',  r.processor_name)}
+                ${kv('Series',     r.cpu_series)}
+                ${kv('Model',      r.cpu_full_name)}
+                ${kv('Generation', r.cpu_generation ? (GEN_NAMES[r.cpu_generation] ?? 'Gen ' + r.cpu_generation) : null)}
+                ${kv('Speed',      r.speed_ghz ? r.speed_ghz + ' GHz' : null)}
+                ${kv('Cores',      r.physical_cores && r.logical_cores ? r.physical_cores + 'P / ' + r.logical_cores + 'L' : null)}
+                ${kv('L3 Cache',   r.l3_cache_kb ? (r.l3_cache_kb/1024).toFixed(0) + ' MB' : null)}
+                ${kv('Memory',     r.memory_gb ? r.memory_gb + ' GB' : null)}
+                ${kv('Exp. Freq',  r.expected_freq_ghz ? r.expected_freq_ghz + ' GHz' : null)}
+                ${kv('Meas. Freq', r.measured_freq_ghz ? r.measured_freq_ghz.toFixed(3) + ' GHz' : null)}
+                <div class="kv-label">Freq Ratio</div><div class="kv-value">${freqHtml}</div>
+                ${kv('Duration',   r.duration_sec ? this.fmtDuration(r.duration_sec) : null)}
+                ${kv('Date',       r.test_date)}
+                ${kv('OS',         r.os_info)}
+                ${r.fail_module ? `<div class="kv-label">Failed Module</div><div class="kv-value" style="color:var(--fail)">${r.fail_module}</div>` : ''}
+              </div>
+            </div>
+            <div>
+              <div class="kv-section-title">Test Modules</div>
+              <div class="module-grid">${modGrid}</div>
+              ${r.prime_ops_per_sec || r.mflops ? `
+              <div style="margin-top:14px;">
+                <div class="kv-section-title">Performance</div>
+                <div class="kv-grid">
+                  ${kv('Prime Ops/s', r.prime_ops_per_sec ? r.prime_ops_per_sec.toLocaleString() : null)}
+                  ${kv('MFLOPS',      r.mflops ? r.mflops.toFixed(1) : null)}
+                </div>
+              </div>` : ''}
+              ${imgHtml}
+            </div>
+          </div>
+        </div>`;
+    },
+  };
+}
+</script>
+
+{% endblock %}

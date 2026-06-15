@@ -1,0 +1,25 @@
+
+## DeviceRemovalThread(0)
+\\?\scsi#disk&ven_hgst&prod_huh721212ale604#7&3303ce7c&0&014500#{53f56307-b6bf-11d0-94f2-00a0c91efb8b}
+
+============================================================================
+ ShortReason : Offline Timeout
+ Reason : Offline timeout exceeded (120s max)
+============================================================================
+
+02.1:69:00     08:45:57 | 01/12/2024
+0006 - IOCTL ERROR, The handle is invalid.
+CDB : 85 08 2F 00 D5 00 01 00 E0 00 4F 00 C2 00 B0 00 
+
+02.1:69:00     08:45:57 | 01/12/2024
+0006 - IOCTL ERROR, The handle is invalid.
+CDB : 85 08 2F 00 D5 00 01 00 E0 00 4F 00 C2 00 B0 00 
+
+idx = 0, State = 0x3002, ENDSCR = 0, last lba = 574771000
+
+xerase.PreCheckHealth = 0  xerase.PostCheckHealth = 0   elapsed = 4212  
+
+02.1:69:00     08:45:59 | 01/12/2024
+0006 - IOCTL ERROR, The handle is invalid.
+CDB : 85 08 2F 00 D0 00 00 00 00 00 4F 00 C2 00 B0 00 
+

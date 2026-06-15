@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+
+<SYSINFO>
+
+
+<SYSTEM_INVENTORY>
+    <Report_Info>
+        <Product>Enterprise Data Erasure</Product>
+        <Version>14.37.2</Version>
+        <Date>04/01/2026</Date>
+        <Time>07:47:50</Time>
+    </Report_Info>
+    <Processing_Information>
+        <SystemName>PXE</SystemName>
+        <Location1>()</Location1>
+        <Location2></Location2>
+        <Operator></Operator>
+        <UserFieldCount>0</UserFieldCount>
+    </Processing_Information>
+    <System_Information>
+        <Asset_Identifier></Asset_Identifier>
+        <ReceiptID></ReceiptID>
+        <JobID></JobID>
+        <System_Serial_Number>8W8CL13</System_Serial_Number>
+        <System_Status>PASS</System_Status>
+        <System_Chassis_Type>Laptop</System_Chassis_Type>
+        <System_FallbackChassis_Type>Laptop</System_FallbackChassis_Type>
+        <System_Manufacturer>Dell Inc</System_Manufacturer>
+        <System_ProductName>Latitude 5400</System_ProductName>
+        <System_Description>Computer System Product</System_Description>
+        <System_SKU>08B8</System_SKU>
+        <System_UUID>4C4C4544-0057-3810-8043-B8C04F4C3133</System_UUID>
+        <System_Version></System_Version>
+        <MB_Serial_Number>/8W8CL13/CNCMK000370710/</MB_Serial_Number>
+        <MB_Manufacturer>Dell Inc</MB_Manufacturer>
+        <MB_BIOSvendor>Dell Inc</MB_BIOSvendor>
+        <MB_BIOSver>1.38.0</MB_BIOSver>
+        <System_Memory>16.0GB</System_Memory>
+        <System_Memory_Details>16.0GB DDR4 2667MHz</System_Memory_Details>
+        <Processor>Core i5 8365U @ 1.60GHz</Processor>
+        <Processor_Gen>8th Gen</Processor_Gen>
+        <Storage_Capacity>256GB</Storage_Capacity>
+        <Computrace>untested</Computrace>
+        <MdmAutopilot>untested</MdmAutopilot>
+        <MAC_Address>34:48:ed:33:4c:f5</MAC_Address>
+        <Display_Resolution>1920 x 1080</Display_Resolution>
+        <Display_Size>13.9 inch</Display_Size>
+        <Display_Aspect>16:9</Display_Aspect>
+        <Display_Aspect_Name>FHD</Display_Aspect_Name>
+        <Display_Color>SDR</Display_Color>
+        <Display_Refresh></Display_Refresh>
+        <Video>Intel UHD Graphics 620</Video>
+        <Keyboard>US</Keyboard>
+        <Webcam></Webcam>
+        <Mobile_Data></Mobile_Data>
+        <WiFi>No</WiFi>
+        <Optical></Optical>
+        <Bluetooth>Yes</Bluetooth>
+        <Fingerprint>No</Fingerprint>
+        <Touchscreen>No</Touchscreen>
+        <GPS_Navigation>No</GPS_Navigation>
+        <Original_Operating_System></Original_Operating_System>
+        <Original_Product_ID></Original_Product_ID>
+        <Original_Product_Key></Original_Product_Key>
+        <Original_Organization></Original_Organization>
+        <Original_User></Original_User>
+        <Functional_Grade>not tested</Functional_Grade>
+        <Cosmetic_Grade>not tested</Cosmetic_Grade>
+    </System_Information>
+    <Devices>
+        <ProcessorCount>1</ProcessorCount>
+        <MemoryCount>1</MemoryCount>
+        <Component>
+                <Qty>1</Qty>
+                <Type>Storage Controller</Type>
+                <Manufacturer>Intel</Manufacturer>
+                <Model>Intel(R) 300 Series Chipset Family SATA AHCI Controller</Model>
+                <Description>Intel(R) 300 Series Chipset Family SATA AHCI Controller</Description>
+        </Component>
+        <Component>
+                <Qty>1</Qty>
+                <Type>Video Adapter</Type>
+                <Manufacturer>Intel</Manufacturer>
+                <Model>UHD Graphics 620</Model>
+                <Family>Integrated</Family>
+                <Description>Intel UHD Graphics 620</Description>
+        </Component>
+        <Component>
+                <Qty>1</Qty>
+                <Type>Data Aquisition</Type>
+                <Manufacturer>Intel</Manufacturer>
+                <Model>Intel(R) Dynamic Tuning Processor Participant</Model>
+                <Description>Intel(R) Dynamic Tuning Processor Participant</Description>
+        </Component>
+        <Component>
+                <Qty>1</Qty>
+                <Type>Storage Controller</Type>
+                <Manufacturer>Standard NVM Express Controller</Manufacturer>
+                <Model>Standard NVM Express Controller</Model>
+                <Description>Standard NVM Express Controller</Description>
+        </Component>
+        <Component>
+                <Qty>1</Qty>
+                <Type>Network Device</Type>
+                <Manufacturer>Intel</Manufacturer>
+                <Model>Intel(R) Ethernet Connection (6) I219-LM</Model>
+                <Description>Intel(R) Ethernet Connection (6) I219-LM</Description>
+        </Component>
+        <Component>
+                <Qty>1</Qty>
+                <Type>Multimedia</Type>
+                <Manufacturer>Intel</Manufacturer>
+                <Model>High Definition Audio Controller</Model>
+                <Description>High Definition Audio Controller</Description>
+        </Component>
+        <Component>
+                <Qty>1</Qty>
+                <Type>Bluetooth</Type>
+                <Manufacturer>Intel</Manufacturer>
+                <Model>Intel Bluetooth</Model>
+                <Description>Intel Bluetooth</Description>
+        </Component>
+        <Battery>
+                <Manufacturer>BYD</Manufacturer>
+                <Model>DELL 9JRYT01</Model>
+                <SerialNumber>888</SerialNumber>
+                <Chemistry>LiP</Chemistry>
+                <BuildDate></BuildDate>
+                <Capacity>68005</Capacity>
+                <MaxCharge>62472</MaxCharge>
+                <Health>0</Health>
+                <Grade></Grade>
+                <DischargeResult></DischargeResult>
+                <DischargePercent></DischargePercent>
+                <DischargeTime></DischargeTime>
+        </Battery>
+        <Processor>
+                <Qty>1</Qty>
+                <Manufacturer>Intel</Manufacturer>
+                <Model>8365U</Model>
+                <SerialNumber>BFEBFBFF000806EC</SerialNumber>
+                <Speed>1.60GHz</Speed>
+                <Cores>4</Cores>
+                <Type>Core i5</Type>
+                <Generation>8th Gen</Generation>
+        </Processor>
+        <Memory>
+                <Qty>1</Qty>
+                <Manufacturer>Unbranded</Manufacturer>
+                <Model>HMA82GS6DJR8N-VK</Model>
+                <SerialNumber>734B4515</SerialNumber>
+                <Speed>2667</Speed>
+                <Size>16.00GB</Size>
+                <Type>DDR4</Type>
+                <FormFactor>SODIMM</FormFactor>
+                <ErrorCorrection>Non-ECC</ErrorCorrection>
+        </Memory>
+        <StorageCount>1</StorageCount>
+        <Storage>
+                <SerialNumber>2147AE465529</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <DeviceID></DeviceID>
+                <ReceiptID></ReceiptID>
+                <Location1>()</Location1>
+                <Location2></Location2>
+                <Manufacturer>WDC</Manufacturer>
+                <Model>PC SN530 256GB</Model>
+                <Code>21113012</Code>
+                <DeviceType>M.2 NVMe SSD</DeviceType>
+                <Size>256GB</Size>
+                <MaxLBA>1DCF32AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>M.2</FormFactor>
+                <FormFactor_extra></FormFactor_extra>
+                <Interface>NVMe</Interface>
+                <Type>NVMe</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>99.20</HealthScore>
+                <Grade>GRADE A</Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>2393</PowerOnHours>
+                <SSD_Lfe>80</SSD_Lfe>
+                <UncorrectableSectors>-1</UncorrectableSectors>
+                <ErasureDate>04/01/2026</ErasureDate>
+                <ErasureTime>07:29:15</ErasureTime>
+                <ErasureDuration>00:18</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>w 00, sv 1000 blks</ErasurePlan>
+                <ErasureResults>PASS</ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+                <Note></Note>
+                <Certified>TRUE</Certified>
+                <LogHash> df9480ea 353381e0 e19c7d91 b0a7c0f3 2eb1c58d</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>PASSED</SelfDiagnostic>
+            </Health>
+        </Storage>
+    </Devices>
+</SYSTEM_INVENTORY>
+
+
+<HASHES>
+        <TESTING_HASH>ca968634d0bd1a</TESTING_HASH>
+</HASHES>
+</SYSINFO>
+

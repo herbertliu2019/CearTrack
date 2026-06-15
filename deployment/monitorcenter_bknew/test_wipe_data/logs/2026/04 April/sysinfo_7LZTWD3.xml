@@ -1,0 +1,395 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+
+<SYSINFO>
+
+
+<SYSTEM_INVENTORY>
+    <Report_Info>
+        <Product>Enterprise Data Erasure</Product>
+        <Version>15.1.1</Version>
+        <OSPlatform>boot_10_x64.wim</OSPlatform>
+        <Date>04/08/2026</Date>
+        <Time>12:13:47</Time>
+    </Report_Info>
+    <Processing_Information>
+        <SystemName>PXE</SystemName>
+        <Location1></Location1>
+        <Location2></Location2>
+        <Operator></Operator>
+        <UserFieldCount>0</UserFieldCount>
+    </Processing_Information>
+    <System_Information>
+        <Asset_Identifier></Asset_Identifier>
+        <ReceiptID></ReceiptID>
+        <JobID></JobID>
+        <System_Serial_Number>7LZTWD3</System_Serial_Number>
+        <System_Status></System_Status>
+        <System_Chassis_Type>Laptop</System_Chassis_Type>
+        <System_FallbackChassis_Type>Laptop</System_FallbackChassis_Type>
+        <System_Manufacturer>Dell Inc</System_Manufacturer>
+        <System_ProductName>Precision 7750</System_ProductName>
+        <System_Description>Precision</System_Description>
+        <System_SKU>09C4</System_SKU>
+        <System_UUID>4C4C4544-004C-5A10-8054-B7C04F574433</System_UUID>
+        <System_Version></System_Version>
+        <MB_Serial_Number>/7LZTWD3/CNCMK0016R00A9/</MB_Serial_Number>
+        <MB_Manufacturer>Dell Inc.</MB_Manufacturer>
+        <MB_BIOSvendor></MB_BIOSvendor>
+        <MB_BIOSver>1.35.1</MB_BIOSver>
+        <System_Memory>64.0GB</System_Memory>
+        <System_Memory_Details>64.0GB DDR4 3200MHz (4 units)</System_Memory_Details>
+        <Processor>Xeon W-10855M @ 2.80GHz</Processor>
+        <Processor_Gen>Comet Lake</Processor_Gen>
+        <Storage_Capacity>2TB</Storage_Capacity>
+        <Computrace>untested</Computrace>
+        <MdmAutopilot>untested</MdmAutopilot>
+        <MAC_Address>38:14:28:44:dd:5d</MAC_Address>
+        <Display_Resolution>1920 x 1080</Display_Resolution>
+        <Display_Size>17.3 inch</Display_Size>
+        <Display_Aspect>16:9</Display_Aspect>
+        <Display_Aspect_Name>FHD</Display_Aspect_Name>
+        <Display_Color>SDR</Display_Color>
+        <Display_Refresh></Display_Refresh>
+        <Video>NVIDIA Quadro T1000 Mobile</Video>
+        <Keyboard>US</Keyboard>
+        <Webcam>No</Webcam>
+        <Mobile_Data>No</Mobile_Data>
+        <WiFi>No</WiFi>
+        <Optical>No</Optical>
+        <Bluetooth>Yes</Bluetooth>
+        <Fingerprint>No</Fingerprint>
+        <Touchscreen>No</Touchscreen>
+        <GPS_Navigation>No</GPS_Navigation>
+        <Original_Operating_System></Original_Operating_System>
+        <Original_Product_ID></Original_Product_ID>
+        <Original_Product_Key></Original_Product_Key>
+        <Original_Organization></Original_Organization>
+        <Original_User></Original_User>
+        <Functional_Grade>not tested</Functional_Grade>
+        <Cosmetic_Grade>not tested</Cosmetic_Grade>
+    </System_Information>
+    <Devices>
+        <ProcessorCount>1</ProcessorCount>
+        <MemoryCount>4</MemoryCount>
+        <DriveCount>4</DriveCount>
+        <Component>
+                <Qty>1</Qty>
+                <Type>Video Adapter</Type>
+                <Manufacturer>Intel</Manufacturer>
+                <Model>UHD Graphics P630</Model>
+                <Family>Integrated</Family>
+                <Description>Intel UHD Graphics P630</Description>
+        </Component>
+        <Component>
+                <Qty>1</Qty>
+                <Type>Data Aquisition</Type>
+                <Manufacturer>Intel</Manufacturer>
+                <Model>Intel(R) Dynamic Tuning Processor Participant</Model>
+                <Description>Intel(R) Dynamic Tuning Processor Participant</Description>
+        </Component>
+        <Component>
+                <Qty>4</Qty>
+                <Type>Storage Controller</Type>
+                <Manufacturer>Samsung</Manufacturer>
+                <Model>Standard NVM Express Controller</Model>
+                <Description>Standard NVM Express Controller</Description>
+        </Component>
+        <Component>
+                <Qty>1</Qty>
+                <Type>Network Device</Type>
+                <Manufacturer>Intel</Manufacturer>
+                <Model>Intel(R) Ethernet Connection (11) I219-LM</Model>
+                <Description>Intel(R) Ethernet Connection (11) I219-LM</Description>
+        </Component>
+        <Component>
+                <Qty>1</Qty>
+                <Type>Multimedia</Type>
+                <Manufacturer>NVIDIA</Manufacturer>
+                <Model>High Definition Audio Controller</Model>
+                <Description>High Definition Audio Controller</Description>
+        </Component>
+        <Component>
+                <Qty>1</Qty>
+                <Type>Multimedia</Type>
+                <Manufacturer>Intel</Manufacturer>
+                <Model>High Definition Audio Controller</Model>
+                <Description>High Definition Audio Controller</Description>
+        </Component>
+        <Component>
+                <Qty>1</Qty>
+                <Type>Video Adapter</Type>
+                <Manufacturer>NVIDIA</Manufacturer>
+                <Model>T1000 Mobile</Model>
+                <Family>Quadro</Family>
+                <Description>NVIDIA Quadro T1000 Mobile</Description>
+        </Component>
+        <Component>
+                <Qty>1</Qty>
+                <Type>Bluetooth</Type>
+                <Manufacturer>Intel</Manufacturer>
+                <Model>Intel Bluetooth</Model>
+                <Description>Intel Bluetooth</Description>
+        </Component>
+        <Battery>
+                <Manufacturer>BYD</Manufacturer>
+                <Model>DELL CR72X13</Model>
+                <SerialNumber>1839</SerialNumber>
+                <Chemistry>LiP</Chemistry>
+                <BuildDate></BuildDate>
+                <Capacity>95008</Capacity>
+                <MaxCharge>44540</MaxCharge>
+                <Health>0</Health>
+                <Grade></Grade>
+                <DischargeResult></DischargeResult>
+                <DischargePercent></DischargePercent>
+                <DischargeTime></DischargeTime>
+        </Battery>
+        <Processor>
+                <Qty>1</Qty>
+                <Manufacturer>Intel</Manufacturer>
+                <Model>W-10855M</Model>
+                <SerialNumber>BFEBFBFF000A0652</SerialNumber>
+                <Speed>2.80GHz</Speed>
+                <Cores>6</Cores>
+                <Type>Xeon</Type>
+                <Generation>Comet Lake</Generation>
+        </Processor>
+        <Memory>
+                <Qty>1</Qty>
+                <Manufacturer>Unbranded</Manufacturer>
+                <Model>HMAA2GS6AJR8N-XN</Model>
+                <SerialNumber>237A96C6</SerialNumber>
+                <Speed>3200</Speed>
+                <Size>16.00GB</Size>
+                <Type>DDR4</Type>
+                <FormFactor>SODIMM</FormFactor>
+                <ErrorCorrection>Non-ECC</ErrorCorrection>
+        </Memory>
+        <Memory>
+                <Qty>1</Qty>
+                <Manufacturer>Unbranded</Manufacturer>
+                <Model>HMAA2GS6AJR8N-XN</Model>
+                <SerialNumber>237A935E</SerialNumber>
+                <Speed>3200</Speed>
+                <Size>16.00GB</Size>
+                <Type>DDR4</Type>
+                <FormFactor>SODIMM</FormFactor>
+                <ErrorCorrection>Non-ECC</ErrorCorrection>
+        </Memory>
+        <Memory>
+                <Qty>1</Qty>
+                <Manufacturer>Unbranded</Manufacturer>
+                <Model>HMAA2GS6AJR8N-XN</Model>
+                <SerialNumber>237A945E</SerialNumber>
+                <Speed>3200</Speed>
+                <Size>16.00GB</Size>
+                <Type>DDR4</Type>
+                <FormFactor>SODIMM</FormFactor>
+                <ErrorCorrection>Non-ECC</ErrorCorrection>
+        </Memory>
+        <Memory>
+                <Qty>1</Qty>
+                <Manufacturer>Unbranded</Manufacturer>
+                <Model>HMAA2GS6AJR8N-XN</Model>
+                <SerialNumber>237A93F2</SerialNumber>
+                <Speed>3200</Speed>
+                <Size>16.00GB</Size>
+                <Type>DDR4</Type>
+                <FormFactor>SODIMM</FormFactor>
+                <ErrorCorrection>Non-ECC</ErrorCorrection>
+        </Memory>
+        <StorageCount>4</StorageCount>
+        <Storage>
+                <SerialNumber>S4GLNX0R216568</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <DeviceID></DeviceID>
+                <ReceiptID></ReceiptID>
+                <Location1>  ()</Location1>
+                <Location2></Location2>
+                <Manufacturer>SAMSUNG</Manufacturer>
+                <Model>MZVLB512HBJQ-000H1</Model>
+                <Code>HPS0NEXF</Code>
+                <DeviceType>M.2 NVMe SSD</DeviceType>
+                <Size>512GB</Size>
+                <MaxLBA>3B9E12AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>M.2</FormFactor>
+                <FormFactor_extra></FormFactor_extra>
+                <Interface>NVMe</Interface>
+                <Type>NVMe</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>95.22</HealthScore>
+                <Grade>GRADE A</Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>14953</PowerOnHours>
+                <SSD_Lfe>99</SSD_Lfe>
+                <UncorrectableSectors>-1</UncorrectableSectors>
+                <ErasureDate>04/08/2026</ErasureDate>
+                <ErasureTime>12:13:45</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>w 00, sv 1000 blks</ErasurePlan>
+                <ErasureResults></ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+                <Note>Primary-_Fallback</Note>
+                <Certified>FALSE</Certified>
+                <LogHash>44c8e69c b4a02b9e 29048830 882f9035 ed43ba0a</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>PASSED</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>S4GLNX0R241614</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <DeviceID></DeviceID>
+                <ReceiptID></ReceiptID>
+                <Location1>  ()</Location1>
+                <Location2></Location2>
+                <Manufacturer>SAMSUNG</Manufacturer>
+                <Model>MZVLB512HBJQ-000H1</Model>
+                <Code>HPS0NEXF</Code>
+                <DeviceType>M.2 NVMe SSD</DeviceType>
+                <Size>512GB</Size>
+                <MaxLBA>3B9E12AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>M.2</FormFactor>
+                <FormFactor_extra></FormFactor_extra>
+                <Interface>NVMe</Interface>
+                <Type>NVMe</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>11779</PowerOnHours>
+                <SSD_Lfe>100</SSD_Lfe>
+                <UncorrectableSectors>-1</UncorrectableSectors>
+                <ErasureDate>04/08/2026</ErasureDate>
+                <ErasureTime>12:13:46</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>w 00, sv 1000 blks</ErasurePlan>
+                <ErasureResults></ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+                <Note>Primary-_Fallback</Note>
+                <Certified>FALSE</Certified>
+                <LogHash>874fcfd7 5251b6a1 d138e77d d6ec729e 8eb2237f</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>PASSED</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>S4GLNA1NB06523</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <DeviceID></DeviceID>
+                <ReceiptID></ReceiptID>
+                <Location1>  ()</Location1>
+                <Location2></Location2>
+                <Manufacturer>SAMSUNG</Manufacturer>
+                <Model>MZVLB512HBJQ-000H1</Model>
+                <Code>HPS0NEXF</Code>
+                <DeviceType>M.2 NVMe SSD</DeviceType>
+                <Size>512GB</Size>
+                <MaxLBA>3B9E12AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>M.2</FormFactor>
+                <FormFactor_extra></FormFactor_extra>
+                <Interface>NVMe</Interface>
+                <Type>NVMe</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade></Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>11940</PowerOnHours>
+                <SSD_Lfe>100</SSD_Lfe>
+                <UncorrectableSectors>-1</UncorrectableSectors>
+                <ErasureDate>04/08/2026</ErasureDate>
+                <ErasureTime>12:13:46</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod>NIST 800-88 rev1 Clear</ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>w 00, sv 1000 blks</ErasurePlan>
+                <ErasureResults></ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+                <Note>Primary-_Fallback</Note>
+                <Certified>FALSE</Certified>
+                <LogHash>a42e3240 b8b12c23 b885a5c0 076ea6d3 3ceed34c</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>PASSED</SelfDiagnostic>
+            </Health>
+        </Storage>
+        <Storage>
+                <SerialNumber>S4GLNX0NC25763</SerialNumber>
+                <SerialNumber_Alt></SerialNumber_Alt>
+                <DeviceID></DeviceID>
+                <ReceiptID></ReceiptID>
+                <Location1>  ()</Location1>
+                <Location2></Location2>
+                <Manufacturer>SAMSUNG</Manufacturer>
+                <Model>MZVLB512HBJQ-000H1</Model>
+                <Code>HPS0NEXF</Code>
+                <DeviceType>M.2 NVMe SSD</DeviceType>
+                <Size>512GB</Size>
+                <MaxLBA>3B9E12AF</MaxLBA>
+                <BlockSize>512</BlockSize>
+                <FormFactor>M.2</FormFactor>
+                <FormFactor_extra></FormFactor_extra>
+                <Interface>NVMe</Interface>
+                <Type>NVMe</Type>
+                <Flex1></Flex1>
+                <Flex2></Flex2>
+                <Flex3></Flex3>
+                <Flex4></Flex4>
+                <HealthScore>0.00</HealthScore>
+                <Grade>GRADE A</Grade>
+                <ReallocatedSectors>0</ReallocatedSectors>
+                <PowerOnHours>1783</PowerOnHours>
+                <SSD_Lfe>100</SSD_Lfe>
+                <UncorrectableSectors>-1</UncorrectableSectors>
+                <ErasureDate>04/08/2026</ErasureDate>
+                <ErasureTime>12:13:32</ErasureTime>
+                <ErasureDuration>00:00</ErasureDuration>
+                <ErasureMethod></ErasureMethod>
+                <Rule>Entire Drive</Rule>
+                <ErasurePlan>blkers 00, sv 1000 blks</ErasurePlan>
+                <ErasureResults></ErasureResults>
+                <ThirdPartyVerify></ThirdPartyVerify>
+                <Note></Note>
+                <Certified>FALSE</Certified>
+                <LogHash>91320c40 8af7300e 3a56539e d2a3fe45 8f41abca</LogHash>
+
+
+
+            <Health>
+                  <SelfDiagnostic>PASSED</SelfDiagnostic>
+            </Health>
+        </Storage>
+    </Devices>
+</SYSTEM_INVENTORY>
+
+
+<HASHES>
+        <TESTING_HASH>9a61dc42f62f29</TESTING_HASH>
+</HASHES>
+</SYSINFO>
+

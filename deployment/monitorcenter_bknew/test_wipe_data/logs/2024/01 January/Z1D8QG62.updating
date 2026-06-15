@@ -1,0 +1,109 @@
+
+Z1D8QG62 finishing pass 0.  lba 74706000 vs max 74706000
+
+idx = 5, State = 0x41, ENDSCR = 0, last lba = 74706000
+    0)           0x1 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+    1)    0x74706DAF -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+
+Pass Duration: 2 hrs, 48.8 min
+
+
+
+
+----------------------------------------------------------------------------------
+10:40:50  Step 2 of 2   VERIFY  COMPARE_RANGE  N/A  Full Media
+          substituting Spot Verify 1000 blocks
+----------------------------------------------------------------------------------
+
+
+Expected blocks to MATCH the below Reference value (+)
+
+           Reference -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0
+    0)           0x1 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+    1)    0x1E60B513 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+    2)    0x529645DC -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+    3)    0x186D1F94 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+    4)    0x1F893D3B -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+    5)    0x5AE3FEF2 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+    6)    0x30403F03 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+    7)    0x441A529A -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+    8)    0x1B40362A -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+    9)    0x6D2B038B -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   10)       0xCCFAC -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   11)    0x669A39BF -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   12)    0x2D789D1C -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   13)    0x43E34045 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   14)    0x167C9FC7 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   15)    0x45671FA4 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   16)    0x287F908F -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   17)    0x6200D682 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   18)     0x8245192 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   19)    0x4B35D5C9 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   20)    0x3F00F591 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   21)    0x2B5D3172 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   22)     0x20F8917 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   23)     0x662961A -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   24)    0x119365CA -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   25)    0x13ADACE5 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   26)    0x46EF6241 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   27)    0x488D928A -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   28)     0x2789303 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   29)    0x1AFC67D6 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   30)    0x5650A618 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   31)    0x476BDFB9 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   32)     0x51CB733 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   33)     0xEAFC1C6 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   34)    0x6B033D1F -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   35)    0x116D7DD0 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   36)    0x547672ED -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   37)    0x46D76DE8 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   38)    0x1E586EF3 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+   39)     0xA0D68E8 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+      ...
+  960)    0x65D3251D -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  961)    0x26C936BE -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  962)    0x5BD45138 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  963)    0x50E1464A -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  964)    0x25DB9096 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  965)    0x36275729 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  966)    0x528088A4 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  967)    0x11E1D327 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  968)     0x1775252 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  969)     0xF763A50 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  970)    0x536DAF27 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  971)    0x70DDCB22 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  972)    0x26B4542B -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  973)    0x291765B8 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  974)    0x22DC3825 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  975)      0x517612 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  976)    0x1C12BB90 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  977)    0x14E801F3 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  978)     0xF5864CB -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  979)    0x1AB9BCC8 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  980)     0xE65F6BD -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  981)    0x6C28DC2B -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  982)    0x61D77B81 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  983)    0x1669D16F -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  984)    0x722510CD -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  985)     0x8000408 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  986)     0x7AF77CB -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  987)     0x2973BA5 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  988)    0x258A9A2E -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  989)    0x133F4310 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  990)    0x64EF2162 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  991)      0x24C5C3 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  992)    0x27AFDD6F -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  993)    0x4F2BF606 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  994)    0x6B5D0B63 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  995)     0xC03F132 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  996)    0x1EC9B60B -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  997)    0x653BDC82 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  998)    0x17B09779 -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+  999)    0x74706DAF -   50f3bf5a 1000eabf 79900188 6a526b66 1ec4bef0  +    Ptrn 0x00
+
+Pass Duration: 0 hrs, 0.3 min
+
+
+
+xerase.PreCheckHealth = 0  xerase.PostCheckHealth = 0   elapsed = 16  
+

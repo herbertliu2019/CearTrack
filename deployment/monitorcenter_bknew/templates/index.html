@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+{% block title %}CEARTrack{% endblock %}
+{% block content %}
+<script src="{{ url_for('static', filename='js/renderer.js') }}"></script>
+<style>
+.mod-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 22px 24px;
+  transition: border-color 0.2s, transform 0.15s;
+  cursor: pointer;
+}
+.mod-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+.mod-card-soon {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.mod-card-soon:hover {
+  border-color: var(--border);
+  transform: none;
+}
+.mod-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.mod-icon { display:flex; align-items:center; flex-shrink:0; }
+.mod-name {
+  font-size: 1.05em;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+.mod-stats {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.mod-stat {
+  flex: 1;
+  text-align: center;
+}
+.mod-stat-val {
+  font-size: 1.8em;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.1;
+}
+.mod-stat-lbl {
+  font-size: 0.7em;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  margin-top: 4px;
+}
+.mod-stat-divider {
+  width: 1px;
+  height: 40px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+</style>
+
+<div x-data="landingApp()" x-init="init()">
+
+  <div style="text-align: center; padding: 40px 0; border-bottom: 1px solid var(--border); margin-bottom: 30px;">
+    <h1 style="font-size: 2em;"><span style="color:#1a7096;">CEAR</span><span style="color:#48a030;">Track</span></h1>
+    <p style="color: var(--text-secondary); margin-top: 8px;">
+      CEAR Hardware Test &amp; Traceability Platform
+    </p>
+  </div>
+
+  <!-- Global search -->
+  <div style="max-width: 600px; margin: 0 auto 40px;">
+    <div class="search-box">
+      <input type="text" x-model="globalSearch" @keydown.enter="runGlobalSearch()"
+             @keydown.escape="clearSearch()"
+             placeholder="Search by SN / Service Tag across all modules...">
+      <button @click="runGlobalSearch()">Search</button>
+      <button x-show="searched" @click="clearSearch()"
+              style="background:transparent;color:var(--text-secondary);
+                     border:1px solid var(--border);padding:6px 12px;
+                     border-radius:4px;cursor:pointer;font-size:0.85em;
+                     white-space:nowrap;">
+        ✕ Clear
+      </button>
+    </div>
+
+    <div x-show="globalResults.length > 0" style="margin-top: 20px;">
+      <div style="font-size:0.85em;color:var(--text-secondary);margin-bottom:10px;"
+           x-text="globalResults.length + ' record(s) found'"></div>
+
+      <template x-for="r in globalResults" :key="r.module + r.sn + r.timestamp">
+        <div class="detail-panel" style="padding:0;margin-bottom:8px;overflow:hidden;">
+
+          <!-- Header row — click to expand -->
+          <div style="display:flex;justify-content:space-between;align-items:center;
+                      padding:12px 16px;cursor:pointer;"
+               @click="toggleExpand(r.module + r.sn + r.timestamp, r.module)">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <span style="color:var(--accent);font-weight:700;font-size:0.8em;
+                           text-transform:uppercase;letter-spacing:0.06em;"
+                    x-text="r.module"></span>
+              <span style="font-family:monospace;font-weight:600;" x-text="r.sn"></span>
+              <template x-if="r.system_sn && r.system_sn !== r.sn">
+                <span style="color:var(--text-secondary);font-size:0.82em;"
+                      x-text="'sys: ' + r.system_sn"></span>
+              </template>
+              <span :class="'badge ' + (r.overall_result === 'PASS' ? 'pass' : r.overall_result === 'FAIL' ? 'fail' : 'warn')"
+                    x-text="r.overall_result"></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
+              <span style="color:var(--text-secondary);font-size:0.82em;"
+                    x-text="(r.timestamp ?? '').slice(0,10)"></span>
+              <span style="color:var(--text-secondary);font-size:0.9em;"
+                    x-text="expandedKey === r.module + r.sn + r.timestamp ? '▲' : '▼'"></span>
+            </div>
+          </div>
+
+          <!-- Summary -->
+          <div style="padding:0 16px 10px;color:var(--text-secondary);font-size:0.85em;"
+               x-text="r.summary"></div>
+
+          <!-- Expanded details -->
+          <template x-if="expandedKey === r.module + r.sn + r.timestamp">
+            <div style="border-top:1px solid var(--border);padding:12px 16px;">
+              <div x-html="renderDetails(r)"></div>
+            </div>
+          </template>
+
+        </div>
+      </template>
+    </div>
+
+    <div x-show="globalSearch && globalResults.length === 0 && searched"
+         style="margin-top: 20px; color: var(--text-secondary); text-align: center;">
+      No records found for <span x-text="globalSearch"></span>.
+    </div>
+  </div>
+
+  <!-- Module cards — 4 columns, all in one row -->
+  <div style="max-width:1100px;margin:0 auto;">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
+
+      <!-- Laptop -->
+      <a href="/laptop/" style="text-decoration:none;">
+        <div class="mod-card">
+          <div class="mod-card-header">
+            <!-- Laptop SVG (matches module page emoji style) -->
+            <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="4" y="6" width="28" height="19" rx="2" stroke="var(--accent)" stroke-width="1.6"/>
+              <rect x="7" y="9" width="22" height="13" rx="1" fill="var(--accent)" fill-opacity="0.08" stroke="var(--accent)" stroke-width="1"/>
+              <rect x="1" y="25" width="34" height="3" rx="1.5" stroke="var(--accent)" stroke-width="1.4"/>
+              <rect x="13" y="25" width="10" height="1.5" rx="0.75" fill="var(--accent)" fill-opacity="0.4"/>
+            </svg>
+            <span class="mod-name">Laptop</span>
+          </div>
+          <div class="mod-stats">
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.laptop?.today ?? 0"></div>
+              <div class="mod-stat-lbl">Today</div>
+            </div>
+            <div class="mod-stat-divider"></div>
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.laptop?.week ?? 0"></div>
+              <div class="mod-stat-lbl">This Week</div>
+            </div>
+            <div class="mod-stat-divider"></div>
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.laptop?.month ?? 0"></div>
+              <div class="mod-stat-lbl">This Month</div>
+            </div>
+          </div>
+        </div>
+      </a>
+
+      <!-- Wipe — exact same SVG as wipe module page -->
+      <a href="/wipe/" style="text-decoration:none;">
+        <div class="mod-card">
+          <div class="mod-card-header">
+            <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="3" y="8" width="30" height="20" rx="3" stroke="var(--accent)" stroke-width="1.6"/>
+              <circle cx="17" cy="18" r="7" stroke="var(--accent)" stroke-width="1.4"/>
+              <circle cx="17" cy="18" r="2.2" fill="var(--accent)" fill-opacity="0.45"/>
+              <line x1="23" y1="12.5" x2="28.5" y2="10" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <circle cx="23" cy="13" r="2" fill="var(--accent)" fill-opacity="0.6"/>
+              <circle cx="29.5" cy="11.5" r="1.2" fill="var(--accent)" fill-opacity="0.4"/>
+              <circle cx="29.5" cy="24.5" r="1.2" fill="var(--accent)" fill-opacity="0.4"/>
+            </svg>
+            <span class="mod-name">Wipe</span>
+          </div>
+          <div class="mod-stats">
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.wipe?.today ?? 0"></div>
+              <div class="mod-stat-lbl">Today</div>
+            </div>
+            <div class="mod-stat-divider"></div>
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.wipe?.week ?? 0"></div>
+              <div class="mod-stat-lbl">This Week</div>
+            </div>
+            <div class="mod-stat-divider"></div>
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.wipe?.month ?? 0"></div>
+              <div class="mod-stat-lbl">This Month</div>
+            </div>
+          </div>
+        </div>
+      </a>
+
+      <!-- CPU — exact same SVG as cpu module page -->
+      <a href="/cpu/" style="text-decoration:none;">
+        <div class="mod-card">
+          <div class="mod-card-header">
+            <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="9" y="9" width="18" height="18" rx="2" stroke="var(--accent)" stroke-width="1.6"/>
+              <rect x="13" y="13" width="10" height="10" rx="1" stroke="var(--accent)" stroke-width="1.2" fill="var(--accent)" fill-opacity="0.1"/>
+              <line x1="18" y1="13" x2="18" y2="23" stroke="var(--accent)" stroke-width="0.9" opacity="0.5"/>
+              <line x1="13" y1="18" x2="23" y2="18" stroke="var(--accent)" stroke-width="0.9" opacity="0.5"/>
+              <line x1="13" y1="9"  x2="13" y2="5"  stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="18" y1="9"  x2="18" y2="5"  stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="23" y1="9"  x2="23" y2="5"  stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="13" y1="27" x2="13" y2="31" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="18" y1="27" x2="18" y2="31" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="23" y1="27" x2="23" y2="31" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="9"  y1="13" x2="5"  y2="13" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="9"  y1="18" x2="5"  y2="18" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="9"  y1="23" x2="5"  y2="23" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="27" y1="13" x2="31" y2="13" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="27" y1="18" x2="31" y2="18" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="27" y1="23" x2="31" y2="23" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+            <span class="mod-name">CPU</span>
+          </div>
+          <div class="mod-stats">
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.cpu?.today ?? 0"></div>
+              <div class="mod-stat-lbl">Today</div>
+            </div>
+            <div class="mod-stat-divider"></div>
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.cpu?.week ?? 0"></div>
+              <div class="mod-stat-lbl">This Week</div>
+            </div>
+            <div class="mod-stat-divider"></div>
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.cpu?.month ?? 0"></div>
+              <div class="mod-stat-lbl">This Month</div>
+            </div>
+          </div>
+        </div>
+      </a>
+
+      <!-- GPU -->
+      <a href="/gpu/" style="text-decoration:none;">
+        <div class="mod-card">
+          <div class="mod-card-header">
+            <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="2" y="10" width="28" height="16" rx="2" stroke="var(--accent)" stroke-width="1.5"/>
+              <rect x="6" y="14" width="8" height="8" rx="1.5" stroke="var(--accent)" stroke-width="1.2"/>
+              <circle cx="10" cy="18" r="2" stroke="var(--accent)" stroke-width="1"/>
+              <rect x="17" y="14" width="4" height="8" rx="1" fill="var(--accent)" fill-opacity="0.08" stroke="var(--accent)" stroke-width="1"/>
+              <line x1="30" y1="14" x2="34" y2="14" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="30" y1="18" x2="34" y2="18" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="30" y1="22" x2="34" y2="22" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="6"  y1="26" x2="6"  y2="30" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="10" y1="26" x2="10" y2="30" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="14" y1="26" x2="14" y2="30" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+              <line x1="18" y1="26" x2="18" y2="30" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+            <span class="mod-name">GPU</span>
+          </div>
+          <div class="mod-stats">
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.gpu?.today ?? 0"></div>
+              <div class="mod-stat-lbl">Today</div>
+            </div>
+            <div class="mod-stat-divider"></div>
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.gpu?.week ?? 0"></div>
+              <div class="mod-stat-lbl">This Week</div>
+            </div>
+            <div class="mod-stat-divider"></div>
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.gpu?.month ?? 0"></div>
+              <div class="mod-stat-lbl">This Month</div>
+            </div>
+          </div>
+        </div>
+      </a>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+function landingApp() {
+  return {
+    globalSearch: "",
+    globalResults: [],
+    searched: false,
+    expandedKey: null,
+    schemas: {},
+    summary: { laptop:{today:0,week:0,month:0}, wipe:{today:0,week:0,month:0}, cpu:{today:0,week:0,month:0}, gpu:{today:0,week:0,month:0} },
+
+    async init() {
+      try {
+        const r = await fetch('/api/summary');
+        this.summary = await r.json();
+      } catch(e) {}
+    },
+
+    async runGlobalSearch() {
+      this.searched = true;
+      this.expandedKey = null;
+      if (!this.globalSearch.trim()) { this.globalResults = []; return; }
+      const r = await fetch(`/api/search?sn=${encodeURIComponent(this.globalSearch.trim())}`);
+      this.globalResults = await r.json();
+    },
+
+    clearSearch() {
+      this.globalSearch = "";
+      this.globalResults = [];
+      this.searched = false;
+      this.expandedKey = null;
+    },
+
+    async toggleExpand(key, module) {
+      if (this.expandedKey === key) {
+        this.expandedKey = null;
+        return;
+      }
+      this.expandedKey = key;
+      // Lazy-load schema for schema-driven modules (e.g. laptop)
+      if (module && !this.schemas[module]) {
+        try {
+          const r = await fetch(`/${module}/api/schema`);
+          if (r.ok) this.schemas[module] = await r.json();
+        } catch (e) {}
+      }
+    },
+
+    renderDetails(r) {
+      const schema = this.schemas[r.module];
+      if (schema && r.payload) {
+        return renderPayload(schema, r);
+      }
+      // Wipe / fallback: simple key-value table
+      const p = r.payload || {};
+      const rows = [
+        ['Drive Model',    p.drive_model],
+        ['Capacity',       p.capacity],
+        ['Device Type',    p.device_type],
+        ['Serial Number',  p.drive_sn],
+        ['Method',         p.method],
+        ['Result',         p.result],
+        ['Health Score',   p.health_score != null ? p.health_score + '%' : null],
+        ['Grade',          p.grade],
+        ['SSD Life',       p.ssd_life    != null ? p.ssd_life + '%'    : null],
+        ['Power On Hours', p.power_on_hrs != null ? p.power_on_hrs + 'h' : null],
+        ['Duration',       p.duration_min != null ? p.duration_min + ' min' : null],
+        ['System',         [p.sys_manufacturer, p.sys_model].filter(Boolean).join(' ') || null],
+        ['System SN',      p.system_sn],
+        ['Wipe Date',      p.wipe_date],
+      ].filter(([, v]) => v != null && v !== '');
+
+      if (!rows.length) return '<div style="color:var(--text-secondary);font-size:0.88em;">No details available</div>';
+
+      return `<div class="kv-grid">${
+        rows.map(([label, val]) =>
+          `<div class="kv-label">${label}</div><div class="kv-value">${val}</div>`
+        ).join('')
+      }</div>`;
+    },
+  };
+}
+</script>
+{% endblock %}

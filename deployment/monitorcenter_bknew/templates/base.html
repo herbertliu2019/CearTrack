@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}CEARTrack{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+  <script defer src="{{ url_for('static', filename='vendor/alpine.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/htmx.min.js') }}"></script>
+</head>
+<body>
+  <header>
+    <h1 style="display:flex;align-items:center;gap:10px;">
+      <a href="/" style="text-decoration:none;display:flex;align-items:center;gap:10px;">
+        <img src="{{ url_for('static', filename='cear_logo.png') }}"
+             alt="CEAR" style="height:30px;width:auto;vertical-align:middle;
+                                filter:brightness(1.1);">
+        <span style="font-weight:600;letter-spacing:0.03em;"><span style="color:#1a7096;">CEAR</span><span style="color:#48a030;">Track</span></span>
+      </a>
+    </h1>
+    <nav>
+      <a href="/" class="{{ 'nav-active' if request.path == '/' else '' }}">Home</a>
+      <a href="/laptop/" class="{{ 'nav-active' if request.path.startswith('/laptop/') else '' }}">Laptop</a>
+      <a href="/wipe/"   class="{{ 'nav-active' if request.path.startswith('/wipe/')   else '' }}">Wipe</a>
+      <a href="/cpu/"    class="{{ 'nav-active' if request.path.startswith('/cpu/')    else '' }}">CPU</a>
+      <a href="/gpu/"    class="{{ 'nav-active' if request.path.startswith('/gpu/')    else '' }}">GPU</a>
+    </nav>
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>

@@ -1,0 +1,5 @@
+{
+  "cpu_root_dir": "/mnt/CPU",
+  "cpu_db_path": "/opt/monitorcenter/data/cpu/cpu.db",
+  "poll_interval_sec": 1800
+}

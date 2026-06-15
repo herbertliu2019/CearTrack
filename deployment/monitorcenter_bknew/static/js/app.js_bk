@@ -1,0 +1,125 @@
+function laptopApp(moduleName) {
+  return {
+    moduleName,
+    activeTab: 'today',
+
+    // Search (top bar, always visible)
+    searchQ: '',
+    searchResults: [],
+    searched: false,
+
+    // Per-tab data
+    today:  { stats: {}, records: [] },
+    week:   { stats: null, by_brand: [], fail_reasons: [], daily: [], start: null, end: null },
+    month:  { stats: null, by_brand: [], fail_reasons: [], daily: [] },
+    custom: { stats: null, by_brand: [], fail_reasons: [], daily: [] },
+
+    customFrom: '',
+    customTo:   '',
+    detailOpen: null,
+    schema: null,
+
+    async init() {
+      const r = await fetch(`/${this.moduleName}/api/schema`);
+      this.schema = await r.json();
+      await Promise.all([
+        this.loadToday(),
+        this.loadWeek(),
+        this.loadMonth(),
+      ]);
+      setInterval(() => {
+        if (this.activeTab === 'today') this.loadToday();
+      }, 10000);
+    },
+
+    async loadToday() {
+      const r = await fetch(`/${this.moduleName}/api/latest`);
+      const records = await r.json();
+      const total  = records.length;
+      const passed = records.filter(r => r.overall_result === 'PASS').length;
+      const failed = total - passed;
+      this.today = {
+        stats: {
+          total,
+          passed,
+          failed,
+          pass_rate: total ? Math.round(passed / total * 100) : 0,
+        },
+        records,
+      };
+    },
+
+    async loadWeek() {
+      const r = await fetch(`/${this.moduleName}/api/stats/range?range=week`);
+      const d = await r.json();
+      this.week = {
+        stats:       { total: d.total, passed: d.passed, failed: d.failed, pass_rate: d.pass_rate },
+        by_brand:    (d.brands    ?? []).map(([name, count]) => ({ name, count })),
+        fail_reasons:(d.fail_reasons ?? []).map(([reason, count]) => ({ reason, count })),
+        daily:       d.daily ?? [],
+        start:       d.date_from,
+        end:         d.date_to,
+      };
+    },
+
+    async loadMonth() {
+      const r = await fetch(`/${this.moduleName}/api/stats/range?range=month`);
+      const d = await r.json();
+      this.month = {
+        stats:       { total: d.total, passed: d.passed, failed: d.failed, pass_rate: d.pass_rate },
+        by_brand:    (d.brands    ?? []).map(([name, count]) => ({ name, count })),
+        fail_reasons:(d.fail_reasons ?? []).map(([reason, count]) => ({ reason, count })),
+        daily:       d.daily ?? [],
+        start:       d.date_from,
+        end:         d.date_to,
+      };
+    },
+
+    async loadCustom() {
+      if (!this.customFrom || !this.customTo) return;
+      const url = `/${this.moduleName}/api/stats/range?from=${this.customFrom}&to=${this.customTo}`;
+      const d = await (await fetch(url)).json();
+      this.custom = {
+        stats:       { total: d.total, passed: d.passed, failed: d.failed, pass_rate: d.pass_rate },
+        by_brand:    (d.brands    ?? []).map(([name, count]) => ({ name, count })),
+        fail_reasons:(d.fail_reasons ?? []).map(([reason, count]) => ({ reason, count })),
+        daily:       d.daily ?? [],
+      };
+    },
+
+    async runSearch() {
+      if (!this.searchQ.trim()) return;
+      const r = await fetch(`/${this.moduleName}/api/search?sn=${encodeURIComponent(this.searchQ.trim())}`);
+      this.searchResults = await r.json();
+      this.searched = true;
+    },
+
+    clearSearch() {
+      this.searchQ = '';
+      this.searchResults = [];
+      this.searched = false;
+    },
+
+    toggleDetail(key) {
+      this.detailOpen = this.detailOpen === key ? null : key;
+    },
+
+    resultClass(result) {
+      if (!result) return '';
+      if (result === 'PASS') return 'pass';
+      if (result === 'FAIL') return 'fail';
+      return 'warn';
+    },
+
+    fmtRange(start, end) {
+      if (!start || !end) return '';
+      const fmt = d => { const p = d.split('-'); return p[1] + '/' + p[2]; };
+      return fmt(start) + ' – ' + fmt(end);
+    },
+
+    renderDetails(record) {
+      if (!this.schema) return '';
+      return renderPayload(this.schema, record);
+    },
+  };
+}

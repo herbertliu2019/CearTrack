@@ -1,0 +1,995 @@
+{% extends "base.html" %}
+{% block title %}CPU Tests — CEARTrack{% endblock %}
+{% block content %}
+
+<style>
+/* ── KPI cards ───────────────────────────────────────────────────────────── */
+.kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.kpi-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 18px;
+  text-align: center;
+}
+.kpi-value {
+  font-size: 2em;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--accent);
+}
+.kpi-value.pass  { color: var(--pass); }
+.kpi-value.fail  { color: var(--fail); }
+.kpi-value.muted { color: var(--text-secondary); }
+.kpi-label {
+  font-size: 0.7em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-secondary);
+  margin-top: 5px;
+}
+.kpi-sub {
+  font-size: 0.68em;
+  color: var(--text-secondary);
+  margin-top: 3px;
+}
+
+/* ── Chart panels ────────────────────────────────────────────────────────── */
+.chart-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.chart-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 18px;
+}
+.chart-panel.full { grid-column: 1 / -1; }
+.chart-title {
+  font-size: 0.7em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+/* ── Horizontal bar rows ─────────────────────────────────────────────────── */
+.hbar-list {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) 1fr auto;
+  column-gap: 8px;
+  row-gap: 5px;
+  align-items: center;
+}
+.hbar-row { display: contents; }
+.hbar-label {
+  font-size: 11.5px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+  max-width: 260px;
+}
+.hbar-track {
+  height: 12px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.hbar-fill {
+  height: 100%;
+  border-radius: 3px;
+  opacity: 0.85;
+  transition: width 0.4s ease;
+}
+.hbar-val {
+  min-width: 28px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--accent);
+  text-align: right;
+}
+
+/* ── Scan banner ─────────────────────────────────────────────────────────── */
+.scan-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--accent);
+  padding: 8px 20px;
+  display: flex; align-items: center; gap: 12px;
+}
+.scan-progress-track {
+  flex: 1; height: 6px;
+  background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;
+}
+.scan-progress-fill {
+  height: 100%; background: var(--accent);
+  border-radius: 3px; transition: width 0.3s ease;
+}
+
+/* ── Top bar ─────────────────────────────────────────────────────────────── */
+.top-bar { display:flex; gap:12px; align-items:center; margin-bottom:20px; flex-wrap:wrap; }
+.period-tabs { display: flex; gap: 6px; }
+.tab-btn {
+  padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-secondary);
+  cursor: pointer; font-size: 0.82em; font-weight: 600; transition: all 0.15s;
+}
+.tab-btn.active,
+.tab-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(99,102,241,0.08); }
+.poll-status { text-align:right; flex-shrink:0; line-height:1.7; }
+
+/* ── Records table ───────────────────────────────────────────────────────── */
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.section-title {
+  font-size: 0.75em; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--accent);
+}
+.view-all-link {
+  font-size: 0.78em; color: var(--accent); text-decoration: none;
+  padding: 4px 12px; border: 1px solid var(--accent);
+  border-radius: 5px; transition: background 0.15s;
+}
+.view-all-link:hover { background: rgba(99,102,241,0.12); }
+.cpu-table { width: 100%; border-collapse: collapse; font-size: 0.87em; }
+.cpu-table th {
+  text-align: left; padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.7em; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--text-secondary);
+}
+.cpu-table td { padding: 9px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.cpu-table tr.data-row:hover { background: rgba(255,255,255,0.03); cursor: pointer; }
+.cpu-table tr.expanded-row td { padding: 0; border: none; }
+.result-pass { color: var(--pass); font-weight: 700; }
+.result-fail { color: var(--fail); font-weight: 700; }
+
+/* ── Detail panel ────────────────────────────────────────────────────────── */
+.detail-panel {
+  background: rgba(99,102,241,0.04);
+  border: 1px solid rgba(99,102,241,0.18);
+  border-radius: 8px; padding: 18px 20px; margin: 2px 0 10px;
+}
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.kv-section-title {
+  font-size: 0.7em; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--accent); margin-bottom: 8px;
+}
+.kv-grid { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; }
+.kv-label { font-size: 0.78em; color: var(--text-secondary); padding: 1px 0; }
+.kv-value { font-size: 0.78em; color: var(--text-primary); padding: 1px 0; }
+.module-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.module-row { font-size: 0.77em; padding: 3px 6px; border-radius: 4px; }
+.mod-pass { color: var(--pass); background: rgba(16,185,129,0.07); }
+.mod-fail { color: var(--fail); background: rgba(239,68,68,0.1); }
+.freq-anomaly { color: #f59e0b; font-weight: 700; }
+.freq-normal  { color: var(--pass); }
+.cpu-screenshot { margin-top: 14px; }
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+.empty-state {
+  text-align: center; padding: 40px 20px;
+  color: var(--text-secondary); font-size: 0.9em;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+}
+
+@media (max-width: 900px) {
+  .kpi-strip    { grid-template-columns: repeat(3, 1fr); }
+  .chart-row    { grid-template-columns: 1fr; }
+  .detail-grid  { grid-template-columns: 1fr; }
+}
+
+/* ── Daily volume chart ──────────────────────────────────── */
+.daily-panel { background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:14px; }
+.daily-head  { display:flex;justify-content:space-between;align-items:center;margin-bottom:10px; }
+.daily-legend{ display:flex;gap:14px;font-size:0.78em;color:var(--text-secondary); }
+.legend-dot  { display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle; }
+.legend-dot.pass { background:var(--pass); }
+.legend-dot.fail { background:var(--fail); }
+.daily-chart { display:flex;align-items:flex-end;gap:4px;height:140px;padding:18px 0 26px;border-bottom:1px solid rgba(255,255,255,0.08);position:relative; }
+.daily-col   { flex:1;height:100%;display:flex;flex-direction:column-reverse;min-width:14px;position:relative;cursor:default; }
+.daily-col:hover .daily-tooltip { display:block; }
+.daily-seg   { width:100%;transition:opacity 0.15s; }
+.daily-seg.pass { background:var(--pass); }
+.daily-seg.fail { background:var(--fail); }
+.daily-col:hover .daily-seg { opacity:0.85; }
+.daily-label { position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--text-secondary);white-space:nowrap; }
+.daily-total { position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--text-secondary);white-space:nowrap; }
+.daily-tooltip { display:none;position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--bg-primary,#1a1a1a);border:1px solid var(--border);border-radius:5px;padding:6px 10px;font-size:0.75em;white-space:nowrap;z-index:5;pointer-events:none;margin-bottom:4px; }
+</style>
+
+<div x-data="cpuApp()" x-init="init()">
+
+  <!-- ── Page Header ──────────────────────────────────────────────────── -->
+  <div style="margin-bottom:24px;">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:6px;">
+      <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Chip body -->
+        <rect x="9" y="9" width="18" height="18" rx="2" stroke="var(--accent)" stroke-width="1.6"/>
+        <!-- Inner die -->
+        <rect x="13" y="13" width="10" height="10" rx="1" stroke="var(--accent)" stroke-width="1.2" fill="var(--accent)" fill-opacity="0.1"/>
+        <!-- Cross lines inside die -->
+        <line x1="18" y1="13" x2="18" y2="23" stroke="var(--accent)" stroke-width="0.9" opacity="0.5"/>
+        <line x1="13" y1="18" x2="23" y2="18" stroke="var(--accent)" stroke-width="0.9" opacity="0.5"/>
+        <!-- Pins top -->
+        <line x1="13" y1="9"  x2="13" y2="5"  stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="18" y1="9"  x2="18" y2="5"  stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="23" y1="9"  x2="23" y2="5"  stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+        <!-- Pins bottom -->
+        <line x1="13" y1="27" x2="13" y2="31" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="18" y1="27" x2="18" y2="31" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="23" y1="27" x2="23" y2="31" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+        <!-- Pins left -->
+        <line x1="9"  y1="13" x2="5"  y2="13" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="9"  y1="18" x2="5"  y2="18" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="9"  y1="23" x2="5"  y2="23" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+        <!-- Pins right -->
+        <line x1="27" y1="13" x2="31" y2="13" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="27" y1="18" x2="31" y2="18" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="27" y1="23" x2="31" y2="23" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <div style="font-size:1.45em;font-weight:800;letter-spacing:0.06em;
+                    color:var(--accent);text-transform:uppercase;line-height:1.1;">
+          CPU
+        </div>
+        <div style="font-size:0.78em;color:var(--text-secondary);
+                    letter-spacing:0.04em;margin-top:2px;">
+          Processor Burn-In Test Dashboard
+        </div>
+      </div>
+    </div>
+    <div style="height:1px;background:linear-gradient(to right,
+                var(--accent) 0%, rgba(0,212,255,0.15) 40%, transparent 100%);
+                margin-top:10px;"></div>
+  </div>
+
+  <!-- ── Scan progress banner ─────────────────────────────────────────── -->
+  <div class="scan-banner" x-show="scanning" x-cloak>
+    <span style="font-size:0.8em;color:var(--accent);font-weight:700;">Scanning…</span>
+    <span style="font-size:0.78em;color:var(--text-secondary);"
+          x-text="(scanStatus?.done ?? 0) + ' / ' + (scanStatus?.total ?? '?') + ' files'"></span>
+    <div class="scan-progress-track">
+      <div class="scan-progress-fill"
+           :style="'width:' + (scanStatus?.total ? Math.round((scanStatus.done/scanStatus.total)*100) : 0) + '%'"></div>
+    </div>
+    <span style="font-size:0.78em;color:var(--accent);font-weight:700;min-width:34px;"
+          x-text="scanStatus?.total ? Math.round((scanStatus.done/scanStatus.total)*100) + '%' : ''"></span>
+  </div>
+  <div x-show="scanning" style="height:38px;" x-cloak></div>
+
+  <!-- ── Top bar ───────────────────────────────────────────────────────── -->
+  <div style="margin-bottom:20px;">
+
+    <!-- Row 1: search bar + poll status + scan button -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+
+      <div class="search-box" style="flex:1;margin-bottom:0;">
+        <input type="text" x-model="searchQuery"
+               @keydown.enter="search()" @keydown.escape="clearSearch()"
+               placeholder="Search by SN or CPU model (partial match)…">
+        <button @click="search()">Search</button>
+        <button x-show="searched" @click="clearSearch()"
+                style="background:transparent;color:var(--text-secondary);
+                       border:1px solid var(--border);padding:6px 12px;
+                       border-radius:4px;cursor:pointer;font-size:0.85em;">
+          ✕ Clear
+        </button>
+      </div>
+
+      <!-- Auto-poll status -->
+      <div class="poll-status" style="flex-shrink:0;">
+        <div x-show="pollState.last_scan_at"
+             style="font-size:0.78em;color:var(--text-secondary);">
+          <span style="color:var(--pass);font-weight:600;">⟳</span>
+          Last auto-scan:
+          <span style="color:var(--text-primary);font-family:monospace;"
+                x-text="(pollState.last_scan_at ?? '').replace('T',' ')"></span>
+        </div>
+        <div x-show="pollState.next_scan_at"
+             style="font-size:0.78em;color:var(--text-secondary);">
+          Next in:
+          <span style="color:var(--accent);font-weight:600;"
+                x-text="nextScanIn()"></span>
+        </div>
+        <div x-show="scanStatus?.finished_at && !pollState.last_scan_at"
+             style="font-size:0.78em;color:var(--text-secondary);">
+          Last scan:
+          <span style="color:var(--text-primary);font-family:monospace;"
+                x-text="(scanStatus?.finished_at ?? '').replace('T',' ').substring(0,16)"></span>
+        </div>
+      </div>
+
+      <!-- SCAN button -->
+      <div style="position:relative;flex-shrink:0;" x-data="{tip:false}">
+        <button @click="triggerScan($event)"
+                @mouseenter="tip=true" @mouseleave="tip=false"
+                :disabled="scanning"
+                class="btn-scan-wiped">
+          ⟳ SCAN TESTED CPU DATA
+        </button>
+        <div x-show="tip"
+             style="position:absolute;right:0;top:calc(100% + 8px);z-index:200;
+                    background:#1a2840;border:1px solid #6366f1;border-radius:6px;
+                    padding:12px 16px;width:290px;font-size:0.8em;line-height:1.6;
+                    color:var(--text-primary);box-shadow:0 4px 24px rgba(0,0,0,0.6);">
+          <strong style="color:#6366f1;display:block;margin-bottom:6px;">⟳ SCAN TESTED CPU DATA</strong>
+          Checks directory mtimes up to 3 levels deep — only re-scans folders
+          that changed since the last run. New log files are parsed and added
+          to the database; already-indexed files are skipped.<br>
+          <em style="color:var(--text-secondary);display:block;margin-top:8px;">
+            Shift+Click to force a full rescan of all files.
+          </em>
+          <em style="color:var(--text-secondary);">
+            Auto-scan runs every 30 min in the background.
+          </em>
+        </div>
+      </div>
+
+    </div><!-- /row 1 -->
+
+    <!-- Row 2: period tabs (hidden during search) -->
+    <div x-show="!searched" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+      <div class="period-tabs">
+        <button class="tab-btn" :class="{active: period==='week'}"   @click="setPeriod('week')">Week</button>
+        <button class="tab-btn" :class="{active: period==='month'}"  @click="setPeriod('month')">Month</button>
+        <button class="tab-btn" :class="{active: period==='custom'}" @click="setPeriod('custom')">Custom</button>
+      </div>
+      <template x-if="period==='custom'">
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="date" x-model="customStart"
+                 style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;
+                        padding:6px 10px;color:var(--text-primary);font-size:0.85em;">
+          <span style="color:var(--text-secondary);">–</span>
+          <input type="date" x-model="customEnd"
+                 style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;
+                        padding:6px 10px;color:var(--text-primary);font-size:0.85em;">
+          <button class="tab-btn active" @click="loadCustom()">Apply</button>
+        </div>
+      </template>
+    </div><!-- /row 2 -->
+
+  </div><!-- /top section -->
+
+  <!-- ── Search results ──────────────────────────────────────────────────── -->
+  <div x-show="searched">
+    <div class="section-header">
+      <span class="section-title"
+            x-text="'Search Results — ' + searchResults.length + ' found'"></span>
+    </div>
+    <template x-if="searchResults.length === 0">
+      <div class="empty-state">No results found.</div>
+    </template>
+    <template x-if="searchResults.length > 0">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+        <table class="cpu-table">
+          <thead>
+            <tr>
+              <th>SN</th><th>Series</th><th>Model</th>
+              <th>Cores</th><th>Duration</th><th>Date</th><th>Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="r in searchResults" :key="r.id">
+              <>
+                <tr class="data-row" @click="toggleExpand(r.id)">
+                  <td x-text="r.sn"></td>
+                  <td x-text="r.cpu_series ?? '—'"></td>
+                  <td x-text="r.cpu_full_name ?? r.processor_name?.substring(0,28) ?? '—'"></td>
+                  <td x-text="r.physical_cores ?? '—'"></td>
+                  <td x-text="r.duration_sec ? fmtDuration(r.duration_sec) : '—'"></td>
+                  <td x-text="r.test_date ?? '—'"></td>
+                  <td :class="r.overall_result==='Pass' ? 'result-pass' : 'result-fail'"
+                      x-text="r.overall_result ?? '—'"></td>
+                </tr>
+                <tr class="expanded-row" x-show="expandedId === r.id">
+                  <td colspan="7">
+                    <div x-html="buildDetail(r)"></div>
+                  </td>
+                </tr>
+              </>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </template>
+  </div>
+
+  <!-- ── Dashboard (hidden during search) ───────────────────────────────── -->
+  <div x-show="!searched">
+
+    <!-- KPI cards -->
+    <div class="kpi-strip" style="grid-template-columns:repeat(4,1fr) 1px 1.1fr;">
+      <div class="kpi-card">
+        <div class="kpi-value" x-text="stats.summary?.total?.toLocaleString() ?? '…'"></div>
+        <div class="kpi-label" x-text="periodLabel + ' Tests'"></div>
+        <div class="kpi-sub" x-text="stats.start ? stats.start + ' – ' + stats.end : ''"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value pass" x-text="stats.summary?.pass_count?.toLocaleString() ?? '…'"></div>
+        <div class="kpi-label">Passed</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value"
+             :class="(stats.summary?.fail_count ?? 0) > 0 ? 'fail' : 'muted'"
+             x-text="stats.summary?.fail_count?.toLocaleString() ?? '0'"></div>
+        <div class="kpi-label">Failed</div>
+        <div class="kpi-sub" x-show="(stats.summary?.freq_anomaly_count ?? 0) > 0"
+             style="color:#f59e0b;"
+             x-text="stats.summary.freq_anomaly_count + ' freq anomal' + (stats.summary.freq_anomaly_count===1?'y':'ies')"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value"
+             x-text="stats.summary?.avg_duration_sec ? fmtDuration(Math.round(stats.summary.avg_duration_sec)) : '—'"></div>
+        <div class="kpi-label">Avg Duration</div>
+      </div>
+      <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
+      <div class="kpi-card" style="background:rgba(99,102,241,0.12);border-right:3px solid #6366f1;border-left:2px solid rgba(99,102,241,0.22);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+        <div class="kpi-value" style="color:#818cf8;" x-text="stats.total_all_time?.toLocaleString() ?? '…'"></div>
+        <div class="kpi-label" style="color:#818cf8;">All Time</div>
+      </div>
+    </div>
+
+    <!-- 3-column horizontal charts -->
+    <div class="chart-row">
+
+      <!-- By Series -->
+      <div class="chart-panel">
+        <div class="chart-title">By Series</div>
+        <template x-if="(stats.by_series ?? []).length === 0">
+          <div style="color:var(--text-secondary);font-size:0.8em;padding:8px 0;">No data</div>
+        </template>
+        <div class="hbar-list" x-show="(stats.by_series ?? []).length > 0">
+          <template x-for="item in (stats.by_series ?? [])" :key="item.series">
+            <div class="hbar-row">
+              <span class="hbar-label" :title="item.series" x-text="item.series"></span>
+              <div class="hbar-track">
+                <div class="hbar-fill"
+                     :style="'width:' + pct(item.count, maxVal(stats.by_series,'count')) + '%;background:var(--accent)'"></div>
+              </div>
+              <span class="hbar-val" x-text="item.count"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- By Generation -->
+      <div class="chart-panel">
+        <div class="chart-title">By Generation</div>
+        <template x-if="(stats.by_generation ?? []).length === 0">
+          <div style="color:var(--text-secondary);font-size:0.8em;padding:8px 0;">No data</div>
+        </template>
+        <div class="hbar-list" x-show="(stats.by_generation ?? []).length > 0">
+          <template x-for="item in (stats.by_generation ?? [])" :key="item.generation">
+            <div class="hbar-row">
+              <span class="hbar-label" :title="genName(item.generation)" x-text="genName(item.generation)"></span>
+              <div class="hbar-track">
+                <div class="hbar-fill"
+                     :style="'width:' + pct(item.count, maxVal(stats.by_generation,'count')) + '%;background:#a78bfa'"></div>
+              </div>
+              <span class="hbar-val" x-text="item.count"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- By Core Count -->
+      <div class="chart-panel">
+        <div class="chart-title">By Core Count</div>
+        <template x-if="(stats.by_core_count ?? []).length === 0">
+          <div style="color:var(--text-secondary);font-size:0.8em;padding:8px 0;">No data</div>
+        </template>
+        <div class="hbar-list" x-show="(stats.by_core_count ?? []).length > 0">
+          <template x-for="item in (stats.by_core_count ?? [])" :key="item.core_group">
+            <div class="hbar-row">
+              <span class="hbar-label" x-text="item.core_group + ' cores'"></span>
+              <div class="hbar-track">
+                <div class="hbar-fill"
+                     :style="'width:' + pct(item.count, maxVal(stats.by_core_count,'count')) + '%;background:#34d399'"></div>
+              </div>
+              <span class="hbar-val" x-text="item.count"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Top 15 Models (full-width) -->
+    <div class="chart-panel" style="margin-bottom:18px;">
+      <div class="chart-title">Top 15 Processor Models</div>
+      <template x-if="(stats.by_model ?? []).length === 0">
+        <div style="color:var(--text-secondary);font-size:0.8em;padding:8px 0;">No data</div>
+      </template>
+      <div class="hbar-list" x-show="(stats.by_model ?? []).length > 0">
+        <template x-for="item in (stats.by_model ?? [])" :key="item.cpu_full_name">
+          <div class="hbar-row">
+            <span class="hbar-label" :title="item.cpu_full_name" x-text="item.cpu_full_name"></span>
+            <div class="hbar-track">
+              <div class="hbar-fill"
+                   :style="'width:' + pct(item.count, maxVal(stats.by_model,'count')) + '%;background:var(--accent)'"></div>
+            </div>
+            <span class="hbar-val" x-text="item.count"></span>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Daily Volume chart -->
+    <div class="daily-panel" x-show="period !== 'today'">
+      <div class="daily-head">
+        <div class="chart-title" style="margin:0;">Daily Volume</div>
+        <div class="daily-legend">
+          <span><span class="legend-dot pass"></span>Pass</span>
+          <span><span class="legend-dot fail"></span>Fail</span>
+        </div>
+      </div>
+      <div class="daily-chart">
+        <template x-for="d in paddedDailyData()" :key="d.date">
+          <div class="daily-col"
+               :style="d.total > 0 ? 'cursor:pointer;' : ''"
+               @click="d.total > 0 && jumpToDay(d.date)"
+               :title="d.total > 0 ? 'View ' + d.total + ' records for ' + d.date : ''">
+            <div class="daily-total" x-show="d.total > 0" x-text="d.total"></div>
+            <div class="daily-seg fail" :style="'height:' + dailyPct(d.failed) + '%'"></div>
+            <div class="daily-seg pass" :style="'height:' + dailyPct(d.passed) + '%'"></div>
+            <div class="daily-label" x-text="dailyLabel(d.date)"></div>
+            <div class="daily-tooltip">
+              <div style="font-weight:700;margin-bottom:3px;" x-text="d.date"></div>
+              <div><span class="legend-dot pass"></span>Pass <span x-text="d.passed"></span></div>
+              <div x-show="d.failed > 0"><span class="legend-dot fail"></span>Fail <span x-text="d.failed"></span></div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Daily Breakdown table -->
+    <div class="chart-panel" style="margin-bottom:18px;" x-show="period !== 'today' && (stats.daily ?? []).length > 0">
+      <div class="chart-title">Daily Breakdown</div>
+      <table class="cpu-table" style="font-size:0.86em;">
+        <thead>
+          <tr>
+            <th style="width:160px;">Date</th>
+            <th style="text-align:right;width:60px;color:var(--accent);">Total</th>
+            <th style="text-align:right;width:60px;color:var(--pass);">Passed</th>
+            <th style="text-align:right;width:60px;color:var(--fail);">Failed</th>
+            <th style="text-align:right;width:80px;">Pass Rate</th>
+            <th style="width:24px;"></th>
+          </tr>
+        </thead>
+        <template x-for="d in (stats.daily ?? [])" :key="'db'+d.date">
+          <tbody>
+            <tr :id="'cpu-db-row-' + d.date"
+                style="cursor:pointer;"
+                :class="(d.failed ?? 0) > 0 ? 'result-fail-row' : ''"
+                @click="toggleDailyOpen(d.date)">
+              <td x-text="dailyLongLabel(d.date)"></td>
+              <td style="text-align:right;font-weight:700;color:var(--accent);" x-text="d.total"></td>
+              <td style="text-align:right;color:var(--pass);" x-text="d.passed ?? 0"></td>
+              <td style="text-align:right;" :style="(d.failed ?? 0) > 0 ? 'color:var(--fail);font-weight:700;' : 'color:var(--text-secondary);'" x-text="(d.failed ?? 0) || '—'"></td>
+              <td style="text-align:right;font-weight:700;"
+                  :style="d.total ? (Math.round((d.passed??0)/d.total*100) >= 90 ? 'color:var(--pass);' : 'color:var(--fail);') : ''"
+                  x-text="d.total ? Math.round((d.passed??0)/d.total*100) + '%' : '—'"></td>
+              <td style="text-align:right;color:var(--text-secondary);"
+                  x-text="dailyOpenDate === d.date ? '▾' : '▸'"></td>
+            </tr>
+            <tr x-show="dailyOpenDate === d.date">
+              <td colspan="6" style="padding:0;">
+                <div style="background:rgba(99,102,241,0.03);border-top:1px solid rgba(99,102,241,0.2);padding:10px 14px;">
+                  <div x-show="dailyRecordsLoading" style="color:var(--text-secondary);font-size:0.84em;padding:6px 4px;">Loading…</div>
+                  <div x-show="dailyLoadError" x-text="dailyLoadError" style="color:var(--fail);font-size:0.84em;padding:6px 4px;"></div>
+                  <div x-show="!dailyRecordsLoading && !dailyLoadError && dailyRecords.length === 0" style="color:var(--text-secondary);font-size:0.84em;padding:6px 4px;">No records found.</div>
+                  <template x-if="!dailyRecordsLoading && dailyRecords.length > 0">
+                    <table class="cpu-table" style="font-size:0.82em;">
+                      <thead>
+                        <tr>
+                          <th>SN</th>
+                          <th>Series</th>
+                          <th>Model</th>
+                          <th>Cores</th>
+                          <th>Duration</th>
+                          <th>Time</th>
+                          <th>Result</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <template x-for="r in dailyRecords" :key="r.id">
+                          <>
+                            <tr class="data-row" @click.stop="toggleExpand(r.id)" style="cursor:pointer;">
+                              <td x-text="r.sn"></td>
+                              <td x-text="r.cpu_series ?? '—'"></td>
+                              <td x-text="r.cpu_full_name ?? r.processor_name?.substring(0,28) ?? '—'"></td>
+                              <td x-text="r.physical_cores ?? '—'"></td>
+                              <td x-text="r.duration_sec ? fmtDuration(r.duration_sec) : '—'"></td>
+                              <td x-text="(r.start_time ?? '').substring(11,16)"></td>
+                              <td :class="r.overall_result==='Pass' ? 'result-pass' : 'result-fail'"
+                                  x-text="r.overall_result ?? '—'"></td>
+                            </tr>
+                            <tr class="expanded-row" x-show="expandedId === r.id">
+                              <td colspan="7">
+                                <div x-html="buildDetail(r)"></div>
+                              </td>
+                            </tr>
+                          </>
+                        </template>
+                      </tbody>
+                    </table>
+                  </template>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </template>
+      </table>
+    </div>
+
+    <!-- Today's Tests -->
+    <div>
+      <div class="section-header">
+        <span class="section-title"
+              x-text="'Today\'s Tests (' + todayRecords.length + ')'"></span>
+        <a class="view-all-link" href="/cpu/all">View All Tests →</a>
+      </div>
+
+      <template x-if="todayRecords.length === 0">
+        <div class="empty-state">No tests recorded today.</div>
+      </template>
+
+      <template x-if="todayRecords.length > 0">
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+          <table class="cpu-table">
+            <thead>
+              <tr>
+                <th>SN</th><th>Series</th><th>Model</th>
+                <th>Cores</th><th>Duration</th><th>Time</th><th>Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="r in todayRecords.slice(0,15)" :key="r.id">
+                <>
+                  <tr class="data-row" @click="toggleExpand(r.id)">
+                    <td x-text="r.sn"></td>
+                    <td x-text="r.cpu_series ?? '—'"></td>
+                    <td x-text="r.cpu_full_name ?? r.processor_name?.substring(0,28) ?? '—'"></td>
+                    <td x-text="r.physical_cores ?? '—'"></td>
+                    <td x-text="r.duration_sec ? fmtDuration(r.duration_sec) : '—'"></td>
+                    <td x-text="(r.start_time ?? '').substring(11,16)"></td>
+                    <td :class="r.overall_result==='Pass' ? 'result-pass' : 'result-fail'"
+                        x-text="r.overall_result ?? '—'"></td>
+                  </tr>
+                  <tr class="expanded-row" x-show="expandedId === r.id">
+                    <td colspan="7">
+                      <div x-html="buildDetail(r)"></div>
+                    </td>
+                  </tr>
+                </>
+              </template>
+            </tbody>
+          </table>
+          <div x-show="todayRecords.length > 15"
+               style="padding:10px 16px;text-align:center;font-size:0.8em;color:var(--text-secondary);
+                      border-top:1px solid var(--border);">
+            Showing 15 of <span x-text="todayRecords.length"></span> today.
+            <a href="/cpu/all" style="color:var(--accent);">View All Tests →</a>
+          </div>
+        </div>
+      </template>
+    </div>
+
+  </div><!-- /!searched -->
+</div><!-- /x-data -->
+
+<script>
+const GEN_NAMES = {
+  4:'Gen 4 · Haswell', 5:'Gen 5 · Broadwell', 6:'Gen 6 · Skylake',
+  7:'Gen 7 · Kaby Lake', 8:'Gen 8 · Coffee Lake', 9:'Gen 9 · CFL Refresh',
+  10:'Gen 10 · Comet Lake', 11:'Gen 11 · Tiger Lake',
+  12:'Gen 12 · Alder Lake', 13:'Gen 13 · Raptor Lake', 14:'Gen 14 · Raptor Lake+',
+};
+const CPU_MODULES = [
+  'Genuine Intel','BrandString','Cache','MMXSSE','IMC',
+  'Prime Number','Floating Point','Math','GPUStressW','CPULoad','CPUFreq'
+];
+
+function cpuApp() {
+  return {
+    period:        'week',
+    periodLabel:   'This Week',
+    stats:         {},
+    todayRecords:  [],
+    searchQuery:   '',
+    searchResults: [],
+    searched:      false,
+    customStart:   '',
+    customEnd:     '',
+    expandedId:    null,
+    scanning:      false,
+    scanStatus:    null,
+    pollState:     { poller_running: false, last_scan_at: null, next_scan_at: null, interval: 1800 },
+    _scanPoll:     null,
+    dailyOpenDate:       null,
+    dailyRecords:        [],
+    dailyRecordsLoading: false,
+    dailyLoadError:      '',
+
+    async init() {
+      await Promise.all([
+        this.loadStats('week'),
+        this.loadToday(),
+        this.fetchScanStatus(),
+        this.fetchPollState(),
+      ]);
+      // Refresh poll status every 30 s (lightweight)
+      setInterval(() => this.fetchPollState(), 30000);
+    },
+
+    async loadToday() {
+      const r = await fetch('/cpu/api/today').then(r => r.json());
+      this.todayRecords = r.records ?? [];
+    },
+
+    async loadStats(period, start, end) {
+      let url = `/cpu/api/stats?period=${period}`;
+      if (period === 'custom' && start && end) url += `&start=${start}&end=${end}`;
+      this.stats = await fetch(url).then(r => r.json());
+    },
+
+    async setPeriod(p) {
+      this.period = p;
+      this.periodLabel = p === 'week' ? 'This Week' : p === 'month' ? 'This Month' : 'Custom';
+      this.dailyOpenDate = null;
+      this.dailyRecords  = [];
+      this.dailyLoadError = '';
+      if (p !== 'custom') await this.loadStats(p);
+    },
+
+    async loadCustom() {
+      if (!this.customStart || !this.customEnd) return;
+      this.periodLabel = 'Custom';
+      await this.loadStats('custom', this.customStart, this.customEnd);
+    },
+
+    async search() {
+      const q = this.searchQuery.trim();
+      if (q.length < 2) return;
+      const r = await fetch('/cpu/api/search?q=' + encodeURIComponent(q)).then(r => r.json());
+      this.searchResults = r.results ?? [];
+      this.searched = true;
+    },
+
+    clearSearch() {
+      this.searchQuery = ''; this.searchResults = [];
+      this.searched = false; this.expandedId = null;
+    },
+
+    async triggerScan(evt) {
+      const full = evt?.shiftKey ? '1' : '0';
+      const r = await fetch('/cpu/api/scan?full=' + full, { method: 'POST' }).then(r => r.json());
+      if (r.status === 'started') {
+        this.scanning = true; this._startScanPoll();
+      } else if (r.status === 'already_running') {
+        alert('Scan already running (' + (r.done ?? 0) + '/' + (r.total ?? '?') + ' done).');
+      }
+    },
+
+    async fetchScanStatus() {
+      try {
+        this.scanStatus = await fetch('/cpu/api/scan/status').then(r => r.json());
+        if (this.scanStatus?.status === 'running') { this.scanning = true; this._startScanPoll(); }
+      } catch {}
+    },
+
+    async fetchPollState() {
+      try {
+        this.pollState = await fetch('/cpu/api/poll/status').then(r => r.json());
+      } catch {}
+    },
+
+    _startScanPoll() {
+      if (this._scanPoll) clearInterval(this._scanPoll);
+      this._scanPoll = setInterval(async () => {
+        this.scanStatus = await fetch('/cpu/api/scan/status').then(r => r.json());
+        if (this.scanStatus?.status !== 'running') {
+          clearInterval(this._scanPoll); this._scanPoll = null; this.scanning = false;
+          await Promise.all([this.loadToday(), this.loadStats(this.period)]);
+        }
+      }, 2000);
+    },
+
+    toggleExpand(id) {
+      this.expandedId = this.expandedId === id ? null : id;
+    },
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+    // Daily volume chart
+    paddedDailyData() {
+      const daily = this.stats.daily ?? [];
+      const map = {};
+      daily.forEach(d => { map[d.date] = d; });
+      const empty = (date) => ({ date, total: 0, passed: 0, failed: 0 });
+      if (this.period === 'week') {
+        const slots = [];
+        for (let i = 6; i >= 0; i--) {
+          const dt = new Date(); dt.setDate(dt.getDate() - i);
+          const s = dt.toISOString().slice(0, 10);
+          slots.push(map[s] || empty(s));
+        }
+        return slots;
+      }
+      if (this.period === 'month') {
+        const now = new Date();
+        const y = now.getFullYear(), m = now.getMonth();
+        const days = new Date(y, m + 1, 0).getDate();
+        const slots = [];
+        for (let i = 1; i <= days; i++) {
+          const s = `${y}-${String(m+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+          slots.push(map[s] || empty(s));
+        }
+        return slots;
+      }
+      if (this.period === 'custom' && this.customStart && this.customEnd) {
+        const start = new Date(this.customStart + 'T00:00:00');
+        const end   = new Date(this.customEnd   + 'T00:00:00');
+        if (Math.round((end - start) / 86400000) + 1 <= 62) {
+          const slots = [], cur = new Date(start);
+          while (cur <= end) {
+            const s = cur.toISOString().slice(0, 10);
+            slots.push(map[s] || empty(s));
+            cur.setDate(cur.getDate() + 1);
+          }
+          return slots;
+        }
+      }
+      return daily;
+    },
+    maxDailyVal() { return Math.max(1, ...this.paddedDailyData().map(d => d.total || 0)); },
+    dailyPct(val) { if (!val) return 0; return Math.max(2, (val / this.maxDailyVal()) * 100); },
+    dailyLabel(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return dateStr.slice(5);
+      const weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      return weekdays[d.getDay()] + ' ' + (d.getMonth()+1) + '/' + d.getDate();
+    },
+    dailyLongLabel(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return dateStr;
+      const weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      return dateStr + ' (' + weekdays[d.getDay()] + ')';
+    },
+    async jumpToDay(dateStr) {
+      // Expand the Daily Breakdown row for this date, then scroll to it
+      if (this.dailyOpenDate !== dateStr) {
+        await this.toggleDailyOpen(dateStr);
+      }
+      this.$nextTick(() => {
+        const el = document.getElementById('cpu-db-row-' + dateStr);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    },
+    async toggleDailyOpen(date) {
+      if (this.dailyOpenDate === date) {
+        this.dailyOpenDate = null;
+        this.dailyRecords = [];
+        this.dailyLoadError = '';
+        return;
+      }
+      this.dailyOpenDate = date;
+      this.dailyRecords = [];
+      this.dailyLoadError = '';
+      this.dailyRecordsLoading = true;
+      try {
+        const resp = await fetch(`/cpu/api/day/${date}`);
+        if (!resp.ok) {
+          this.dailyLoadError = `HTTP ${resp.status} — server may need restart`;
+          return;
+        }
+        const data = await resp.json();
+        this.dailyRecords = data.records ?? [];
+      } catch (e) {
+        this.dailyLoadError = 'Failed to load records (' + e.message + ')';
+      } finally {
+        this.dailyRecordsLoading = false;
+      }
+    },
+
+    pct(val, max) { if (!max) return 4; return Math.max(4, Math.round((val / max) * 100)); },
+    maxVal(arr, key) { if (!arr?.length) return 1; return Math.max(...arr.map(x => x[key] || 0)); },
+    genName(g) { return GEN_NAMES[g] ?? ('Gen ' + g); },
+    fmtDuration(sec) {
+      if (sec == null) return '—';
+      if (sec < 60) return sec + 's';
+      const h = Math.floor(sec / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      const s = sec % 60;
+      if (h > 0) return h + 'h ' + m + 'm';
+      return m + 'm ' + String(s).padStart(2,'0') + 's';
+    },
+    nextScanIn() {
+      if (!this.pollState.next_scan_at) return '—';
+      const diff = Math.max(0, new Date(this.pollState.next_scan_at) - new Date());
+      const m = Math.floor(diff / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      if (m > 0) return m + 'm ' + String(s).padStart(2,'0') + 's';
+      return s + 's';
+    },
+
+    buildDetail(r) {
+      const kv = (l, v) => (v != null && v !== '')
+        ? `<div class="kv-label">${l}</div><div class="kv-value">${v}</div>` : '';
+      const freqHtml = r.freq_ratio != null
+        ? `<span class="${r.freq_ratio < 0.5 ? 'freq-anomaly' : 'freq-normal'}">${(r.freq_ratio * 100).toFixed(2)}%</span>`
+        : '—';
+      const modGrid = CPU_MODULES.map(m => {
+        const fail = r.fail_module && r.fail_module.toLowerCase().includes(m.toLowerCase());
+        return `<div class="module-row ${fail ? 'mod-fail' : 'mod-pass'}">${fail ? '✗' : '✓'} ${m}</div>`;
+      }).join('');
+      const imgHtml = r.has_image
+        ? `<div class="cpu-screenshot">
+             <div class="kv-section-title">Test Screenshot</div>
+             <img src="/cpu/api/image/${r.id}"
+                  style="max-height:260px;max-width:100%;object-fit:contain;border-radius:6px;border:1px solid var(--border);"
+                  loading="lazy" alt="IPDT result">
+           </div>` : '';
+      return `
+        <div class="detail-panel">
+          <div class="detail-grid">
+            <div>
+              <div class="kv-section-title">CPU Specs</div>
+              <div class="kv-grid">
+                ${kv('SN',         r.sn)}
+                ${kv('Processor',  r.processor_name)}
+                ${kv('Series',     r.cpu_series)}
+                ${kv('Model',      r.cpu_full_name)}
+                ${kv('Generation', r.cpu_generation ? this.genName(r.cpu_generation) : null)}
+                ${kv('Speed',      r.speed_ghz ? r.speed_ghz + ' GHz' : null)}
+                ${kv('Cores',      r.physical_cores && r.logical_cores ? r.physical_cores + 'P / ' + r.logical_cores + 'L' : null)}
+                ${kv('L3 Cache',   r.l3_cache_kb ? (r.l3_cache_kb/1024).toFixed(0) + ' MB' : null)}
+                ${kv('Memory',     r.memory_gb ? r.memory_gb + ' GB' : null)}
+                ${kv('Exp. Freq',  r.expected_freq_ghz ? r.expected_freq_ghz + ' GHz' : null)}
+                ${kv('Meas. Freq', r.measured_freq_ghz ? r.measured_freq_ghz.toFixed(3) + ' GHz' : null)}
+                <div class="kv-label">Freq Ratio</div><div class="kv-value">${freqHtml}</div>
+                ${kv('Duration',   r.duration_sec ? this.fmtDuration(r.duration_sec) : null)}
+                ${kv('Date',       r.test_date)}
+                ${kv('OS',         r.os_info)}
+                ${r.fail_module ? `<div class="kv-label">Failed Module</div><div class="kv-value" style="color:var(--fail)">${r.fail_module}</div>` : ''}
+              </div>
+            </div>
+            <div>
+              <div class="kv-section-title">Test Modules</div>
+              <div class="module-grid">${modGrid}</div>
+              ${r.prime_ops_per_sec || r.mflops ? `
+              <div style="margin-top:14px;">
+                <div class="kv-section-title">Performance</div>
+                <div class="kv-grid">
+                  ${kv('Prime Ops/s', r.prime_ops_per_sec ? r.prime_ops_per_sec.toLocaleString() : null)}
+                  ${kv('MFLOPS',      r.mflops ? r.mflops.toFixed(1) : null)}
+                </div>
+              </div>` : ''}
+              ${imgHtml}
+            </div>
+          </div>
+        </div>`;
+    },
+  };
+}
+</script>
+
+{% endblock %}

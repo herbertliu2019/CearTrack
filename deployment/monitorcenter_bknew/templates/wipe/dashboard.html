@@ -1,0 +1,1277 @@
+{% extends "base.html" %}
+{% block title %}Wipe — CEARTrack{% endblock %}
+{% block content %}
+<style>
+/* ── Daily volume chart ──────────────────────────────────── */
+.daily-panel { background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:14px; }
+.daily-head  { display:flex;justify-content:space-between;align-items:center;margin-bottom:10px; }
+.daily-legend{ display:flex;gap:14px;font-size:0.78em;color:var(--text-secondary); }
+.legend-dot  { display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle; }
+.legend-dot.pass { background:var(--pass); }
+.legend-dot.fail { background:var(--fail); }
+.daily-chart { display:flex;align-items:flex-end;gap:4px;height:140px;padding:18px 0 26px;border-bottom:1px solid rgba(255,255,255,0.08);position:relative; }
+.daily-col   { flex:1;height:100%;display:flex;flex-direction:column-reverse;min-width:14px;position:relative;cursor:default; }
+.daily-col:hover .daily-tooltip { display:block; }
+.daily-seg   { width:100%;transition:opacity 0.15s; }
+.daily-seg.pass { background:var(--pass); }
+.daily-seg.fail { background:var(--fail); }
+.daily-col:hover .daily-seg { opacity:0.85; }
+.daily-label { position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--text-secondary);white-space:nowrap; }
+.daily-total { position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--text-secondary);white-space:nowrap; }
+.daily-tooltip { display:none;position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--bg-primary,#1a1a1a);border:1px solid var(--border);border-radius:5px;padding:6px 10px;font-size:0.75em;white-space:nowrap;z-index:5;pointer-events:none;margin-bottom:4px; }
+</style>
+
+<div x-data="wipeApp()" x-init="init()">
+
+  <!-- ── Page Header ──────────────────────────────────────────────── -->
+  <div style="margin-bottom:24px;">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:6px;">
+      <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Drive body -->
+        <rect x="3" y="8" width="30" height="20" rx="3" stroke="var(--accent)" stroke-width="1.6"/>
+        <!-- Platter -->
+        <circle cx="17" cy="18" r="7" stroke="var(--accent)" stroke-width="1.4"/>
+        <!-- Spindle -->
+        <circle cx="17" cy="18" r="2.2" fill="var(--accent)" fill-opacity="0.45"/>
+        <!-- Actuator arm -->
+        <line x1="23" y1="12.5" x2="28.5" y2="10" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+        <!-- Read head -->
+        <circle cx="23" cy="13" r="2" fill="var(--accent)" fill-opacity="0.6"/>
+        <!-- Corner screws -->
+        <circle cx="29.5" cy="11.5" r="1.2" fill="var(--accent)" fill-opacity="0.4"/>
+        <circle cx="29.5" cy="24.5" r="1.2" fill="var(--accent)" fill-opacity="0.4"/>
+      </svg>
+      <div>
+        <div style="font-size:1.45em;font-weight:800;letter-spacing:0.06em;
+                    color:var(--accent);text-transform:uppercase;line-height:1.1;">
+          Wipe Disk
+        </div>
+        <div style="font-size:0.78em;color:var(--text-secondary);
+                    letter-spacing:0.04em;margin-top:2px;">
+          Drive Erasure Log Dashboard
+        </div>
+      </div>
+    </div>
+    <div style="height:1px;background:linear-gradient(to right,
+                var(--accent) 0%, rgba(0,212,255,0.15) 40%, transparent 100%);
+                margin-top:10px;"></div>
+  </div>
+
+  <!-- ── Scan Progress Banner ─────────────────────────────────────── -->
+  <div x-show="scanBanner.visible"
+       style="position:fixed;top:0;left:0;right:0;z-index:999;
+              background:#0d1a2e;padding:10px 24px;display:flex;align-items:center;gap:16px;font-size:0.9em;"
+       :style="scanBanner.force
+         ? 'border-bottom:2px solid #f59e0b;'
+         : 'border-bottom:2px solid #6366f1;'">
+    <span style="font-weight:700;letter-spacing:0.05em;"
+          :style="scanBanner.force ? 'color:#f59e0b;' : 'color:#6366f1;'"
+          x-text="scanBanner.force ? '⟳ FORCE RESCANNING' : '⟳ SCANNING'"></span>
+    <span style="color:var(--text-primary);"
+          x-text="scanBanner.done + ' / ' + scanBanner.total + ' files...'"></span>
+    <div style="flex:1;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;">
+      <div style="height:100%;background:#6366f1;transition:width 0.4s ease;border-radius:2px;"
+           :style="'width:' + (scanBanner.total ? Math.round(scanBanner.done/scanBanner.total*100) : 0) + '%'">
+      </div>
+    </div>
+    <span style="color:var(--text-secondary);font-size:0.85em;"
+          x-text="scanBanner.total ? Math.round(scanBanner.done/scanBanner.total*100) + '%' : ''"></span>
+  </div>
+  <div x-show="scanBanner.visible" style="height:44px;"></div>
+
+  <!-- ── Top Bar: Search + Scan button ────────────────────────────── -->
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;">
+
+    <div class="search-box" style="width:60%;flex-shrink:0;margin-bottom:0;">
+      <input type="text" x-model="searchQ" @keydown.enter="runSearch()"
+             placeholder="Search by Drive SN or System Service Tag (partial match supported)...">
+      <button @click="runSearch()">Search</button>
+      <button x-show="searched" @click="clearSearch()"
+              style="background:transparent;color:var(--text-secondary);
+                     border:1px solid var(--border);padding:6px 12px;
+                     border-radius:4px;cursor:pointer;font-size:0.85em;">
+        ✕ Clear
+      </button>
+    </div>
+
+    <div style="flex:1;"></div>
+
+    <!-- Auto-poll status -->
+    <div style="text-align:right;flex-shrink:0;line-height:1.7;">
+      <div x-show="scanState.last_scan_at"
+           style="font-size:0.78em;color:var(--text-secondary);">
+        <span style="color:var(--pass);font-weight:600;">⟳</span>
+        Last auto-scan:
+        <span style="color:var(--text-primary);font-family:monospace;"
+              x-text="(scanState.last_scan_at ?? '').replace('T',' ')"></span>
+      </div>
+      <div x-show="scanState.next_scan_at"
+           style="font-size:0.78em;color:var(--text-secondary);">
+        Next in:
+        <span style="color:var(--accent);font-weight:600;"
+              x-text="nextScanIn()"></span>
+      </div>
+      <div x-show="!scanState.last_scan_at && !scanState.next_scan_at && lastScanned"
+           style="font-size:0.78em;color:var(--text-secondary);">
+        Last scan:
+        <span style="color:var(--text-primary);font-family:monospace;"
+              x-text="lastScanned"></span>
+      </div>
+    </div>
+
+    <!-- SCAN WIPED DATA button -->
+    <div style="position:relative;flex-shrink:0;" x-data="{tip:false}">
+      <button @click="triggerFullScan($event)"
+              @mouseenter="tip=true" @mouseleave="tip=false"
+              :disabled="scanBanner.visible"
+              class="btn-scan-wiped"
+              title="Click: scan new files only&#10;Shift+Click: force rescan all + remove deleted">
+        ⟳ SCAN WIPED DATA
+      </button>
+      <div x-show="tip"
+           style="position:absolute;right:0;top:calc(100% + 8px);z-index:200;
+                  background:#1a2840;border:1px solid #6366f1;border-radius:6px;
+                  padding:12px 16px;width:280px;font-size:0.8em;line-height:1.6;
+                  color:var(--text-primary);box-shadow:0 4px 24px rgba(0,0,0,0.6);">
+        <strong style="color:#6366f1;display:block;margin-bottom:6px;">⟳ SCAN WIPED DATA</strong>
+        Incremental scan — indexes only new log files not yet in the database.
+        Fast, safe to run anytime.
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08);">
+          <strong style="color:#f59e0b;display:block;margin-bottom:4px;">⚡ Shift+Click — Force Rescan</strong>
+          Re-parses every file and removes records for deleted logs.
+          <em style="color:var(--text-secondary);display:block;margin-top:4px;">
+            ⚠ May take several minutes for large archives.
+          </em>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Search Results ─────────────────────────────────────────── -->
+  <div x-show="searched" style="margin-bottom:24px;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+      <span style="font-size:0.85em;font-weight:700;text-transform:uppercase;
+                   letter-spacing:0.08em;color:var(--accent);">Search Results</span>
+      <span style="color:var(--text-secondary);font-size:0.85em;"
+            x-text="searchResults.length
+              ? searchResults.length + ' record(s) found for \'' + searchQ + '\''
+              : 'No records found for \'' + searchQ + '\''"></span>
+    </div>
+    <template x-for="r in searchResults" :key="r.log_path ?? r.drive_sn + r.wipe_datetime">
+      <div class="detail-panel" style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;
+                    margin-bottom:12px;cursor:pointer;"
+             @click="toggleDetail('s_' + r.log_path)">
+          <div>
+            <div style="font-family:monospace;font-weight:700;font-size:1.05em;"
+                 x-text="r.drive_sn"></div>
+            <div style="color:var(--text-secondary);font-size:0.85em;margin-top:2px;"
+                 x-text="(r.sys_manufacturer ?? '') + ' ' + (r.sys_model ?? '') + '  •  ' + (r.wipe_date ?? '')"></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <!-- LATEST / HISTORY badge -->
+            <span x-show="r.is_latest"
+                  style="font-size:0.7em;font-weight:700;padding:2px 7px;border-radius:3px;
+                         background:rgba(52,211,153,0.15);color:#34d399;letter-spacing:0.05em;">
+              LATEST
+            </span>
+            <span x-show="!r.is_latest"
+                  style="font-size:0.7em;font-weight:700;padding:2px 7px;border-radius:3px;
+                         background:rgba(255,255,255,0.05);color:var(--text-secondary);letter-spacing:0.05em;">
+              HISTORY
+            </span>
+            <span class="badge" :class="resultClass(r.result)" x-text="r.result"></span>
+            <span style="color:var(--text-secondary);font-size:0.8em;"
+                  x-text="detailOpen === 's_' + r.log_path ? '▲' : '▼'"></span>
+          </div>
+        </div>
+        <!-- win_path + COPY always visible -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+          <span style="font-family:monospace;font-size:0.78em;color:var(--text-secondary);
+                       word-break:break-all;flex:1;"
+                x-text="r.win_path || r.log_path || '—'"></span>
+          <button @click.stop="copyWinPath(r.win_path)"
+                  style="padding:4px 12px;background:rgba(0,212,255,0.12);color:var(--accent);
+                         border:1px solid rgba(0,212,255,0.3);border-radius:4px;cursor:pointer;
+                         font-weight:700;font-size:0.75em;letter-spacing:0.04em;flex-shrink:0;">
+            COPY
+          </button>
+          <span x-show="copied === r.win_path"
+                style="color:var(--pass);font-size:0.78em;">✓ Copied</span>
+        </div>
+        <template x-if="detailOpen === 's_' + r.log_path">
+          <div>
+            <div x-html="renderWipeDetail(r)"></div>
+          </div>
+        </template>
+      </div>
+    </template>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       TABS
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="tabs">
+    <button class="tab-btn" :class="{active: activeTab==='today'}"   @click="activeTab='today'">
+      <strong>Today</strong>
+    </button>
+    <button class="tab-btn" :class="{active: activeTab==='week'}"    @click="activeTab='week'">
+      <strong>This Week</strong>
+    </button>
+    <button class="tab-btn" :class="{active: activeTab==='month'}"   @click="activeTab='month'">
+      <strong>This Month</strong>
+    </button>
+    <button class="tab-btn" :class="{active: activeTab==='custom'}"  @click="activeTab='custom'">
+      <strong>Custom Range</strong>
+    </button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       TAB: TODAY
+  ══════════════════════════════════════════════════════════════ -->
+  <div x-show="activeTab==='today'">
+
+    <!-- KPI strip -->
+    <div class="stats-strip" style="grid-template-columns:repeat(4,1fr) 1px 1.1fr;margin-bottom:16px;align-items:stretch;">
+      <div class="stat-card">
+        <div class="stat-label">TODAY</div>
+        <div class="stat-value" x-text="today.stats.total ?? 0"></div>
+      </div>
+      <div class="stat-card"><div class="stat-label">PASSED</div>
+        <div class="stat-value" style="color:var(--pass);" x-text="today.stats.passed ?? 0"></div></div>
+      <div class="stat-card"><div class="stat-label">FAILED</div>
+        <div class="stat-value" style="color:var(--fail);" x-text="today.stats.failed ?? 0"></div></div>
+      <div class="stat-card"><div class="stat-label">PASS RATE</div>
+        <div class="stat-value" x-text="(today.stats.pass_rate ?? 0) + '%'"></div></div>
+      <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
+      <div class="stat-card" style="background:rgba(99,102,241,0.12);border-right:3px solid #6366f1;border-left:2px solid rgba(99,102,241,0.22);">
+        <div class="stat-label" style="color:#818cf8;">ALL TIME</div>
+        <div class="stat-value" style="color:#818cf8;" x-text="(today.db_total ?? 0).toLocaleString()"></div>
+      </div>
+    </div>
+
+    <!-- By Device Type -->
+    <div x-html="renderDeviceTypeBar(today.by_device_type)" style="margin-bottom:20px;"></div>
+
+    <!-- Today's records -->
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <template x-for="r in today.records" :key="r.log_path ?? r.drive_sn">
+        <div :class="'result-card ' + resultClass(r.result)" style="margin:0;">
+          <div class="card-summary" @click="toggleDetail(r.log_path)">
+            <div class="card-header">
+              <div>
+                <div class="card-sn" x-text="r.drive_sn"></div>
+                <div class="card-model"
+                     x-text="(r.sys_manufacturer ?? '') + ' ' + (r.sys_model ?? '')"></div>
+              </div>
+              <span class="badge" :class="resultClass(r.result)" x-text="r.result"></span>
+            </div>
+            <div class="card-body">
+              <div class="card-spec" x-text="r.method ?? ''"></div>
+              <div class="card-spec"
+                   x-text="(r.capacity ?? '') + (r.device_type ? '  •  ' + r.device_type : '')"></div>
+            </div>
+            <div style="display:flex;gap:10px;padding:6px 16px;
+                        border-top:1px solid var(--border);flex-wrap:wrap;">
+              <span x-show="r.duration_min !== null" style="font-size:0.78em;color:var(--text-secondary);">
+                ⏱ <span x-text="r.duration_min + ' min'"></span>
+              </span>
+            </div>
+            <div class="card-footer" x-text="r.wipe_datetime ?? r.wipe_date ?? ''"></div>
+          </div>
+          <template x-if="detailOpen === r.log_path">
+            <div class="detail-panel"
+                 style="margin:0;border-radius:0;border-top:1px solid var(--border);">
+              <div x-html="renderWipeDetail(r)"></div>
+              <div style="margin-top:12px;">
+                <button @click.stop="copyWinPath(r.win_path)"
+                        style="padding:7px 16px;background:var(--accent);color:#0d1520;
+                               border:none;border-radius:4px;cursor:pointer;
+                               font-weight:700;font-size:0.82em;letter-spacing:0.04em;">
+                  COPY WINDOWS PATH
+                </button>
+                <span x-show="copied === r.win_path"
+                      style="margin-left:10px;color:var(--pass);font-size:0.82em;">✓ Copied</span>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+      <div x-show="today.records.length === 0"
+           style="color:var(--text-secondary);text-align:center;padding:48px;
+                  background:var(--bg-card);border-radius:8px;border:1px solid var(--border);">
+        No wipes recorded today.
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       TAB: THIS WEEK
+  ══════════════════════════════════════════════════════════════ -->
+  <div x-show="activeTab==='week'">
+
+    <!-- KPI strip -->
+    <div class="stats-strip" style="grid-template-columns:repeat(4,1fr) 1px 1.1fr;margin-bottom:16px;align-items:stretch;">
+      <div class="stat-card">
+        <div class="stat-label">THIS WEEK</div>
+        <div class="stat-value" x-text="week.stats?.total ?? 0"></div>
+        <div style="font-size:0.7em;color:var(--text-secondary);margin-top:4px;font-weight:500;"
+             x-text="fmtRange(week.start, week.end)"></div>
+      </div>
+      <div class="stat-card"><div class="stat-label">PASSED</div>
+        <div class="stat-value" style="color:var(--pass);" x-text="week.stats?.passed ?? 0"></div></div>
+      <div class="stat-card"><div class="stat-label">FAILED</div>
+        <div class="stat-value" style="color:var(--fail);" x-text="week.stats?.failed ?? 0"></div></div>
+      <div class="stat-card"><div class="stat-label">PASS RATE</div>
+        <div class="stat-value" x-text="(week.stats?.pass_rate ?? 0) + '%'"></div></div>
+      <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
+      <div class="stat-card" style="background:rgba(99,102,241,0.12);border-right:3px solid #6366f1;border-left:2px solid rgba(99,102,241,0.22);">
+        <div class="stat-label" style="color:#818cf8;">ALL TIME</div>
+        <div class="stat-value" style="color:#818cf8;" x-text="(week.db_total ?? 0).toLocaleString()"></div>
+      </div>
+    </div>
+
+    <!-- By Device Type -->
+    <div x-html="renderDeviceTypeBar(week.by_device_type)" style="margin-bottom:20px;"></div>
+
+    <!-- By Manufacturer + Fail Reasons -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+      <div class="detail-panel" style="padding:16px 20px;">
+        <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                    letter-spacing:0.06em;color:var(--accent);margin-bottom:14px;">
+          By Manufacturer
+        </div>
+        <template x-if="!(week.by_manufacturer ?? []).length">
+          <div style="color:var(--text-secondary);font-size:0.88em;">No data</div>
+        </template>
+        <template x-for="item in (week.by_manufacturer ?? [])" :key="item.name">
+          <div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+              <span style="font-size:0.9em;" x-text="item.name"></span>
+              <span style="font-weight:700;color:var(--accent);" x-text="item.count"></span>
+            </div>
+            <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+              <div style="height:100%;background:var(--accent);border-radius:2px;transition:width 0.5s;"
+                   :style="'width:' + Math.round(item.count/(week.stats?.total||1)*100) + '%'"></div>
+            </div>
+          </div>
+        </template>
+      </div>
+      <div class="detail-panel" style="padding:16px 20px;">
+        <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                    letter-spacing:0.06em;color:#e07b3a;margin-bottom:14px;">
+          Fail Reasons
+        </div>
+        <template x-if="!(week.fail_reasons ?? []).length">
+          <div style="color:var(--pass);font-size:0.88em;">No failures this week 🎉</div>
+        </template>
+        <template x-for="item in (week.fail_reasons ?? [])" :key="item.reason">
+          <div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+              <span style="font-size:0.9em;" x-text="item.reason"></span>
+              <span style="font-weight:700;color:#e07b3a;" x-text="item.count"></span>
+            </div>
+            <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+              <div style="height:100%;background:#e07b3a;border-radius:2px;transition:width 0.5s;"
+                   :style="'width:' + Math.round(item.count/(week.stats?.failed||1)*100) + '%'"></div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Daily Volume chart -->
+    <div class="daily-panel">
+      <div class="daily-head">
+        <div style="font-size:0.7em;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-secondary);">Daily Volume</div>
+        <div class="daily-legend">
+          <span><span class="legend-dot pass"></span>Pass</span>
+          <span><span class="legend-dot fail"></span>Fail</span>
+        </div>
+      </div>
+      <div class="daily-chart">
+        <template x-for="d in paddedDailyData('week')" :key="d.date">
+          <div class="daily-col"
+               :style="d.total > 0 ? 'cursor:pointer;' : ''"
+               @click="d.total > 0 && jumpToDay(d.date, 'week')"
+               :title="d.total > 0 ? 'View ' + d.total + ' records for ' + d.date : ''">
+            <div class="daily-total" x-show="d.total > 0" x-text="d.total"></div>
+            <div class="daily-seg fail" :style="'height:' + dailyPct(d.failed, 'week') + '%'"></div>
+            <div class="daily-seg pass" :style="'height:' + dailyPct(d.passed, 'week') + '%'"></div>
+            <div class="daily-label" x-text="dailyLabel(d.date)"></div>
+            <div class="daily-tooltip">
+              <div style="font-weight:700;margin-bottom:3px;" x-text="d.date"></div>
+              <div><span class="legend-dot pass"></span>Pass <span x-text="d.passed"></span></div>
+              <div x-show="d.failed > 0"><span class="legend-dot fail"></span>Fail <span x-text="d.failed"></span></div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Daily Breakdown -->
+    <div class="detail-panel" style="padding:16px 20px;">
+      <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                  letter-spacing:0.06em;color:var(--text-secondary);margin-bottom:12px;">
+        Daily Breakdown
+      </div>
+      <div style="display:grid;grid-template-columns:140px 70px 80px 70px 1fr 20px;gap:8px;
+                  padding-bottom:8px;border-bottom:1px solid var(--border);
+                  color:var(--text-secondary);font-size:0.75em;text-transform:uppercase;font-weight:600;">
+        <span>Date</span><span>Total</span>
+        <span style="color:var(--pass);">Passed</span>
+        <span style="color:var(--fail);">Failed</span><span></span><span></span>
+      </div>
+      <template x-for="d in (week.daily ?? [])" :key="d.date">
+        <div :id="'wipe-db-row-week-' + d.date">
+          <div style="display:grid;grid-template-columns:140px 70px 80px 70px 1fr 20px;
+                      gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);
+                      align-items:center;font-size:0.88em;cursor:pointer;"
+               @click="toggleDailyOpen('week', d.date)"
+               @mouseenter="$el.style.background='rgba(255,255,255,0.03)'"
+               @mouseleave="$el.style.background='transparent'">
+            <span style="color:var(--text-secondary);" x-text="d.date"></span>
+            <span style="font-weight:600;" x-text="d.total"></span>
+            <span style="color:var(--pass);font-weight:600;" x-text="d.passed"></span>
+            <span style="color:var(--fail);font-weight:600;" x-text="d.failed"></span>
+            <div style="height:5px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;">
+              <div style="height:100%;background:var(--pass);border-radius:3px;"
+                   :style="'width:' + Math.round(d.passed/(d.total||1)*100) + '%'"></div>
+            </div>
+            <span style="color:var(--text-secondary);font-size:0.8em;text-align:right;"
+                  x-text="isDailyOpen('week', d.date) ? '▲' : '▼'"></span>
+          </div>
+          <template x-if="isDailyOpen('week', d.date)">
+            <div style="background:rgba(99,102,241,0.03);border-top:1px solid rgba(99,102,241,0.2);
+                        padding:8px 12px 4px;border-bottom:1px solid rgba(255,255,255,0.06);">
+              <template x-for="rec in recordsForDay('week', d.date)" :key="rec.log_path">
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;
+                              padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);
+                              cursor:pointer;"
+                       @click="toggleDetail('wd_' + rec.log_path)">
+                    <div>
+                      <span style="font-family:monospace;font-size:0.88em;font-weight:600;"
+                            x-text="rec.drive_sn"></span>
+                      <span style="color:var(--text-secondary);font-size:0.78em;margin-left:7px;"
+                            x-text="(rec.manufacturer ?? '') + ' ' + (rec.drive_model ?? '') + ' • ' + (rec.capacity ?? '') + ' • ' + (rec.device_type ?? '')"></span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <span class="badge" :class="resultClass(rec.result)" x-text="rec.result"></span>
+                      <span style="color:var(--text-secondary);font-size:0.72em;"
+                            x-text="detailOpen === 'wd_' + rec.log_path ? '▲' : '▼'"></span>
+                    </div>
+                  </div>
+                  <template x-if="detailOpen === 'wd_' + rec.log_path">
+                    <div style="padding:8px 0;" x-html="renderWipeDetail(rec)"></div>
+                  </template>
+                </div>
+              </template>
+              <div x-show="recordsForDay('week', d.date).length === 0"
+                   style="color:var(--text-secondary);font-size:0.84em;padding:6px 4px;">
+                No records found.
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+      <div x-show="!(week.daily ?? []).length"
+           style="color:var(--text-secondary);font-size:0.85em;padding:12px 0;">
+        No data this week.
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       TAB: THIS MONTH
+  ══════════════════════════════════════════════════════════════ -->
+  <div x-show="activeTab==='month'">
+
+    <!-- KPI strip -->
+    <div class="stats-strip" style="grid-template-columns:repeat(4,1fr) 1px 1.1fr;margin-bottom:16px;align-items:stretch;">
+      <div class="stat-card">
+        <div class="stat-label">THIS MONTH</div>
+        <div class="stat-value" x-text="month.stats?.total ?? 0"></div>
+        <div style="font-size:0.7em;color:var(--text-secondary);margin-top:4px;font-weight:500;"
+             x-text="fmtRange(month.start, month.end)"></div>
+      </div>
+      <div class="stat-card"><div class="stat-label">PASSED</div>
+        <div class="stat-value" style="color:var(--pass);" x-text="month.stats?.passed ?? 0"></div></div>
+      <div class="stat-card"><div class="stat-label">FAILED</div>
+        <div class="stat-value" style="color:var(--fail);" x-text="month.stats?.failed ?? 0"></div></div>
+      <div class="stat-card"><div class="stat-label">PASS RATE</div>
+        <div class="stat-value" x-text="(month.stats?.pass_rate ?? 0) + '%'"></div></div>
+      <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
+      <div class="stat-card" style="background:rgba(99,102,241,0.12);border-right:3px solid #6366f1;border-left:2px solid rgba(99,102,241,0.22);">
+        <div class="stat-label" style="color:#818cf8;">ALL TIME</div>
+        <div class="stat-value" style="color:#818cf8;" x-text="(month.db_total ?? 0).toLocaleString()"></div>
+      </div>
+    </div>
+
+    <!-- By Device Type -->
+    <div x-html="renderDeviceTypeBar(month.by_device_type)" style="margin-bottom:20px;"></div>
+
+    <!-- By Manufacturer + Fail Reasons -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+      <div class="detail-panel" style="padding:16px 20px;">
+        <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                    letter-spacing:0.06em;color:var(--accent);margin-bottom:14px;">
+          By Manufacturer
+        </div>
+        <template x-if="!(month.by_manufacturer ?? []).length">
+          <div style="color:var(--text-secondary);font-size:0.88em;">No data</div>
+        </template>
+        <template x-for="item in (month.by_manufacturer ?? [])" :key="item.name">
+          <div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+              <span style="font-size:0.9em;" x-text="item.name"></span>
+              <span style="font-weight:700;color:var(--accent);" x-text="item.count"></span>
+            </div>
+            <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+              <div style="height:100%;background:var(--accent);border-radius:2px;transition:width 0.5s;"
+                   :style="'width:' + Math.round(item.count/(month.stats?.total||1)*100) + '%'"></div>
+            </div>
+          </div>
+        </template>
+      </div>
+      <div class="detail-panel" style="padding:16px 20px;">
+        <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                    letter-spacing:0.06em;color:#e07b3a;margin-bottom:14px;">
+          Fail Reasons
+        </div>
+        <template x-if="!(month.fail_reasons ?? []).length">
+          <div style="color:var(--pass);font-size:0.88em;">No failures this month 🎉</div>
+        </template>
+        <template x-for="item in (month.fail_reasons ?? [])" :key="item.reason">
+          <div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+              <span style="font-size:0.9em;" x-text="item.reason"></span>
+              <span style="font-weight:700;color:#e07b3a;" x-text="item.count"></span>
+            </div>
+            <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+              <div style="height:100%;background:#e07b3a;border-radius:2px;transition:width 0.5s;"
+                   :style="'width:' + Math.round(item.count/(month.stats?.failed||1)*100) + '%'"></div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Daily Volume chart -->
+    <div class="daily-panel">
+      <div class="daily-head">
+        <div style="font-size:0.7em;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-secondary);">Daily Volume</div>
+        <div class="daily-legend">
+          <span><span class="legend-dot pass"></span>Pass</span>
+          <span><span class="legend-dot fail"></span>Fail</span>
+        </div>
+      </div>
+      <div class="daily-chart">
+        <template x-for="d in paddedDailyData('month')" :key="d.date">
+          <div class="daily-col"
+               :style="d.total > 0 ? 'cursor:pointer;' : ''"
+               @click="d.total > 0 && jumpToDay(d.date, 'month')"
+               :title="d.total > 0 ? 'View ' + d.total + ' records for ' + d.date : ''">
+            <div class="daily-total" x-show="d.total > 0" x-text="d.total"></div>
+            <div class="daily-seg fail" :style="'height:' + dailyPct(d.failed, 'month') + '%'"></div>
+            <div class="daily-seg pass" :style="'height:' + dailyPct(d.passed, 'month') + '%'"></div>
+            <div class="daily-label" x-text="dailyLabel(d.date)"></div>
+            <div class="daily-tooltip">
+              <div style="font-weight:700;margin-bottom:3px;" x-text="d.date"></div>
+              <div><span class="legend-dot pass"></span>Pass <span x-text="d.passed"></span></div>
+              <div x-show="d.failed > 0"><span class="legend-dot fail"></span>Fail <span x-text="d.failed"></span></div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Daily Breakdown -->
+    <div class="detail-panel" style="padding:16px 20px;">
+      <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                  letter-spacing:0.06em;color:var(--text-secondary);margin-bottom:12px;">
+        Daily Breakdown
+      </div>
+      <div style="display:grid;grid-template-columns:140px 70px 80px 70px 1fr 20px;gap:8px;
+                  padding-bottom:8px;border-bottom:1px solid var(--border);
+                  color:var(--text-secondary);font-size:0.75em;text-transform:uppercase;font-weight:600;">
+        <span>Date</span><span>Total</span>
+        <span style="color:var(--pass);">Passed</span>
+        <span style="color:var(--fail);">Failed</span><span></span><span></span>
+      </div>
+      <template x-for="d in (month.daily ?? [])" :key="d.date">
+        <div :id="'wipe-db-row-month-' + d.date">
+          <div style="display:grid;grid-template-columns:140px 70px 80px 70px 1fr 20px;
+                      gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);
+                      align-items:center;font-size:0.88em;cursor:pointer;"
+               @click="toggleDailyOpen('month', d.date)"
+               @mouseenter="$el.style.background='rgba(255,255,255,0.03)'"
+               @mouseleave="$el.style.background='transparent'">
+            <span style="color:var(--text-secondary);" x-text="d.date"></span>
+            <span style="font-weight:600;" x-text="d.total"></span>
+            <span style="color:var(--pass);font-weight:600;" x-text="d.passed"></span>
+            <span style="color:var(--fail);font-weight:600;" x-text="d.failed"></span>
+            <div style="height:5px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;">
+              <div style="height:100%;background:var(--pass);border-radius:3px;"
+                   :style="'width:' + Math.round(d.passed/(d.total||1)*100) + '%'"></div>
+            </div>
+            <span style="color:var(--text-secondary);font-size:0.8em;text-align:right;"
+                  x-text="isDailyOpen('month', d.date) ? '▲' : '▼'"></span>
+          </div>
+          <template x-if="isDailyOpen('month', d.date)">
+            <div style="background:rgba(99,102,241,0.03);border-top:1px solid rgba(99,102,241,0.2);
+                        padding:8px 12px 4px;border-bottom:1px solid rgba(255,255,255,0.06);">
+              <template x-for="rec in recordsForDay('month', d.date)" :key="rec.log_path">
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;
+                              padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);
+                              cursor:pointer;"
+                       @click="toggleDetail('md_' + rec.log_path)">
+                    <div>
+                      <span style="font-family:monospace;font-size:0.88em;font-weight:600;"
+                            x-text="rec.drive_sn"></span>
+                      <span style="color:var(--text-secondary);font-size:0.78em;margin-left:7px;"
+                            x-text="(rec.manufacturer ?? '') + ' ' + (rec.drive_model ?? '') + ' • ' + (rec.capacity ?? '') + ' • ' + (rec.device_type ?? '')"></span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <span class="badge" :class="resultClass(rec.result)" x-text="rec.result"></span>
+                      <span style="color:var(--text-secondary);font-size:0.72em;"
+                            x-text="detailOpen === 'md_' + rec.log_path ? '▲' : '▼'"></span>
+                    </div>
+                  </div>
+                  <template x-if="detailOpen === 'md_' + rec.log_path">
+                    <div style="padding:8px 0;" x-html="renderWipeDetail(rec)"></div>
+                  </template>
+                </div>
+              </template>
+              <div x-show="recordsForDay('month', d.date).length === 0"
+                   style="color:var(--text-secondary);font-size:0.84em;padding:6px 4px;">
+                No records found.
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+      <div x-show="!(month.daily ?? []).length"
+           style="color:var(--text-secondary);font-size:0.85em;padding:12px 0;">
+        No data this month.
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       TAB: CUSTOM RANGE
+  ══════════════════════════════════════════════════════════════ -->
+  <div x-show="activeTab==='custom'">
+    <div style="font-size:1em;font-weight:700;text-transform:uppercase;
+                letter-spacing:0.08em;color:var(--text-primary);margin-bottom:16px;">
+      Custom Range
+    </div>
+
+    <!-- Date picker -->
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap;">
+      <input type="date" x-model="customFrom"
+             style="background:#0d1a2e;border:1px solid var(--border);
+                    color:var(--text-primary);padding:8px 14px;border-radius:4px;font-size:0.9em;">
+      <span style="color:var(--text-secondary);">to</span>
+      <input type="date" x-model="customTo"
+             style="background:#0d1a2e;border:1px solid var(--border);
+                    color:var(--text-primary);padding:8px 14px;border-radius:4px;font-size:0.9em;">
+      <button @click="loadCustom()"
+              style="padding:8px 22px;background:var(--accent);color:#0d1520;
+                     border:none;border-radius:4px;cursor:pointer;font-weight:700;font-size:0.9em;">
+        Apply
+      </button>
+    </div>
+
+    <!-- KPI — shown after Apply -->
+    <template x-if="custom.stats">
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px;">
+          <span style="color:var(--text-secondary);font-size:0.88em;"
+                x-text="fmtRange(customFrom, customTo) + '  (' + (custom.stats?.total ?? 0) + ' records)'"></span>
+        </div>
+
+        <div class="stats-strip" style="grid-template-columns:repeat(4,1fr) 1px 1.1fr;margin-bottom:16px;align-items:stretch;">
+          <div class="stat-card">
+            <div class="stat-label">SELECTED</div>
+            <div class="stat-value" x-text="custom.stats?.total ?? 0"></div>
+            <div style="font-size:0.7em;color:var(--text-secondary);margin-top:4px;font-weight:500;"
+                 x-text="fmtRange(customFrom, customTo)"></div>
+          </div>
+          <div class="stat-card"><div class="stat-label">PASSED</div>
+            <div class="stat-value" style="color:var(--pass);" x-text="custom.stats?.passed ?? 0"></div></div>
+          <div class="stat-card"><div class="stat-label">FAILED</div>
+            <div class="stat-value" style="color:var(--fail);" x-text="custom.stats?.failed ?? 0"></div></div>
+          <div class="stat-card"><div class="stat-label">PASS RATE</div>
+            <div class="stat-value" x-text="(custom.stats?.pass_rate ?? 0) + '%'"></div></div>
+          <div style="background:rgba(99,102,241,0.2);border-radius:1px;margin:12px 0;"></div>
+          <div class="stat-card" style="background:rgba(99,102,241,0.12);border-right:3px solid #6366f1;border-left:2px solid rgba(99,102,241,0.22);">
+            <div class="stat-label" style="color:#818cf8;">ALL TIME</div>
+            <div class="stat-value" style="color:#818cf8;" x-text="(custom.db_total ?? 0).toLocaleString()"></div>
+          </div>
+        </div>
+
+        <!-- By Device Type -->
+        <div x-html="renderDeviceTypeBar(custom.by_device_type)" style="margin-bottom:20px;"></div>
+
+        <!-- By Manufacturer + Fail Reasons -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+          <div class="detail-panel" style="padding:16px 20px;">
+            <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                        letter-spacing:0.06em;color:var(--accent);margin-bottom:14px;">
+              By Manufacturer
+            </div>
+            <template x-if="!(custom.by_manufacturer ?? []).length">
+              <div style="color:var(--text-secondary);font-size:0.88em;">No data</div>
+            </template>
+            <template x-for="item in (custom.by_manufacturer ?? [])" :key="item.name">
+              <div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+                  <span style="font-size:0.9em;" x-text="item.name"></span>
+                  <span style="font-weight:700;color:var(--accent);" x-text="item.count"></span>
+                </div>
+                <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+                  <div style="height:100%;background:var(--accent);border-radius:2px;transition:width 0.5s;"
+                       :style="'width:' + Math.round(item.count/(custom.stats?.total||1)*100) + '%'"></div>
+                </div>
+              </div>
+            </template>
+          </div>
+          <div class="detail-panel" style="padding:16px 20px;">
+            <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                        letter-spacing:0.06em;color:#e07b3a;margin-bottom:14px;">
+              Fail Reasons
+            </div>
+            <template x-if="!(custom.fail_reasons ?? []).length">
+              <div style="color:var(--pass);font-size:0.88em;">No failures in this period 🎉</div>
+            </template>
+            <template x-for="item in (custom.fail_reasons ?? [])" :key="item.reason">
+              <div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+                  <span style="font-size:0.9em;" x-text="item.reason"></span>
+                  <span style="font-weight:700;color:#e07b3a;" x-text="item.count"></span>
+                </div>
+                <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+                  <div style="height:100%;background:#e07b3a;border-radius:2px;transition:width 0.5s;"
+                       :style="'width:' + Math.round(item.count/(custom.stats?.failed||1)*100) + '%'"></div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Daily Volume chart -->
+        <div class="daily-panel">
+          <div class="daily-head">
+            <div style="font-size:0.7em;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-secondary);">Daily Volume</div>
+            <div class="daily-legend">
+              <span><span class="legend-dot pass"></span>Pass</span>
+              <span><span class="legend-dot fail"></span>Fail</span>
+            </div>
+          </div>
+          <div class="daily-chart">
+            <template x-for="d in paddedDailyData('custom')" :key="d.date">
+              <div class="daily-col"
+                   :style="d.total > 0 ? 'cursor:pointer;' : ''"
+                   @click="d.total > 0 && jumpToDay(d.date, 'custom')"
+                   :title="d.total > 0 ? 'View ' + d.total + ' records for ' + d.date : ''">
+                <div class="daily-total" x-show="d.total > 0" x-text="d.total"></div>
+                <div class="daily-seg fail" :style="'height:' + dailyPct(d.failed, 'custom') + '%'"></div>
+                <div class="daily-seg pass" :style="'height:' + dailyPct(d.passed, 'custom') + '%'"></div>
+                <div class="daily-label" x-text="dailyLabel(d.date)"></div>
+                <div class="daily-tooltip">
+                  <div style="font-weight:700;margin-bottom:3px;" x-text="d.date"></div>
+                  <div><span class="legend-dot pass"></span>Pass <span x-text="d.passed"></span></div>
+                  <div x-show="d.failed > 0"><span class="legend-dot fail"></span>Fail <span x-text="d.failed"></span></div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Daily Breakdown -->
+        <div class="detail-panel" style="padding:16px 20px;">
+          <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                      letter-spacing:0.06em;color:var(--text-secondary);margin-bottom:12px;">
+            Daily Breakdown
+          </div>
+          <div style="display:grid;grid-template-columns:140px 70px 80px 70px 1fr 20px;gap:8px;
+                      padding-bottom:8px;border-bottom:1px solid var(--border);
+                      color:var(--text-secondary);font-size:0.75em;text-transform:uppercase;font-weight:600;">
+            <span>Date</span><span>Total</span>
+            <span style="color:var(--pass);">Passed</span>
+            <span style="color:var(--fail);">Failed</span><span></span><span></span>
+          </div>
+          <template x-for="d in (custom.daily ?? [])" :key="d.date">
+            <div :id="'wipe-db-row-custom-' + d.date">
+              <div style="display:grid;grid-template-columns:140px 70px 80px 70px 1fr 20px;
+                          gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);
+                          align-items:center;font-size:0.88em;cursor:pointer;"
+                   @click="toggleDailyOpen('custom', d.date)"
+                   @mouseenter="$el.style.background='rgba(255,255,255,0.03)'"
+                   @mouseleave="$el.style.background='transparent'">
+                <span style="color:var(--text-secondary);" x-text="d.date"></span>
+                <span style="font-weight:600;" x-text="d.total"></span>
+                <span style="color:var(--pass);font-weight:600;" x-text="d.passed"></span>
+                <span style="color:var(--fail);font-weight:600;" x-text="d.failed"></span>
+                <div style="height:5px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;">
+                  <div style="height:100%;background:var(--pass);border-radius:3px;"
+                       :style="'width:' + Math.round(d.passed/(d.total||1)*100) + '%'"></div>
+                </div>
+                <span style="color:var(--text-secondary);font-size:0.8em;text-align:right;"
+                      x-text="isDailyOpen('custom', d.date) ? '▲' : '▼'"></span>
+              </div>
+              <template x-if="isDailyOpen('custom', d.date)">
+                <div style="background:rgba(99,102,241,0.03);border-top:1px solid rgba(99,102,241,0.2);
+                            padding:8px 12px 4px;border-bottom:1px solid rgba(255,255,255,0.06);">
+                  <template x-for="rec in recordsForDay('custom', d.date)" :key="rec.log_path">
+                    <div>
+                      <div style="display:flex;justify-content:space-between;align-items:center;
+                                  padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);
+                                  cursor:pointer;"
+                           @click="toggleDetail('cd_' + rec.log_path)">
+                        <div>
+                          <span style="font-family:monospace;font-size:0.88em;font-weight:600;"
+                                x-text="rec.drive_sn"></span>
+                          <span style="color:var(--text-secondary);font-size:0.78em;margin-left:7px;"
+                                x-text="(rec.manufacturer ?? '') + ' ' + (rec.drive_model ?? '') + ' • ' + (rec.capacity ?? '') + ' • ' + (rec.device_type ?? '')"></span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                          <span class="badge" :class="resultClass(rec.result)" x-text="rec.result"></span>
+                          <span style="color:var(--text-secondary);font-size:0.72em;"
+                                x-text="detailOpen === 'cd_' + rec.log_path ? '▲' : '▼'"></span>
+                        </div>
+                      </div>
+                      <template x-if="detailOpen === 'cd_' + rec.log_path">
+                        <div style="padding:8px 0;" x-html="renderWipeDetail(rec)"></div>
+                      </template>
+                    </div>
+                  </template>
+                  <div x-show="recordsForDay('custom', d.date).length === 0"
+                       style="color:var(--text-secondary);font-size:0.84em;padding:6px 4px;">
+                    No records found.
+                  </div>
+                </div>
+              </template>
+            </div>
+          </template>
+          <div x-show="!(custom.daily ?? []).length"
+               style="color:var(--text-secondary);font-size:0.85em;padding:12px 0;">
+            No data for this period.
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <div x-show="!custom.stats"
+         style="color:var(--text-secondary);text-align:center;padding:48px;
+                background:var(--bg-card);border-radius:8px;border:1px solid var(--border);
+                font-size:0.9em;">
+      Select a date range and click <strong style="color:var(--accent);">Apply</strong> to view data.
+    </div>
+  </div>
+
+</div><!-- /x-data -->
+
+<script>
+function wipeApp() {
+  return {
+    activeTab:     'today',
+    searchQ:       '',
+    searchResults: [],
+    searched:      false,
+
+    today:  { stats: {}, records: [], by_device_type: null, db_total: null },
+    week:   { stats: null, by_manufacturer: [], fail_reasons: [], daily: [], by_device_type: null, db_total: null, start: null, end: null },
+    month:  { stats: null, by_manufacturer: [], fail_reasons: [], daily: [], by_device_type: null, db_total: null },
+    custom: { stats: null, by_manufacturer: [], fail_reasons: [], daily: [], by_device_type: null, db_total: null },
+
+    customFrom:  '',
+    customTo:    '',
+    lastScanned: '',
+    detailOpen:  null,
+    copied:      null,
+    scanBanner:  { visible: false, done: 0, total: 0, force: false },
+    scanState:   { poller_running: false, last_scan_at: null, next_scan_at: null, interval: 1800 },
+    _scanPoll:    null,
+    prevRunning:  null,
+    prevLastScan: null,
+    dailyOpenDate: null,
+
+    async init() {
+      await Promise.all([
+        this.loadToday(),
+        this.loadWeek(),
+        this.loadMonth(),
+        this.loadScanStatus(),
+      ]);
+      // refresh status bar every 30 s (lightweight — no data reload)
+      setInterval(() => this.loadScanStatus(), 30000);
+    },
+
+    async loadToday() {
+      const r = await fetch('/wipe/api/today').then(r => r.json());
+      this.today = r;
+    },
+
+    async loadWeek() {
+      const r = await fetch('/wipe/api/stats?period=week').then(r => r.json());
+      this.week = r;
+    },
+
+    async loadMonth() {
+      const r = await fetch('/wipe/api/stats?period=month').then(r => r.json());
+      this.month = r;
+    },
+
+    async loadScanStatus() {
+      try {
+        const s = await fetch('/wipe/api/scan/status').then(r => r.json());
+        // poller state (new fields from scheduler)
+        this.scanState = {
+          poller_running: s.poller_running ?? false,
+          last_scan_at:   s.last_scan_at   ?? null,
+          next_scan_at:   s.next_scan_at   ?? null,
+          interval:       s.interval       ?? 1800,
+        };
+        // manual full-scan progress banner
+        if (s.running === 1) {
+          this.scanBanner.visible = true;
+          this.scanBanner.done    = s.done  ?? 0;
+          this.scanBanner.total   = s.total ?? 0;
+        } else {
+          this.scanBanner.visible = false;
+        }
+        // fallback last-scan label (from db updated_at)
+        if (s.updated_at && !s.running) {
+          this.lastScanned = s.updated_at.replace('T', ' ').substring(0, 16);
+        }
+        // Detect scan completion (auto OR manual): reload data when
+        //   (a) running transitions 1→0 (catches long scans), OR
+        //   (b) last_scan_at changed (catches fast auto-scans < 30s poll interval)
+        const scanJustFinished = (this.prevRunning === 1 && s.running === 0);
+        const autoScanFired    = (s.last_scan_at && s.last_scan_at !== this.prevLastScan && this.prevLastScan !== null);
+        if (scanJustFinished || autoScanFired) {
+          await Promise.all([this.loadToday(), this.loadWeek(), this.loadMonth()]);
+        }
+        this.prevRunning  = s.running;
+        this.prevLastScan = s.last_scan_at ?? null;
+      } catch {}
+    },
+
+    async loadCustom() {
+      if (!this.customFrom || !this.customTo) return;
+      const url = `/wipe/api/stats?period=custom&start=${this.customFrom}&end=${this.customTo}`;
+      const r = await fetch(url).then(r => r.json());
+      this.custom = r;
+    },
+
+    async runSearch() {
+      if (!this.searchQ.trim()) return;
+      const r = await fetch('/wipe/api/search?q=' + encodeURIComponent(this.searchQ.trim()))
+                          .then(r => r.json());
+      this.searchResults = r.results ?? [];
+      this.searched = true;
+    },
+
+    clearSearch() {
+      this.searchQ       = '';
+      this.searchResults = [];
+      this.searched      = false;
+    },
+
+    async triggerFullScan(evt) {
+      const force = evt && evt.shiftKey;
+      if (force) {
+        if (!confirm('Force rescan will re-parse ALL log files and remove records for deleted logs.\n\nThis may take several minutes. Continue?')) return;
+      }
+      let r;
+      try {
+        const url = '/wipe/api/scan' + (force ? '?force=1' : '');
+        r = await fetch(url, { method: 'POST' }).then(res => res.json());
+      } catch (e) {
+        alert('Failed to reach server: ' + e.message);
+        return;
+      }
+      if (r.status === 'started') {
+        this.scanBanner.visible = true;
+        this.scanBanner.force   = force;
+        this.scanBanner.done    = 0;
+        this._startScanPoll();
+      } else if (r.status === 'already_running') {
+        alert('A scan is already in progress (' + (r.done ?? 0) + ' / ' + (r.total ?? '?') + ' files done).\nPlease wait for it to finish.');
+      } else {
+        alert('Unexpected response: ' + JSON.stringify(r));
+      }
+    },
+
+    _startScanPoll() {
+      if (this._scanPoll) clearInterval(this._scanPoll);
+      this._scanPoll = setInterval(async () => {
+        const s = await fetch('/wipe/api/scan/status').then(r => r.json());
+        this.scanBanner.done  = s.done  ?? 0;
+        this.scanBanner.total = s.total ?? 0;
+        if (!s.running) {
+          clearInterval(this._scanPoll);
+          this._scanPoll          = null;
+          this.scanBanner.visible = false;
+          this.lastScanned = (s.updated_at ?? '').replace('T', ' ').substring(0, 16);
+          await Promise.all([this.loadToday(), this.loadWeek(), this.loadMonth()]);
+        }
+      }, 2000);
+    },
+
+    toggleDetail(key) {
+      this.detailOpen = this.detailOpen === key ? null : key;
+    },
+
+    resultClass(result) {
+      if (!result) return '';
+      return result === 'PASSED' ? 'pass' : 'fail';
+    },
+
+    copyWinPath(path) {
+      if (!path) return;
+      const done = () => {
+        this.copied = path;
+        setTimeout(() => { this.copied = null; }, 2000);
+      };
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(path).then(done).catch(() => this._execCopy(path, done));
+      } else {
+        this._execCopy(path, done);
+      }
+    },
+
+    _execCopy(text, callback) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      try { document.execCommand('copy'); callback(); }
+      catch (e) { alert('Copy failed. Please copy manually:\n' + text); }
+      document.body.removeChild(ta);
+    },
+
+    fmtRange(start, end) {
+      if (!start || !end) return '';
+      const [sy, sm, sd] = start.split('-');
+      const [ey, em, ed] = end.split('-');
+      if (sy === ey) {
+        return sm + '/' + sd + ' – ' + em + '/' + ed + ', ' + sy;
+      }
+      return sm + '/' + sd + '/' + sy + ' – ' + em + '/' + ed + '/' + ey;
+    },
+
+    // ── Daily Volume chart helpers ────────────────────────────────────
+    paddedDailyData(tab) {
+      const data = this[tab];
+      const daily = data?.daily ?? [];
+      const map = {};
+      daily.forEach(d => { map[d.date] = d; });
+      const empty = (date) => ({ date, total: 0, passed: 0, failed: 0 });
+      if (tab === 'week') {
+        const slots = [];
+        for (let i = 6; i >= 0; i--) {
+          const dt = new Date(); dt.setDate(dt.getDate() - i);
+          const s = dt.toISOString().slice(0, 10);
+          slots.push(map[s] || empty(s));
+        }
+        return slots;
+      }
+      if (tab === 'month') {
+        const now = new Date();
+        const y = now.getFullYear(), m = now.getMonth();
+        const days = new Date(y, m + 1, 0).getDate();
+        const slots = [];
+        for (let i = 1; i <= days; i++) {
+          const s = `${y}-${String(m+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+          slots.push(map[s] || empty(s));
+        }
+        return slots;
+      }
+      if (this.customFrom && this.customTo) {
+        const start = new Date(this.customFrom + 'T00:00:00');
+        const end   = new Date(this.customTo   + 'T00:00:00');
+        if (Math.round((end - start) / 86400000) + 1 <= 62) {
+          const slots = [], cur = new Date(start);
+          while (cur <= end) {
+            const s = cur.toISOString().slice(0, 10);
+            slots.push(map[s] || empty(s));
+            cur.setDate(cur.getDate() + 1);
+          }
+          return slots;
+        }
+      }
+      return daily;
+    },
+    maxDaily(tab) {
+      return Math.max(1, ...this.paddedDailyData(tab).map(d => d.total || 0));
+    },
+    dailyPct(val, tab) {
+      if (!val) return 0;
+      return Math.max(2, (val / this.maxDaily(tab)) * 100);
+    },
+    dailyLabel(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return dateStr.slice(5);
+      const weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      return weekdays[d.getDay()] + ' ' + (d.getMonth()+1) + '/' + d.getDate();
+    },
+    recordsForDay(tab, date) {
+      return (this[tab]?.records ?? []).filter(r => (r.wipe_date ?? '') === date);
+    },
+    toggleDailyOpen(tab, date) {
+      const key = tab + '|' + date;
+      this.dailyOpenDate = this.dailyOpenDate === key ? null : key;
+    },
+    isDailyOpen(tab, date) {
+      return this.dailyOpenDate === (tab + '|' + date);
+    },
+    jumpToDay(date, tab) {
+      const key = tab + '|' + date;
+      this.dailyOpenDate = key;
+      this.$nextTick(() => {
+        const el = document.getElementById('wipe-db-row-' + tab + '-' + date);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    },
+
+    nextScanIn() {
+      if (!this.scanState.next_scan_at) return '—';
+      const diff = new Date(this.scanState.next_scan_at) - new Date();
+      if (diff <= 0) return '< 1 min';
+      const mins = Math.ceil(diff / 60000);
+      return mins + ' min';
+    },
+
+    renderDeviceTypeBar(dt) {
+      if (!dt) return '';
+      const total = (dt.HDD || 0) + (dt.SSD || 0) + (dt.NVMe || 0);
+      if (total === 0) return '';
+
+      // ── Inline SVG line icons ──────────────────────────────────────
+      const hddSvg = '<svg width="38" height="38" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">'
+        + '<rect x="4" y="9" width="30" height="20" rx="2.5" stroke="#60a5fa" stroke-width="1.6"/>'
+        + '<circle cx="17" cy="19" r="6.5" stroke="#60a5fa" stroke-width="1.5"/>'
+        + '<circle cx="17" cy="19" r="2.2" fill="#60a5fa" fill-opacity="0.45"/>'
+        + '<line x1="22.5" y1="13.5" x2="29" y2="11" stroke="#60a5fa" stroke-width="1.5" stroke-linecap="round"/>'
+        + '<circle cx="22" cy="14" r="2.2" fill="#60a5fa" fill-opacity="0.65"/>'
+        + '<circle cx="30" cy="12.5" r="1.3" fill="#60a5fa" fill-opacity="0.45"/>'
+        + '<circle cx="30" cy="25.5" r="1.3" fill="#60a5fa" fill-opacity="0.45"/>'
+        + '</svg>';
+
+      const ssdSvg = '<svg width="38" height="38" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">'
+        + '<rect x="4" y="7" width="30" height="24" rx="2.5" stroke="#34d399" stroke-width="1.6"/>'
+        + '<rect x="7.5" y="11" width="8" height="7" rx="1.2" stroke="#34d399" stroke-width="1.3" fill="#34d399" fill-opacity="0.12"/>'
+        + '<rect x="18" y="11" width="8" height="7" rx="1.2" stroke="#34d399" stroke-width="1.3" fill="#34d399" fill-opacity="0.12"/>'
+        + '<rect x="7.5" y="21" width="18.5" height="5" rx="1.2" stroke="#34d399" stroke-width="1.3" fill="#34d399" fill-opacity="0.18"/>'
+        + '<line x1="29" y1="22" x2="29" y2="25" stroke="#34d399" stroke-width="1.6" stroke-linecap="round"/>'
+        + '<line x1="31.5" y1="22" x2="31.5" y2="25" stroke="#34d399" stroke-width="1.6" stroke-linecap="round"/>'
+        + '</svg>';
+
+      const nvmeSvg = '<svg width="38" height="38" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">'
+        + '<rect x="14" y="3" width="10" height="26" rx="2" stroke="#a78bfa" stroke-width="1.6"/>'
+        + '<rect x="16.5" y="6.5" width="5" height="5.5" rx="1" stroke="#a78bfa" stroke-width="1.3" fill="#a78bfa" fill-opacity="0.15"/>'
+        + '<rect x="16.5" y="14" width="5" height="5.5" rx="1" stroke="#a78bfa" stroke-width="1.3" fill="#a78bfa" fill-opacity="0.15"/>'
+        + '<rect x="17.5" y="28.5" width="3" height="6" rx="0.8" stroke="#a78bfa" stroke-width="1.3"/>'
+        + '<line x1="5"  y1="10" x2="12.5" y2="10" stroke="#a78bfa" stroke-width="1.2" stroke-linecap="round" opacity="0.45"/>'
+        + '<line x1="3"  y1="14.5" x2="12.5" y2="14.5" stroke="#a78bfa" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>'
+        + '<line x1="5"  y1="19" x2="12.5" y2="19" stroke="#a78bfa" stroke-width="1.2" stroke-linecap="round" opacity="0.45"/>'
+        + '</svg>';
+
+      const badge = (label, count, color, svg) => {
+        const pct = Math.round(count / total * 100);
+        return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:80px;">'
+          + svg
+          + '<div style="font-size:1.25em;font-weight:700;color:' + color + ';">' + count + '</div>'
+          + '<div style="font-size:0.7em;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-secondary);">' + label + '</div>'
+          + '<div style="font-size:0.72em;color:' + color + ';opacity:0.8;">' + pct + '%</div>'
+          + '</div>';
+      };
+
+      const hddW  = total ? Math.round((dt.HDD  || 0) / total * 100) : 0;
+      const ssdW  = total ? Math.round((dt.SSD  || 0) / total * 100) : 0;
+      const nvmeW = total ? Math.round((dt.NVMe || 0) / total * 100) : 0;
+      return '<div class="detail-panel" style="padding:14px 20px;">'
+        + '<div style="font-size:0.75em;font-weight:700;text-transform:uppercase;'
+        +   'letter-spacing:0.06em;color:var(--text-secondary);margin-bottom:14px;">By Device Type</div>'
+        + '<div style="display:flex;align-items:center;gap:24px;">'
+        +   '<div style="display:flex;gap:32px;align-items:center;">'
+        +     badge('HDD',  dt.HDD  || 0, '#60a5fa', hddSvg)
+        +     badge('SSD',  dt.SSD  || 0, '#34d399', ssdSvg)
+        +     badge('NVMe', dt.NVMe || 0, '#a78bfa', nvmeSvg)
+        +   '</div>'
+        +   '<div style="flex:1;min-width:120px;">'
+        +     '<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;background:rgba(255,255,255,0.05);">'
+        +       (hddW  ? '<div style="width:' + hddW  + '%;background:#60a5fa;transition:width .5s;" title="HDD '  + hddW  + '%"></div>' : '')
+        +       (ssdW  ? '<div style="width:' + ssdW  + '%;background:#34d399;transition:width .5s;" title="SSD '  + ssdW  + '%"></div>' : '')
+        +       (nvmeW ? '<div style="width:' + nvmeW + '%;background:#a78bfa;transition:width .5s;" title="NVMe ' + nvmeW + '%"></div>' : '')
+        +     '</div>'
+        +   '</div>'
+        + '</div>'
+        + '</div>';
+    },
+
+    renderWipeDetail(r) {
+      const kv = (label, val) => val != null && val !== ''
+        ? `<div class="kv-label">${label}</div><div class="kv-value">${val}</div>`
+        : '';
+      return `
+        <div class="detail-section">
+          <h3>Drive</h3>
+          <div class="kv-grid">
+            ${kv('Serial Number', r.drive_sn)}
+            ${kv('Manufacturer',  r.manufacturer)}
+            ${kv('Model',         r.drive_model)}
+            ${kv('Capacity',      r.capacity)}
+            ${kv('Device Type',   r.device_type)}
+            ${kv('Protocol',      r.protocol)}
+            ${kv('Firmware',      r.firmware)}
+            ${kv('Health Score',  (r.health_score != null && r.health_score !== 0) ? r.health_score + '%' : null)}
+            ${kv('Grade',         r.grade)}
+            ${kv('SSD Life',      (r.ssd_life != null && r.ssd_life !== 0) ? r.ssd_life + '%' : null)}
+            ${kv('Power On Hrs',  r.power_on_hrs)}
+          </div>
+        </div>
+        <div class="detail-section">
+          <h3>System</h3>
+          <div class="kv-grid">
+            ${kv('Service Tag',  r.system_sn)}
+            ${kv('Manufacturer', r.sys_manufacturer)}
+            ${kv('Model',        r.sys_model)}
+            ${kv('Chassis',      r.sys_chassis)}
+          </div>
+        </div>
+        <div class="detail-section">
+          <h3>Wipe Info</h3>
+          <div class="kv-grid">
+            ${kv('Date',           r.wipe_date)}
+            ${kv('Started',        r.wipe_datetime)}
+            ${kv('Duration',       r.duration_min != null ? r.duration_min + ' min' : null)}
+            ${kv('Method',         r.method)}
+            ${kv('Rule',           r.erasure_rule)}
+            ${kv('Result',         r.result)}
+            ${kv('Failure Reason', r.failure_reason)}
+            ${kv('Software',       r.software_version)}
+            ${kv('Location 1',     r.location1)}
+            ${kv('Location 2',     r.location2)}
+            ${kv('Log Hash',       r.log_hash)}
+          </div>
+        </div>
+        <div class="detail-section">
+          <h3>Windows Path</h3>
+          <div style="font-family:monospace;font-size:0.85em;color:var(--text-secondary);
+                      word-break:break-all;background:#0d1a2e;padding:8px 12px;border-radius:4px;">
+            ${r.win_path ?? '—'}
+          </div>
+        </div>
+      `;
+    },
+  };
+}
+</script>
+{% endblock %}

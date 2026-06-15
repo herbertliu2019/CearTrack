@@ -1,0 +1,10 @@
+两个文件已创建：
+
+**`.claude/skills/monitorcenter/gpu_module_interface.md`**
+对接文档，新 session 开始时作为背景资料加载，描述 JSON 结构、字段含义、判定规则、与 laptop 模块的差异。
+
+**`tasks/monitorcenter/09_gpu_module.md`**
+执行任务文件，新 session 直接按此完成开发：目录结构、4 个步骤、注意事项。
+
+新 session 开始时直接说：
+> 请根据 `.claude/skills/monitorcenter/gpu_module_interface.md` 和 `.claude/skills/monitorcenter/SKILL.md` 完成 `tasks/monitorcenter/09_gpu_module.md`

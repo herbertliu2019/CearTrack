@@ -1,0 +1,67 @@
+{
+  "module": "gpu",
+  "sn": "200899133700021",
+  "timestamp": "2026-05-22 09:35:36",
+  "overall_result": "PASS",
+  "summary": "GPU:NVIDIA GeForce RTX 2080 SUPER VRAM:8192MB TEMP_MAX:81C VKMARK:3834 RESULT:PASS",
+  "hostname": "GPUTESTSTATION2",
+  "payload": {
+    "test_info": {
+      "test_time": "2026-05-22 09:35:36",
+      "test_station": "GPUTESTSTATION2",
+      "test_tier": "FULL",
+      "script_version": "1.1.0",
+      "burn_duration_seconds": 120,
+      "glmark2_duration_seconds": 332,
+      "total_duration_seconds": 534
+    },
+    "gpu": {
+      "vendor": "NVIDIA",
+      "name": "NVIDIA GeForce RTX 2080 SUPER",
+      "chip": "TU104",
+      "vram_mb": 8192,
+      "vram_type": "GDDR6",
+      "vram_bus_width": 256,
+      "vram_bandwidth_gbps": 496.1,
+      "driver_version": "535.309.01",
+      "legacy_driver_needed": "",
+      "bios_version": "90.04.7A.80.32",
+      "pcie_gen": 3,
+      "pcie_gen_current": 1,
+      "pcie_width_current": 4,
+      "pcie_width_max": 16,
+      "clock_boost_gpu_mhz": 2100,
+      "clock_boost_mem_mhz": 7751,
+      "clock_base_gpu_mhz": 0,
+      "clock_base_mem_mhz": 0,
+      "compute_arch": "CUDA 7.5",
+      "bar1_mb": 256,
+      "resizable_bar": false,
+      "power_limit_w": "250.00",
+      "subvendor": "ASUSTeK Computer Inc. TU104 [GeForce RTX 2080 SUPER]",
+      "device_id": "10DE:1E81",
+      "gpu_sn": ""
+    },
+    "thermal": {
+      "temp_max_c": 81,
+      "temp_avg_c": 58,
+      "util_avg_pct": 65,
+      "power_max_w": 254.3,
+      "thermal_log_path": "/tmp/gpu_logs/thermal_20260522_092642.log"
+    },
+    "vram_test": {
+      "tool": "gpu-burn",
+      "duration_seconds": 120,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "vulkan_benchmark": {
+      "tool": "glmark2",
+      "resolution": "1920x1080",
+      "score": 3834,
+      "status": "PASS"
+    },
+    "dmesg_gpu_errors": [],
+    "overall_result": "PASS"
+  }
+}
