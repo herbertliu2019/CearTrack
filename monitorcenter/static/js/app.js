@@ -233,21 +233,27 @@ function laptopApp(moduleName) {
       const map = {};
       daily.forEach(d => { map[d.date] = d; });
       const empty = (date) => ({ date, total: 0, passed: 0, warned: 0, failed: 0 });
+      // Local YYYY-MM-DD (avoid UTC drift from toISOString in PST/PDT)
+      const ymd = (dt) => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
       if (tab === 'week') {
-        const slots = [];
-        for (let i = 6; i >= 0; i--) {
-          const dt = new Date(); dt.setDate(dt.getDate() - i);
-          const s = dt.toISOString().slice(0, 10);
+        // This week so far: Sunday → today
+        const now = new Date();
+        const sunday = new Date(now); sunday.setDate(now.getDate() - now.getDay());
+        const todayStr = ymd(now);
+        const slots = [], cur = new Date(sunday);
+        while (ymd(cur) <= todayStr) {
+          const s = ymd(cur);
           slots.push(map[s] || empty(s));
+          cur.setDate(cur.getDate() + 1);
         }
         return slots;
       }
       if (tab === 'month') {
+        // This month so far: 1st → today
         const now = new Date();
         const y = now.getFullYear(), m = now.getMonth();
-        const days = new Date(y, m + 1, 0).getDate();
         const slots = [];
-        for (let i = 1; i <= days; i++) {
+        for (let i = 1; i <= now.getDate(); i++) {
           const s = `${y}-${String(m+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
           slots.push(map[s] || empty(s));
         }

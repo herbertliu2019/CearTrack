@@ -825,19 +825,25 @@ function cpuApp() {
       const empty = (date) => ({ date, total: 0, passed: 0, failed: 0 });
       if (this.period === 'week') {
         const slots = [];
-        for (let i = 6; i >= 0; i--) {
-          const dt = new Date(); dt.setDate(dt.getDate() - i);
-          const s = dt.toISOString().slice(0, 10);
+        const today = new Date();
+        // Start from this week's Sunday (getDay: 0=Sun, 1=Mon ... 6=Sat)
+        const sunday = new Date(today);
+        sunday.setDate(today.getDate() - today.getDay());
+        const cur = new Date(sunday);
+        while (cur <= today) {
+          const s = cur.toISOString().slice(0, 10);
           slots.push(map[s] || empty(s));
+          cur.setDate(cur.getDate() + 1);
         }
         return slots;
       }
       if (this.period === 'month') {
-        const now = new Date();
-        const y = now.getFullYear(), m = now.getMonth();
-        const days = new Date(y, m + 1, 0).getDate();
+        const today = new Date();
+        const y = today.getFullYear(), m = today.getMonth();
+        const todayDay = today.getDate();
         const slots = [];
-        for (let i = 1; i <= days; i++) {
+        // Show only day 1 → today (not future days)
+        for (let i = 1; i <= todayDay; i++) {
           const s = `${y}-${String(m+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
           slots.push(map[s] || empty(s));
         }

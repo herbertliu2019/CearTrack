@@ -217,7 +217,6 @@ def api_stats_range():
       from=YYYY-MM-DD&to=YYYY-MM-DD → custom range
     """
     from datetime import timedelta
-    import calendar
 
     range_param = request.args.get("range")
     from_param = request.args.get("from")
@@ -226,15 +225,14 @@ def api_stats_range():
     today = datetime.now().date()
 
     if range_param == "week":
-        # Calendar week: Sunday to Saturday
+        # This week so far: Sunday → today (no future days)
         weekday = (today.weekday() + 1) % 7  # Sunday=0, Monday=1, ..., Saturday=6
         date_from = today - timedelta(days=weekday)
-        date_to = date_from + timedelta(days=6)
+        date_to = today
     elif range_param == "month":
-        # Calendar month: 1st to last day of current month
+        # This month so far: 1st → today (no future days)
         date_from = today.replace(day=1)
-        last_day = calendar.monthrange(today.year, today.month)[1]
-        date_to = today.replace(day=last_day)
+        date_to = today
     elif from_param and to_param:
         try:
             date_from = datetime.strptime(from_param, "%Y-%m-%d").date()
