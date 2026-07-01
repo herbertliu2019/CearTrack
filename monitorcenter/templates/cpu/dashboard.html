@@ -130,6 +130,14 @@
 .tab-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(99,102,241,0.08); }
 .poll-status { text-align:right; flex-shrink:0; line-height:1.7; }
 
+.btn-download-report {
+  display: inline-block; padding: 10px 22px; border-radius: 6px; border: none;
+  background: var(--pass); color: #fff; font-size: 0.95em; font-weight: 700;
+  text-decoration: none; cursor: pointer; transition: filter 0.15s, transform 0.15s;
+  box-shadow: 0 2px 8px rgba(16,185,129,0.35);
+}
+.btn-download-report:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
 /* ── Records table ───────────────────────────────────────────────────────── */
 .section-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -384,9 +392,8 @@
               <th>Cores</th><th>Duration</th><th>Date</th><th>Result</th>
             </tr>
           </thead>
-          <tbody>
             <template x-for="r in searchResults" :key="r.id">
-              <>
+              <tbody>
                 <tr class="data-row" @click="toggleExpand(r.id)">
                   <td x-text="r.sn"></td>
                   <td x-text="r.cpu_series ?? '—'"></td>
@@ -402,9 +409,8 @@
                     <div x-html="buildDetail(r)"></div>
                   </td>
                 </tr>
-              </>
+              </tbody>
             </template>
-          </tbody>
         </table>
       </div>
     </template>
@@ -562,15 +568,23 @@
     <!-- Daily Breakdown table -->
     <div class="chart-panel" style="margin-bottom:18px;" x-show="period !== 'today' && (stats.daily ?? []).length > 0">
       <div class="chart-title">Daily Breakdown</div>
-      <table class="cpu-table" style="font-size:0.86em;">
+      <table class="cpu-table" style="font-size:0.86em;table-layout:fixed;">
+        <colgroup>
+          <col style="width:160px;">
+          <col style="width:60px;">
+          <col style="width:60px;">
+          <col style="width:60px;">
+          <col style="width:80px;">
+          <col style="width:24px;">
+        </colgroup>
         <thead>
           <tr>
-            <th style="width:160px;">Date</th>
-            <th style="text-align:right;width:60px;color:var(--accent);">Total</th>
-            <th style="text-align:right;width:60px;color:var(--pass);">Passed</th>
-            <th style="text-align:right;width:60px;color:var(--fail);">Failed</th>
-            <th style="text-align:right;width:80px;">Pass Rate</th>
-            <th style="width:24px;"></th>
+            <th>Date</th>
+            <th style="text-align:right;color:var(--accent);">Total</th>
+            <th style="text-align:right;color:var(--pass);">Passed</th>
+            <th style="text-align:right;color:var(--fail);">Failed</th>
+            <th style="text-align:right;">Pass Rate</th>
+            <th></th>
           </tr>
         </thead>
         <template x-for="d in (stats.daily ?? [])" :key="'db'+d.date">
@@ -582,9 +596,8 @@
               <td x-text="dailyLongLabel(d.date)"></td>
               <td style="text-align:right;font-weight:700;color:var(--accent);" x-text="d.total"></td>
               <td style="text-align:right;color:var(--pass);" x-text="d.passed ?? 0"></td>
-              <td style="text-align:right;" :style="(d.failed ?? 0) > 0 ? 'color:var(--fail);font-weight:700;' : 'color:var(--text-secondary);'" x-text="(d.failed ?? 0) || '—'"></td>
-              <td style="text-align:right;font-weight:700;"
-                  :style="d.total ? (Math.round((d.passed??0)/d.total*100) >= 90 ? 'color:var(--pass);' : 'color:var(--fail);') : ''"
+              <td :style="'text-align:right;' + ((d.failed ?? 0) > 0 ? 'color:var(--fail);font-weight:700;' : 'color:var(--text-secondary);')" x-text="(d.failed ?? 0) || '—'"></td>
+              <td :style="'text-align:right;font-weight:700;' + (d.total ? (Math.round((d.passed??0)/d.total*100) >= 90 ? 'color:var(--pass);' : 'color:var(--fail);') : '')"
                   x-text="d.total ? Math.round((d.passed??0)/d.total*100) + '%' : '—'"></td>
               <td style="text-align:right;color:var(--text-secondary);"
                   x-text="dailyOpenDate === d.date ? '▾' : '▸'"></td>
@@ -608,9 +621,8 @@
                           <th>Result</th>
                         </tr>
                       </thead>
-                      <tbody>
                         <template x-for="r in dailyRecords" :key="r.id">
-                          <>
+                          <tbody>
                             <tr class="data-row" @click.stop="toggleExpand(r.id)" style="cursor:pointer;">
                               <td x-text="r.sn"></td>
                               <td x-text="r.cpu_series ?? '—'"></td>
@@ -626,9 +638,8 @@
                                 <div x-html="buildDetail(r)"></div>
                               </td>
                             </tr>
-                          </>
+                          </tbody>
                         </template>
-                      </tbody>
                     </table>
                   </template>
                 </div>
@@ -660,9 +671,8 @@
                 <th>Cores</th><th>Duration</th><th>Time</th><th>Result</th>
               </tr>
             </thead>
-            <tbody>
               <template x-for="r in todayRecords.slice(0,15)" :key="r.id">
-                <>
+                <tbody>
                   <tr class="data-row" @click="toggleExpand(r.id)">
                     <td x-text="r.sn"></td>
                     <td x-text="r.cpu_series ?? '—'"></td>
@@ -678,9 +688,8 @@
                       <div x-html="buildDetail(r)"></div>
                     </td>
                   </tr>
-                </>
+                </tbody>
               </template>
-            </tbody>
           </table>
           <div x-show="todayRecords.length > 15"
                style="padding:10px 16px;text-align:center;font-size:0.8em;color:var(--text-secondary);
@@ -947,12 +956,12 @@ function cpuApp() {
         const fail = r.fail_module && r.fail_module.toLowerCase().includes(m.toLowerCase());
         return `<div class="module-row ${fail ? 'mod-fail' : 'mod-pass'}">${fail ? '✗' : '✓'} ${m}</div>`;
       }).join('');
-      const imgHtml = r.has_image
-        ? `<div class="cpu-screenshot">
-             <div class="kv-section-title">Test Screenshot</div>
-             <img src="/cpu/api/image/${r.id}"
-                  style="max-height:260px;max-width:100%;object-fit:contain;border-radius:6px;border:1px solid var(--border);"
-                  loading="lazy" alt="IPDT result">
+      const reportBtn = r.has_image
+        ? `<div style="margin-top:18px;text-align:center;">
+             <a href="/cpu/api/image/${r.id}" target="_blank" rel="noopener"
+                class="btn-download-report">
+               ⬇ Download Test Report
+             </a>
            </div>` : '';
       return `
         <div class="detail-panel">
@@ -989,9 +998,9 @@ function cpuApp() {
                   ${kv('MFLOPS',      r.mflops ? r.mflops.toFixed(1) : null)}
                 </div>
               </div>` : ''}
-              ${imgHtml}
             </div>
           </div>
+          ${reportBtn}
         </div>`;
     },
   };

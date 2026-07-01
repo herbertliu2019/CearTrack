@@ -147,7 +147,8 @@ def insert_record(db_path: str, record: dict) -> str:
             f"""INSERT INTO cpu_records ({col_list}) VALUES ({placeholders})
                 ON CONFLICT(log_path) DO UPDATE SET {update_clause}
                 WHERE excluded.start_time IS NOT cpu_records.start_time
-                   OR excluded.overall_result IS NOT cpu_records.overall_result""",
+                   OR excluded.overall_result IS NOT cpu_records.overall_result
+                   OR excluded.image_path IS NOT cpu_records.image_path""",
             values,
         )
         conn.commit()

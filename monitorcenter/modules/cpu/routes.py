@@ -203,7 +203,7 @@ def api_image(record_id):
     conn = db.get_conn(_db_path())
     try:
         row = conn.execute(
-            "SELECT image_path FROM cpu_records WHERE id = ?", (record_id,)
+            "SELECT sn, image_path FROM cpu_records WHERE id = ?", (record_id,)
         ).fetchone()
     finally:
         conn.close()
@@ -213,4 +213,9 @@ def api_image(record_id):
     path = row["image_path"]
     if not os.path.isfile(path):
         return "", 404
+    if request.args.get("download") == "1":
+        # Force browser download with SN-based filename
+        ext = os.path.splitext(path)[1] or ".png"
+        name = (row["sn"] or str(record_id)) + ext
+        return send_file(path, as_attachment=True, download_name=name, max_age=0)
     return send_file(path, max_age=86400)
