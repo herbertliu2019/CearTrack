@@ -68,8 +68,45 @@ def init_db(db_path: str) -> None:
         # Step 3: create cpu_series index now that the column is guaranteed to exist
         conn.execute("CREATE INDEX IF NOT EXISTS idx_cpu_series ON cpu_records(cpu_series)")
         conn.commit()
+
+        # Step 4: enforce one row per SN (dedup existing, add UNIQUE index on sn)
+        _migrate_sn_unique(conn)
     finally:
         conn.close()
+
+
+def _migrate_sn_unique(conn: sqlite3.Connection) -> None:
+    """Enforce one record per SN.
+
+    De-duplicates existing rows (keeping the newest test per SN), then adds a
+    UNIQUE index on `sn` so future upserts collapse duplicates. Idempotent:
+    once the unique index exists, this is a no-op.
+    """
+    idx_names = {row[1] for row in conn.execute("PRAGMA index_list(cpu_records)").fetchall()}
+    if "idx_cpu_sn_unique" in idx_names:
+        return
+
+    # 1. Delete duplicate SNs, keeping the row with the newest start_time
+    #    (tie-break on highest id = most recently inserted).
+    conn.execute("""
+        DELETE FROM cpu_records
+        WHERE id NOT IN (
+            SELECT id FROM (
+                SELECT id,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY sn
+                           ORDER BY start_time DESC, id DESC
+                       ) AS rn
+                FROM cpu_records
+            ) WHERE rn = 1
+        )
+    """)
+    conn.commit()
+
+    # 2. Replace the non-unique sn index with a unique one (enables ON CONFLICT(sn))
+    conn.execute("DROP INDEX IF EXISTS idx_cpu_sn")
+    conn.execute("CREATE UNIQUE INDEX idx_cpu_sn_unique ON cpu_records(sn)")
+    conn.commit()
 
 
 def _migrate_schema(conn: sqlite3.Connection) -> None:
@@ -110,11 +147,13 @@ def get_conn(db_path: str) -> sqlite3.Connection:
 
 
 def insert_record(db_path: str, record: dict) -> str:
-    """Insert or update a parsed record keyed on log_path.
+    """Insert or update a parsed record keyed on SN (one row per SN).
 
     Returns 'inserted' | 'updated' | 'skipped'.
-    Same log_path with identical content → skipped (rowcount 0 after no-op replace).
-    Same log_path with changed content (e.g. re-tested file) → updated.
+    Same SN with a newer start_time (a re-test) → overwrites, latest wins.
+    Same SN with an equal start_time but changed image/result → updated
+        (covers image backfill from a later sync).
+    Same SN with an older start_time → skipped (never overwrite newer data).
     """
     fields = [
         "sn", "log_path", "image_path",
@@ -131,24 +170,25 @@ def insert_record(db_path: str, record: dict) -> str:
     placeholders = ", ".join("?" * len(fields))
     col_list = ", ".join(fields)
 
-    # Build the UPDATE clause for all fields except log_path (the conflict key)
-    update_cols = [f for f in fields if f != "log_path"]
+    # Build the UPDATE clause for all fields except sn (the conflict key)
+    update_cols = [f for f in fields if f != "sn"]
     update_clause = ", ".join(f"{c}=excluded.{c}" for c in update_cols)
 
     conn = get_conn(db_path)
     try:
-        # Check if record already exists to distinguish insert vs update
+        # Check if this SN already exists to distinguish insert vs update
         existing = conn.execute(
-            "SELECT start_time FROM cpu_records WHERE log_path = ?",
-            (record.get("log_path"),),
+            "SELECT start_time FROM cpu_records WHERE sn = ?",
+            (record.get("sn"),),
         ).fetchone()
 
         cur = conn.execute(
             f"""INSERT INTO cpu_records ({col_list}) VALUES ({placeholders})
-                ON CONFLICT(log_path) DO UPDATE SET {update_clause}
-                WHERE excluded.start_time IS NOT cpu_records.start_time
-                   OR excluded.overall_result IS NOT cpu_records.overall_result
-                   OR excluded.image_path IS NOT cpu_records.image_path""",
+                ON CONFLICT(sn) DO UPDATE SET {update_clause}
+                WHERE excluded.start_time > cpu_records.start_time
+                   OR cpu_records.start_time IS NULL
+                   OR excluded.image_path IS NOT cpu_records.image_path
+                   OR excluded.overall_result IS NOT cpu_records.overall_result""",
             values,
         )
         conn.commit()
