@@ -13,6 +13,16 @@ from core import storage, index_db
 
 SCHEMA_PATH = Path(__file__).parent / "schema.json"
 
+# Only these checks can fail the whole device. Any other FAIL is downgraded
+# to WARNING (both in overall_result and the stored field value) so it
+# renders as a warning everywhere instead of a hard failure.
+CRITICAL_FAIL_FIELDS = {
+    ("screen", "dead_pixel_check"),
+    ("keyboard", "keys_check"),
+    ("keyboard", "touchpad_check"),
+    ("network", "internet_test"),
+}
+
 
 class LaptopModule(TestModule):
     name = "laptop"
@@ -29,7 +39,9 @@ class LaptopModule(TestModule):
             or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         )
         hostname = test_info.get("hostname", "unknown")
-        overall = str(raw_payload.get("overall_result", "UNKNOWN")).upper()
+
+        self._downgrade_noncritical_fails(raw_payload)
+        overall = self._compute_overall_result(raw_payload)
 
         envelope = build_envelope(
             module_name=self.name,
@@ -45,6 +57,46 @@ class LaptopModule(TestModule):
         envelope["summary"] = verdict["summary"]
         envelope["warnings"] = verdict.get("warnings", [])
         return envelope
+
+    @staticmethod
+    def _downgrade_noncritical_fails(payload: dict) -> None:
+        """In-place: any FAIL outside CRITICAL_FAIL_FIELDS becomes WARNING.
+
+        Only screen/keyboard/touchpad/internet failures define an overall
+        device FAIL. Everything else (camera, speaker, mic, battery, ports,
+        appearance, kernel health, ...) is a warning, not a failure — this
+        keeps the stored payload consistent with that rule so downstream
+        rendering (Test Results grid, status dots, fail_reasons stats)
+        doesn't need any special-casing.
+        """
+        for section_name, section in payload.items():
+            if not isinstance(section, dict):
+                continue
+            for k, v in section.items():
+                if v == "FAIL" and (section_name, k) not in CRITICAL_FAIL_FIELDS:
+                    section[k] = "WARNING"
+
+    @staticmethod
+    def _compute_overall_result(payload: dict) -> str:
+        """FAIL only if a critical field is FAIL; WARN if anything else
+        warns; else PASS. Call after _downgrade_noncritical_fails()."""
+        has_fail = False
+        has_warn = False
+        for section_name, section in payload.items():
+            if not isinstance(section, dict):
+                continue
+            for k, v in section.items():
+                if not isinstance(v, str):
+                    continue
+                if v == "FAIL" and (section_name, k) in CRITICAL_FAIL_FIELDS:
+                    has_fail = True
+                elif v in ("WARN", "WARNING"):
+                    has_warn = True
+        if has_fail:
+            return "FAIL"
+        if has_warn:
+            return "WARN"
+        return "PASS"
 
     def compute_verdict(self, envelope: dict) -> dict:
         payload = envelope.get("payload", {})
@@ -78,7 +130,7 @@ class LaptopModule(TestModule):
             for section_name, section in payload.items():
                 if isinstance(section, dict):
                     for k, v in section.items():
-                        if isinstance(v, str) and v == "WARN":
+                        if isinstance(v, str) and v in ("WARN", "WARNING"):
                             warned.append(f"{section_name}.{k}")
             summary = f"{len(warned)} warning(s): {', '.join(warned[:3])}"
             if len(warned) > 3:

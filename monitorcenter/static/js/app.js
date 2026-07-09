@@ -186,7 +186,7 @@ function laptopApp(moduleName) {
             dateMap[d].push(rec);
           }
           const dates = Object.entries(dateMap)
-            .sort(([a], [b]) => b.localeCompare(a))
+            .sort(([a], [b]) => a.localeCompare(b))
             .map(([date, dr]) => ({
               date,
               total:  dr.length,
