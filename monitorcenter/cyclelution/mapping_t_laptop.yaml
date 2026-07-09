@@ -1,0 +1,207 @@
+# =====================================================================
+# CearTrack -> Cyclelution field mapping — T-Laptop (Production)
+# Drives cyclelution/normalizer.py. Code is a generic engine; ALL field
+# rules live here (zero hardcoding). Change a domain value and engine
+# behaviour changes with it.
+#
+# Converter types (exactly five, per SKILL.md section 4):
+#   const   fixed literal
+#   direct  copy a source value verbatim (client already mapped it)
+#   table   resolve via clean + alias / ordered keyword rules
+#   bucket  numeric -> smallest domain value >= input
+#   parse   regex-extract from a string, then format / bucket
+#
+# Sources are dotted paths into a per-record CONTEXT the engine builds:
+#   system.* cpu.* memory.* battery.* manual_input.*   (from payload)
+#   wipe.*        (from wipe_lookup on the primary drive; empty if no disk)
+#   context.*     (engine-computed: disk_state)
+# =====================================================================
+
+production: "T-Laptop"
+environment: production          # production -> ProductName "T - Laptop"
+                                 # test       -> ProductName "T - Laptops"
+
+# ---------------------------------------------------------------------
+# Column rules. Key = exact Adjust-template header. Columns not listed
+# are exported empty. Order here is documentation; exporter uses the
+# template's own 81-column order.
+# ---------------------------------------------------------------------
+columns:
+  # ---- Fixed field area (template cols 1-17) ----
+  ProductName:   { type: const,  from_env: product_name }
+  Office:        { type: const,  value: "05 Testing/Resale" }
+  Qty:           { type: const,  value: "1" }
+  QtyBase:       { type: const,  value: "Unit" }
+  Weight:        { type: direct,  source: "manual_input.weight_lbs", required: true, numeric: true }
+  RTS:           { type: const,  value: "N" }
+  TDM:           { type: const,  value: "N" }
+  SerialNumber:  { type: direct,  source: "system.serial_number", required: true }
+  BusID:         { type: const,  value: "IT23041900028" }   # user-confirmed 2026-07-09 (missing from req doc)
+  Condition:     { type: direct,  source: "manual_input.condition", required: true }
+  Manufacturer:  { type: table,   source: "system.vendor", ruleset: manufacturer }   # Txt channel, no domain gate
+  Model:         { type: parse,   source: "system.model", parser: model_clean, vendor_source: "system.vendor" }  # Txt
+  Color:         { type: direct,  source: "manual_input.color", optional: true }
+  Size:          { type: direct,  source: "manual_input.screen_size_inch", optional: true, domain: screen_size, domain_soft: true }
+  Grade:         { type: direct,  source: "manual_input.grade", required: true }
+  # Technology / Notes -> unused, left empty
+
+  # ---- ddlProperty slots ----
+  ddlProperty001: { type: bucket, source: "memory.total_gb", domain: memory, unit: "GB", over_max_exception: true }
+  ddlProperty002: { type: const,  value: "Resale Area" }
+  ddlProperty003: { type: parse,  source: "wipe.capacity", parser: storage_size, domain: storage_size, no_disk_blank: true }
+  ddlProperty004: { type: table,  source: "wipe.device_type", ruleset: storage_type, no_disk_blank: true }
+  ddlProperty005: { type: table,  source: "context.disk_state", ruleset: data_sanitization }
+  ddlProperty006: { type: const,  value: "03 Tested" }
+  ddlProperty007: { type: const,  value: "No OS" }
+  ddlProperty008: { type: const,  value: "Laptop" }
+  ddlProperty009: { type: const,  value: "F3 - Key Functions Working" }
+  ddlProperty010: { type: parse,  source: "cpu.model", parser: processor_type }
+  ddlProperty011: { type: parse,  source: "cpu.model", parser: processor_speed, domain: processor_speed }
+  ddlProperty012: { type: direct, source: "manual_input.cddvd_present", optional: true }
+  ddlProperty013: { type: const,  value: "C-R2 Controlled Streams" }
+  ddlProperty014: { type: const,  value: "Commodity Storage" }
+  ddlProperty015: { type: const,  value: "Pass" }
+  ddlProperty032: { type: const,  value: "Laptops" }
+
+  # ---- TxtProperty slots ----
+  TxtProperty001: { type: direct, source: "manual_input.mark", optional: true }
+  TxtProperty003: { type: direct, source: "wipe.drive_sn", no_disk_blank: true }
+  TxtProperty005: { type: parse,  source: "battery.health_percent", parser: battery_health }
+  TxtProperty006: { type: parse,  source: "cpu.model", parser: cpu_suffix }
+  # TxtProperty012 Video Card -> empty (laptop has no discrete GPU)
+
+env_values:
+  product_name:
+    production: "T - Laptop"
+    test: "T - Laptops"
+
+# ---------------------------------------------------------------------
+# Domains (bucket / validation). Change a value here -> engine changes.
+# ---------------------------------------------------------------------
+domains:
+  memory: [1, 1.5, 2, 2.5, 3, 4, 6, 8, 12, 16, 24, 32, 64, 96, 128]
+  # Storage size domain in GB (numeric); output formatted back to label.
+  storage_size: [16, 20, 30, 32, 40, 60, 64, 80, 120, 128, 146, 160, 180, 200,
+    240, 250, 256, 275, 300, 320, 400, 480, 500, 512, 600, 640, 750, 800, 900, 960,
+    1000, 1024, 1200, 1500, 1600, 1800, 1920, 2000, 3000, 3840, 6000, 7680, 10000,
+    12000, 14000]
+  processor_speed: [1.0, 1.05, 1.1, 1.2, 1.3, 1.4, 1.45, 1.48, 1.5, 1.55, 1.6, 1.65,
+    1.7, 1.75, 1.8, 1.9, 2.0, 2.05, 2.1, 2.16, 2.2, 2.3, 2.4, 2.5, 2.6, 2.67, 2.69,
+    2.7, 2.8, 2.9, 2.93, 3.0, 3.1, 3.16, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0,
+    4.1, 4.2, 4.3]
+  screen_size: ["10 inch", "10.2 inch", "10.5 inch", "10.9 inch", "11 inch",
+    "11.6 inch", "12 inch", "12.3 inch", "12.5 inch", "13 inch", "13.3 inch",
+    "13.5 inch", "14 inch", "15 inch", "15.6 inch", "16 inch", "16.4 inch",
+    "17 inch", "17.1 inch", "17.3 inch"]
+
+# ---------------------------------------------------------------------
+# Rulesets consumed by the `table` converter.
+# ---------------------------------------------------------------------
+rulesets:
+  # Manufacturer: clean generic suffixes, trim, uppercase, then alias-fix.
+  # Txt channel -> never an exception on domain mismatch.
+  manufacturer:
+    kind: clean_alias
+    strip_suffixes: [INC, CORP, CO, LTD, COMPUTER, TECHNOLOGY, ELECTRONICS, INTERNATIONAL]
+    aliases:
+      "HEWLETT-PACKARD": "HP"
+      "HEWLETT PACKARD": "HP"
+      "HP": "HP"
+      "DELL": "DELL"
+      "LENOVO": "LENOVO"
+      "ASUSTEK": "ASUS"
+      "MICRO-STAR": "MSI"
+      "MICROSOFT": "MICROSOFT"
+      "MICROSOFT SURFACE": "MICROSOFT"
+      "SURFACE": "MICROSOFT"
+      "MOTION": "MOTION"
+      "MOTION COMPUTING": "MOTION"
+      "CLEVO": "CLEVO"
+      "ACER": "ACER"
+      "APPLE": "APPLE"
+      "TOSHIBA": "TOSHIBA"
+      "SAMSUNG": "SAMSUNG"
+      "SONY": "SONY"
+      "PANASONIC": "PANASONIC"
+      "GIGABYTE": "GIGABYTE"
+      "RAZER": "RAZER"
+      "HUAWEI": "HUAWEI"
+      "GOOGLE": "GOOGLE"
+      "LG": "LG"
+      "IBM": "IBM"
+
+  # Storage Type: ordered keyword rules over wipe.device_type (lowercased).
+  # First matching rule wins; no match -> exception (do not guess).
+  storage_type:
+    kind: ordered_rules
+    rules:
+      - any: ["m.2", "small"]
+        nvme_if_any: ["nvme"]
+        nvme_value: "M.2 SSD NVME"
+        else_value: "M.2 SSD"
+      - any: ["msata"]
+        value: "mSATA SSD"
+      - any: ["hdd", "5400", "7200", "10000", "15000"]
+        has35_if_any: ["3.5"]
+        has35_value: '3.5" HDD'
+        else_value: '2.5" HDD'
+      - any: ["ssd", "2.5"]
+        value: '2.5" SSD'
+    no_match: exception
+
+  # Data Sanitization: driven by engine-computed context.disk_state.
+  data_sanitization:
+    kind: map
+    map:
+      no_disk: "ND-No Data"
+      has_disk: "Pass"
+
+# ---------------------------------------------------------------------
+# Parse rules consumed by the `parse` converter (named parsers).
+# Regex data lives here; the engine holds only the generic apply loop.
+# ---------------------------------------------------------------------
+parsers:
+  # Model: strip a leading vendor token, trim, uppercase.
+  model_clean:
+    kind: strip_vendor_upper
+
+  # Processor Type: ordered regex; first match formats output. {1}=group 1.
+  processor_type:
+    kind: regex_first
+    strip_marks: true              # remove (TM)/(R)/(C) first
+    patterns:
+      - { re: "core\\s*ultra\\s*([579])", out: "Intel Core Ultra {1}" }
+      - { re: "core\\s*i([3579])",        out: "Intel Core i{1}" }
+      - { re: "core\\s*2\\s*duo",         out: "Intel Core 2 Duo" }
+      - { re: "core\\s*2\\s*quad",        out: "Intel Core 2 Quad" }
+      - { re: "core\\s*duo",              out: "Intel Core Duo" }
+      - { re: "xeon",                     out: "Intel Xeon" }
+      - { re: "celeron",                  out: "Intel Celeron" }
+      - { re: "pentium",                  out: "Intel Pentium" }
+      - { re: "atom",                     out: "Intel Atom" }
+      - { re: "ryzen\\s*([3579])",        out: "AMD Ryzen {1}" }
+      - { re: "athlon",                   out: "AMD Athlon" }
+    no_match: exception
+
+  # Processor Speed: extract "@ X.XXGHz" base freq, bucket to nearest domain.
+  processor_speed:
+    kind: regex_extract_bucket
+    re: "@\\s*([0-9]+\\.?[0-9]*)\\s*ghz"
+    round: nearest                 # nearest legal domain value
+    unit: "GHz"
+
+  # CPU suffix: the model code after "i7-", e.g. i7-8665U -> 8665U.
+  cpu_suffix:
+    kind: regex_group
+    re: "i[3579]-([0-9a-z]+)"
+    upper: true
+
+  # Battery condition: health_percent -> "NN%".
+  battery_health:
+    kind: append_percent
+
+  # Storage size: pull nominal number+unit from wipe.capacity ("512GB"),
+  # convert to GB, bucket up, format back to label ("512 GB", "1 TB").
+  storage_size:
+    kind: capacity_bucket
+    min_gb: 16                     # below this -> exception (collection guard)
