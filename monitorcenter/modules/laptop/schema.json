@@ -12,6 +12,19 @@
       ]
     },
     {
+      "title": "Manual Input",
+      "type": "key_value",
+      "fields": [
+        {"path": "payload.manual_input.grade",          "label": "Grade"},
+        {"path": "payload.manual_input.condition",      "label": "Condition"},
+        {"path": "payload.manual_input.color",          "label": "Color"},
+        {"path": "payload.manual_input.screen_size_inch","label": "Screen Size"},
+        {"path": "payload.manual_input.weight_lbs",     "label": "Weight (lbs)"},
+        {"path": "payload.manual_input.cddvd_present",  "label": "CD/DVD"},
+        {"path": "payload.manual_input.mark",           "label": "Notes / Marks"}
+      ]
+    },
+    {
       "title": "Hardware",
       "type": "key_value",
       "fields": [

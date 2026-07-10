@@ -17,10 +17,8 @@ SCHEMA_PATH = Path(__file__).parent / "schema.json"
 # to WARNING (both in overall_result and the stored field value) so it
 # renders as a warning everywhere instead of a hard failure.
 CRITICAL_FAIL_FIELDS = {
-    ("screen", "dead_pixel_check"),
     ("keyboard", "keys_check"),
     ("keyboard", "touchpad_check"),
-    ("network", "internet_test"),
 }
 
 
