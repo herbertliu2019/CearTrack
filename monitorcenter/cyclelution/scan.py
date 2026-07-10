@@ -27,9 +27,14 @@ def evaluate_one(history_path, envelope=None, config=None, wipe_fn=None, db_path
     wipe_fn = wipe_fn or wipe_lookup.lookup
     if envelope is None:
         envelope = json.loads(Path(history_path).read_text(encoding="utf-8"))
+    sn = envelope.get("sn")
+    record_ts = envelope.get("timestamp")
     norm = _normalizer.normalize(envelope, config=cfg, wipe_fn=wipe_fn)
     result = gate.evaluate(norm, wipe_fn=wipe_fn)
-    sync_state.set_status(history_path, result.status, note=result.note, db_path=db_path)
+    sync_state.set_status(history_path, result.status, note=result.note,
+                          sn=sn, record_ts=record_ts, db_path=db_path)
+    # One live record per SN: newest test wins, older ready/pending -> excluded.
+    sync_state.reconcile_sn(sn, db_path=db_path)
     return result.status
 
 

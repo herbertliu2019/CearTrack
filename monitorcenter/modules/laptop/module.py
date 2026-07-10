@@ -210,7 +210,7 @@ def api_upload():
     try:
         from cyclelution import sync_state, scan
         hp = paths["history_path"]
-        sync_state.ensure_pending(hp, sn=envelope["sn"])
+        sync_state.ensure_pending(hp, sn=envelope["sn"], record_ts=envelope.get("timestamp"))
         scan.evaluate_one(hp, envelope=envelope)
     except Exception as e:
         print(f"[laptop] cyclelution evaluate failed (non-fatal): {e}")

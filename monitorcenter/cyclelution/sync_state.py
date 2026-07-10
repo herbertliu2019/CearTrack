@@ -26,14 +26,26 @@ CREATE TABLE IF NOT EXISTS laptop_sync (
     sync_status  TEXT NOT NULL DEFAULT 'pending',
     sync_note    TEXT,
     synced_at    TEXT,
-    updated_at   TEXT
+    updated_at   TEXT,
+    record_ts    TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_laptop_sync_status ON laptop_sync(sync_status);
+CREATE INDEX IF NOT EXISTS idx_laptop_sync_sn     ON laptop_sync(sn);
 """
+
+# Statuses that count as "live" for per-SN dedup (a machine can only have one).
+_ACTIVE_STATES = ("ready", "pending")
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _ensure_columns(conn) -> None:
+    """Add columns introduced after the first release to pre-existing DBs."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(laptop_sync)")}
+    if "record_ts" not in cols:
+        conn.execute("ALTER TABLE laptop_sync ADD COLUMN record_ts TEXT")
 
 
 def _open(db_path=None) -> sqlite3.Connection:
@@ -42,6 +54,7 @@ def _open(db_path=None) -> sqlite3.Connection:
     conn = sqlite3.connect(str(p))
     conn.row_factory = sqlite3.Row
     conn.executescript(_SCHEMA)  # idempotent; guarantees the table exists
+    _ensure_columns(conn)        # migrate older DBs
     return conn
 
 
@@ -50,7 +63,7 @@ def init_schema(db_path=None) -> None:
     _open(db_path).close()
 
 
-def ensure_pending(history_path, sn=None, db_path=None) -> None:
+def ensure_pending(history_path, sn=None, record_ts=None, db_path=None) -> None:
     """Insert a default 'pending' row for this record if none exists.
     No-op when the record already has a row (status is preserved)."""
     conn = _open(db_path)
@@ -58,8 +71,9 @@ def ensure_pending(history_path, sn=None, db_path=None) -> None:
         with conn:
             conn.execute(
                 "INSERT OR IGNORE INTO laptop_sync "
-                "(history_path, sn, sync_status, updated_at) VALUES (?, ?, 'pending', ?)",
-                (history_path, sn, _now()),
+                "(history_path, sn, sync_status, record_ts, updated_at) "
+                "VALUES (?, ?, 'pending', ?, ?)",
+                (history_path, sn, record_ts, _now()),
             )
     finally:
         conn.close()
@@ -76,9 +90,10 @@ def get(history_path, db_path=None):
         conn.close()
 
 
-def set_status(history_path, status, note=None, synced_at=None, sn=None, db_path=None) -> None:
-    """Upsert the sync status for a record. synced_at/sn are only overwritten
-    when a non-null value is supplied (COALESCE keeps the existing one)."""
+def set_status(history_path, status, note=None, synced_at=None, sn=None,
+               record_ts=None, db_path=None) -> None:
+    """Upsert the sync status for a record. synced_at/sn/record_ts are only
+    overwritten when a non-null value is supplied (COALESCE keeps existing)."""
     if status not in VALID_STATES:
         raise ValueError(f"invalid sync_status: {status!r}")
     conn = _open(db_path)
@@ -86,15 +101,16 @@ def set_status(history_path, status, note=None, synced_at=None, sn=None, db_path
         with conn:
             conn.execute(
                 "INSERT INTO laptop_sync "
-                "(history_path, sn, sync_status, sync_note, synced_at, updated_at) "
-                "VALUES (?, ?, ?, ?, ?, ?) "
+                "(history_path, sn, sync_status, sync_note, synced_at, record_ts, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(history_path) DO UPDATE SET "
                 "  sync_status = excluded.sync_status, "
                 "  sync_note   = excluded.sync_note, "
                 "  synced_at   = COALESCE(excluded.synced_at, laptop_sync.synced_at), "
                 "  sn          = COALESCE(excluded.sn, laptop_sync.sn), "
+                "  record_ts   = COALESCE(excluded.record_ts, laptop_sync.record_ts), "
                 "  updated_at  = excluded.updated_at",
-                (history_path, sn, status, note, synced_at, _now()),
+                (history_path, sn, status, note, synced_at, record_ts, _now()),
             )
     finally:
         conn.close()
@@ -127,17 +143,63 @@ def backfill_pending(db_path=None) -> int:
     """Ensure every laptop envelope in the index has a laptop_sync row
     defaulting to 'pending'. Idempotent (INSERT OR IGNORE). Returns the
     number of new rows created. Requires the `envelopes` table to exist in
-    the same database (it always does at runtime)."""
+    the same database (it always does at runtime). Also backfills record_ts
+    from envelopes.timestamp for any row still missing it."""
     conn = _open(db_path)
     try:
         with conn:
             cur = conn.execute(
                 "INSERT OR IGNORE INTO laptop_sync "
-                "(history_path, sn, sync_status, updated_at) "
-                "SELECT e.history_path, e.sn, 'pending', ? "
+                "(history_path, sn, sync_status, record_ts, updated_at) "
+                "SELECT e.history_path, e.sn, 'pending', e.timestamp, ? "
                 "FROM envelopes e WHERE e.module = 'laptop'",
                 (_now(),),
             )
+            conn.execute(
+                "UPDATE laptop_sync SET record_ts = ("
+                "  SELECT e.timestamp FROM envelopes e "
+                "  WHERE e.history_path = laptop_sync.history_path) "
+                "WHERE (record_ts IS NULL OR record_ts = '') "
+                "  AND EXISTS (SELECT 1 FROM envelopes e "
+                "              WHERE e.history_path = laptop_sync.history_path)"
+            )
             return cur.rowcount
+    finally:
+        conn.close()
+
+
+def reconcile_sn(sn, db_path=None) -> list:
+    """Enforce one live record per SN: among the active (ready/pending) rows
+    for this SN, keep the one with the newest record_ts and set the rest to
+    'excluded' (viewable, note explains it). Deterministic and idempotent —
+    independent of evaluation order. Never touches synced/excluded rows.
+    Returns the list of superseded history_paths."""
+    if not sn:
+        return []
+    conn = _open(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT history_path, record_ts FROM laptop_sync "
+            "WHERE sn = ? AND sync_status IN ('ready', 'pending')",
+            (sn,),
+        ).fetchall()
+        if len(rows) <= 1:
+            return []
+        # Newest wins; null record_ts sorts oldest. Tie-break on history_path.
+        winner = max(rows, key=lambda r: (r["record_ts"] or "", r["history_path"]))
+        superseded = []
+        now = _now()
+        note = f"superseded by newer test {winner['record_ts'] or ''}".strip()
+        with conn:
+            for r in rows:
+                if r["history_path"] == winner["history_path"]:
+                    continue
+                conn.execute(
+                    "UPDATE laptop_sync SET sync_status = 'excluded', "
+                    "sync_note = ?, updated_at = ? WHERE history_path = ?",
+                    (note, now, r["history_path"]),
+                )
+                superseded.append(r["history_path"])
+        return superseded
     finally:
         conn.close()
