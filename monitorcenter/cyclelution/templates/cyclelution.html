@@ -57,7 +57,23 @@
 
   <!-- ============ READY ============ -->
   <div x-show="tab==='ready'">
-    <template x-for="g in ready.groups" :key="g.operator">
+
+    <!-- Filters -->
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+      <label style="color:var(--text-secondary);font-size:0.82em;">Date</label>
+      <input type="date" x-model="filterDate"
+             style="background:var(--bg-card);border:1px solid var(--border);
+                    color:var(--text-primary);padding:7px 10px;border-radius:4px;font-size:0.85em;">
+      <input type="text" x-model="filterText" placeholder="Filter by SN or model"
+             style="flex:1;min-width:160px;background:var(--bg-card);border:1px solid var(--border);
+                    color:var(--text-primary);padding:7px 12px;border-radius:4px;font-size:0.85em;">
+      <button x-show="filterDate || filterText" @click="filterDate='';filterText=''"
+              style="background:transparent;border:1px solid var(--border);
+                     color:var(--text-secondary);padding:7px 12px;border-radius:4px;
+                     cursor:pointer;font-size:0.82em;">✕ Clear</button>
+    </div>
+
+    <template x-for="g in filteredGroups()" :key="g.operator">
       <div style="margin-bottom:14px;">
         <!-- Operator group header -->
         <div style="display:flex;align-items:center;justify-content:space-between;
@@ -100,6 +116,10 @@
     </template>
     <div x-show="ready.total === 0" style="color:var(--text-secondary);text-align:center;padding:40px;">
       No records are ready to export.
+    </div>
+    <div x-show="ready.total > 0 && filteredGroups().length === 0"
+         style="color:var(--text-secondary);text-align:center;padding:40px;">
+      No ready records match the current filter.
     </div>
 
     <!-- Action bar -->
@@ -169,10 +189,25 @@ function cyclelutionApp() {
     exceptions: { records: [], total: 0 },
     exported: { records: [], total: 0 },
     selected: [],
+    filterDate: '', filterText: '',
     busy: false,
     banner: '', downloadUrl: '', error: '',
 
     async init() { await this.reload(); },
+
+    filteredGroups() {
+      const d = this.filterDate, t = this.filterText.trim().toLowerCase();
+      if (!d && !t) return this.ready.groups;
+      return this.ready.groups
+        .map(g => ({
+          ...g,
+          records: g.records.filter(r =>
+            (!d || r.date === d) &&
+            (!t || (r.sn + ' ' + r.vendor + ' ' + r.model).toLowerCase().includes(t))),
+        }))
+        .filter(g => g.records.length > 0)
+        .map(g => ({ ...g, count: g.records.length }));
+    },
 
     async reload() {
       await Promise.all([this.loadCounts(), this.loadReady(),
