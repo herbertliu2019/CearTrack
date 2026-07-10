@@ -205,13 +205,17 @@ def api_upload():
         paths["history_path"],
     )
 
-    # Cyclelution flow: register the new record as 'pending'. Best-effort —
-    # a failure here must never block the upload (scan.py also backfills).
+    # Cyclelution flow: register the record and evaluate it immediately so it
+    # lands in Ready or Exceptions right away (no manual Rescan needed).
+    # Best-effort — a failure here must never block the upload; ensure_pending
+    # runs first so a broken evaluate still leaves a pending row for Rescan.
     try:
-        from cyclelution import sync_state
-        sync_state.ensure_pending(paths["history_path"], sn=envelope["sn"])
+        from cyclelution import sync_state, scan
+        hp = paths["history_path"]
+        sync_state.ensure_pending(hp, sn=envelope["sn"])
+        scan.evaluate_one(hp, envelope=envelope)
     except Exception as e:
-        print(f"[laptop] sync_state.ensure_pending failed (non-fatal): {e}")
+        print(f"[laptop] cyclelution evaluate failed (non-fatal): {e}")
 
     return jsonify({
         "status": "ok",
