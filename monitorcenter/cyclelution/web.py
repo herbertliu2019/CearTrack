@@ -22,6 +22,20 @@ blueprint = Blueprint(
     url_prefix="/cyclelution",
 )
 
+# Productions this export centre serves. Only `active` ones have a wired-up
+# data source today (laptop_sync). The others are placeholders so the
+# operator sees the roadmap and the UI is ready — when their test module
+# ships, add its sync source and flip active to True. No page change needed.
+PRODUCTIONS = [
+    {"id": "T-Laptop",     "label": "T-Laptop",     "active": True},
+    {"id": "T-Desktop",    "label": "T-Desktop",    "active": False},
+    {"id": "T-Video Card", "label": "T-Video Card", "active": False},
+]
+
+
+def _is_active(pid: str) -> bool:
+    return any(p["id"] == pid and p["active"] for p in PRODUCTIONS)
+
 
 def _row_display(row: dict) -> dict:
     """Enrich a laptop_sync row with the fields the queue shows, read from
@@ -53,10 +67,20 @@ def dashboard():
     return render_template("cyclelution.html")
 
 
+@blueprint.route("/api/productions")
+def api_productions():
+    return jsonify({"productions": PRODUCTIONS})
+
+
 @blueprint.route("/api/queue")
 def api_queue():
-    """status=ready -> operator-grouped; exceptions/exported -> flat list."""
+    """status=ready -> operator-grouped; exceptions/exported -> flat list.
+    Inactive productions have no data source yet -> empty result."""
     status = request.args.get("status", "ready")
+    production = request.args.get("production", "T-Laptop")
+
+    if not _is_active(production):
+        return jsonify({"groups": [], "records": [], "total": 0})
 
     if status == "ready":
         rows = [_row_display(r) for r in sync_state.list_by_status("ready")]
@@ -86,6 +110,9 @@ def api_queue():
 
 @blueprint.route("/api/counts")
 def api_counts():
+    production = request.args.get("production", "T-Laptop")
+    if not _is_active(production):
+        return jsonify({"ready": 0, "exceptions": 0, "exported": 0, "excluded": 0})
     c = sync_state.counts()
     return jsonify({
         "ready": c.get("ready", 0),
@@ -97,6 +124,11 @@ def api_counts():
 
 @blueprint.route("/api/rescan", methods=["POST"])
 def api_rescan():
+    data = request.get_json(silent=True) or {}
+    production = data.get("production", "T-Laptop")
+    if not _is_active(production):
+        return jsonify({"scanned": 0, "ready": 0, "pending": 0,
+                        "missing_file": 0, "errors": 0})
     summary = _scan.scan_pending()
     return jsonify(summary)
 

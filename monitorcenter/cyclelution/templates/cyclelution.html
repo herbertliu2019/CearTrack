@@ -13,14 +13,18 @@
       </p>
     </div>
     <div style="display:flex;align-items:center;gap:12px;">
-      <span x-show="productions.length > 1">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="color:var(--text-secondary);font-size:0.85em;">Production</span>
         <select x-model="production" @change="reload()"
                 style="background:var(--bg-card);border:1px solid var(--border);
-                       color:var(--text-primary);padding:8px 12px;border-radius:4px;">
-          <template x-for="p in productions" :key="p"><option x-text="p"></option></template>
+                       color:var(--text-primary);padding:8px 12px;border-radius:4px;
+                       font-size:0.9em;">
+          <template x-for="p in productions" :key="p.id">
+            <option :value="p.id" x-text="p.active ? p.label : p.label + '  (soon)'"></option>
+          </template>
         </select>
-      </span>
-      <button @click="rescan()" :disabled="busy"
+      </div>
+      <button x-show="isActive()" @click="rescan()" :disabled="busy"
               style="background:var(--bg-card);border:1px solid var(--border);
                      color:var(--text-primary);padding:8px 16px;border-radius:4px;
                      cursor:pointer;font-size:0.9em;"
@@ -55,8 +59,19 @@
               border-radius:6px;padding:12px 16px;margin-bottom:16px;color:var(--fail);"
        x-text="error"></div>
 
+  <!-- Inactive production placeholder -->
+  <div x-show="!isActive()"
+       style="text-align:center;padding:60px 20px;color:var(--text-secondary);">
+    <div style="font-size:1.1em;margin-bottom:8px;">
+      <span x-text="production"></span> export isn’t available yet.
+    </div>
+    <div style="font-size:0.9em;">
+      It will light up here once its test module ships. For now, switch to an active production.
+    </div>
+  </div>
+
   <!-- ============ READY ============ -->
-  <div x-show="tab==='ready'">
+  <div x-show="tab==='ready' && isActive()">
 
     <!-- Filters -->
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
@@ -138,7 +153,7 @@
   </div>
 
   <!-- ============ EXCEPTIONS ============ -->
-  <div x-show="tab==='exceptions'">
+  <div x-show="tab==='exceptions' && isActive()">
     <template x-for="r in exceptions.records" :key="r.history_path">
       <div class="detail-panel" style="padding:12px 16px;margin-bottom:8px;">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
@@ -157,7 +172,7 @@
   </div>
 
   <!-- ============ EXPORTED ============ -->
-  <div x-show="tab==='exported'">
+  <div x-show="tab==='exported' && isActive()">
     <template x-for="r in exported.records" :key="r.history_path">
       <div style="display:grid;grid-template-columns:1.1fr 1.7fr 0.8fr 1fr 1.2fr;
                   gap:8px;align-items:center;padding:9px 14px;font-size:0.88em;
@@ -183,7 +198,7 @@ function cyclelutionApp() {
   return {
     tab: 'ready',
     production: 'T-Laptop',
-    productions: ['T-Laptop'],
+    productions: [{ id: 'T-Laptop', label: 'T-Laptop', active: true }],
     counts: { ready: 0, exceptions: 0, exported: 0 },
     ready: { groups: [], total: 0 },
     exceptions: { records: [], total: 0 },
@@ -193,7 +208,22 @@ function cyclelutionApp() {
     busy: false,
     banner: '', downloadUrl: '', error: '',
 
-    async init() { await this.reload(); },
+    async init() { await this.loadProductions(); await this.reload(); },
+
+    isActive() {
+      const p = this.productions.find(x => x.id === this.production);
+      return p ? p.active : false;
+    },
+    async loadProductions() {
+      try {
+        const d = await (await fetch('/cyclelution/api/productions')).json();
+        this.productions = d.productions;
+        if (!this.productions.some(p => p.id === this.production && p.active)) {
+          const firstActive = this.productions.find(p => p.active);
+          this.production = firstActive ? firstActive.id : this.productions[0].id;
+        }
+      } catch (e) { /* keep default */ }
+    },
 
     filteredGroups() {
       const d = this.filterDate, t = this.filterText.trim().toLowerCase();
@@ -209,18 +239,27 @@ function cyclelutionApp() {
         .map(g => ({ ...g, count: g.records.length }));
     },
 
+    prodParam() { return 'production=' + encodeURIComponent(this.production); },
+
     async reload() {
-      await Promise.all([this.loadCounts(), this.loadReady(),
-                         this.loadExceptions(), this.loadExported()]);
+      await this.loadCounts();
+      if (!this.isActive()) {
+        this.ready = { groups: [], total: 0 };
+        this.exceptions = { records: [], total: 0 };
+        this.exported = { records: [], total: 0 };
+        this.selected = [];
+        return;
+      }
+      await Promise.all([this.loadReady(), this.loadExceptions(), this.loadExported()]);
     },
-    async loadCounts() { this.counts = await (await fetch('/cyclelution/api/counts')).json(); },
+    async loadCounts() { this.counts = await (await fetch('/cyclelution/api/counts?' + this.prodParam())).json(); },
     async loadReady() {
-      this.ready = await (await fetch('/cyclelution/api/queue?status=ready')).json();
+      this.ready = await (await fetch('/cyclelution/api/queue?status=ready&' + this.prodParam())).json();
       this.selected = this.selected.filter(hp =>
         this.ready.groups.some(g => g.records.some(r => r.history_path === hp)));
     },
-    async loadExceptions() { this.exceptions = await (await fetch('/cyclelution/api/queue?status=exceptions')).json(); },
-    async loadExported() { this.exported = await (await fetch('/cyclelution/api/queue?status=exported')).json(); },
+    async loadExceptions() { this.exceptions = await (await fetch('/cyclelution/api/queue?status=exceptions&' + this.prodParam())).json(); },
+    async loadExported() { this.exported = await (await fetch('/cyclelution/api/queue?status=exported&' + this.prodParam())).json(); },
 
     allSelected(g) { return g.records.every(r => this.selected.includes(r.history_path)); },
     toggleGroup(g) {
@@ -232,7 +271,10 @@ function cyclelutionApp() {
     async rescan() {
       this.busy = true; this.error = ''; this.banner = '';
       try {
-        const s = await (await fetch('/cyclelution/api/rescan', {method:'POST'})).json();
+        const s = await (await fetch('/cyclelution/api/rescan', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ production: this.production }),
+        })).json();
         this.banner = `Rescan complete — ${s.ready} ready, ${s.pending} pending.`;
         this.downloadUrl = '';
         await this.reload();
