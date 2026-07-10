@@ -311,5 +311,8 @@ register_wipe_module(app)
 from modules.cpu.integration import register_cpu_module
 register_cpu_module(app)
 
+from cyclelution.integration import register_cyclelution_module
+register_cyclelution_module(app)
+
 if __name__ == "__main__":
     app.run(host=config.HOST, port=config.PORT, debug=config.DEBUG)

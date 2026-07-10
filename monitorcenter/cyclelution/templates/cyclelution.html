@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% block title %}Cyclelution Export · CEARTrack{% endblock %}
+{% block content %}
+<div x-data="cyclelutionApp()" x-init="init()" style="max-width:1100px;margin:0 auto;">
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;
+              padding:24px 0 16px;border-bottom:1px solid var(--border);margin-bottom:20px;">
+    <div>
+      <h1 style="font-size:1.5em;margin:0;">Cyclelution Export</h1>
+      <p style="color:var(--text-secondary);margin:6px 0 0;font-size:0.9em;">
+        Select ready laptops, generate the Adjust import file, upload to Cyclelution.
+      </p>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span x-show="productions.length > 1">
+        <select x-model="production" @change="reload()"
+                style="background:var(--bg-card);border:1px solid var(--border);
+                       color:var(--text-primary);padding:8px 12px;border-radius:4px;">
+          <template x-for="p in productions" :key="p"><option x-text="p"></option></template>
+        </select>
+      </span>
+      <button @click="rescan()" :disabled="busy"
+              style="background:var(--bg-card);border:1px solid var(--border);
+                     color:var(--text-primary);padding:8px 16px;border-radius:4px;
+                     cursor:pointer;font-size:0.9em;"
+              x-text="busy ? 'Working…' : '↻ Rescan'"></button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px;">
+    <button class="tab-btn" :class="{active: tab==='ready'}" @click="tab='ready'">
+      Ready <span x-text="counts.ready"></span>
+    </button>
+    <button class="tab-btn" :class="{active: tab==='exceptions'}" @click="tab='exceptions'">
+      Exceptions <span x-text="counts.exceptions"></span>
+    </button>
+    <button class="tab-btn" :class="{active: tab==='exported'}" @click="tab='exported'">
+      Exported <span x-text="counts.exported"></span>
+    </button>
+  </div>
+
+  <!-- Toast / download banner -->
+  <div x-show="banner" x-transition
+       style="background:rgba(76,175,80,0.12);border:1px solid var(--pass);
+              border-radius:6px;padding:12px 16px;margin-bottom:16px;
+              display:flex;align-items:center;justify-content:space-between;">
+    <span x-text="banner"></span>
+    <a x-show="downloadUrl" :href="downloadUrl"
+       style="color:var(--accent);font-weight:600;text-decoration:none;">↓ Download file</a>
+  </div>
+  <div x-show="error" x-transition
+       style="background:rgba(231,76,60,0.12);border:1px solid var(--fail);
+              border-radius:6px;padding:12px 16px;margin-bottom:16px;color:var(--fail);"
+       x-text="error"></div>
+
+  <!-- ============ READY ============ -->
+  <div x-show="tab==='ready'">
+    <template x-for="g in ready.groups" :key="g.operator">
+      <div style="margin-bottom:14px;">
+        <!-- Operator group header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;
+                    padding:9px 14px;background:rgba(0,212,255,0.06);
+                    border-left:3px solid var(--accent);border-radius:4px;margin-bottom:2px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span style="color:var(--accent);font-weight:700;">👤 <span x-text="g.operator"></span></span>
+            <span style="color:var(--text-secondary);font-size:0.82em;"
+                  x-text="g.count + ' ready'"></span>
+          </div>
+          <button @click="toggleGroup(g)"
+                  style="background:transparent;border:1px solid var(--border);
+                         color:var(--text-secondary);padding:3px 10px;border-radius:4px;
+                         cursor:pointer;font-size:0.78em;"
+                  x-text="allSelected(g) ? 'Clear group' : 'Select group'"></button>
+        </div>
+        <!-- Rows -->
+        <template x-for="r in g.records" :key="r.history_path">
+          <div style="display:grid;grid-template-columns:32px 1.1fr 1.7fr 0.8fr 1fr 90px;
+                      gap:8px;align-items:center;padding:9px 14px;font-size:0.88em;
+                      border-bottom:1px solid rgba(255,255,255,0.04);">
+            <input type="checkbox" :value="r.history_path" x-model="selected">
+            <span style="font-family:monospace;font-weight:600;" x-text="r.sn"></span>
+            <span style="color:var(--text-secondary);"
+                  x-text="(r.vendor + ' ' + r.model).trim()"></span>
+            <span x-text="r.grade"></span>
+            <span>
+              <template x-for="f in r.flags" :key="f">
+                <span class="badge" :class="f==='TEST_FAIL' ? 'warn' : 'pass'"
+                      style="margin-right:4px;font-size:0.72em;" x-text="f"></span>
+              </template>
+            </span>
+            <button @click="exclude(r)"
+                    style="background:transparent;border:1px solid var(--border);
+                           color:var(--text-secondary);padding:3px 8px;border-radius:4px;
+                           cursor:pointer;font-size:0.72em;">Exclude</button>
+          </div>
+        </template>
+      </div>
+    </template>
+    <div x-show="ready.total === 0" style="color:var(--text-secondary);text-align:center;padding:40px;">
+      No records are ready to export.
+    </div>
+
+    <!-- Action bar -->
+    <div x-show="ready.total > 0"
+         style="display:flex;align-items:center;justify-content:space-between;
+                margin-top:18px;padding-top:14px;border-top:1px solid var(--border);">
+      <span style="color:var(--text-secondary);font-size:0.9em;"
+            x-text="selected.length + ' selected'"></span>
+      <button @click="generate()" :disabled="selected.length===0 || busy"
+              :style="selected.length===0 ? 'opacity:0.4;cursor:not-allowed;' : ''"
+              style="background:var(--accent);color:var(--bg-primary);border:none;
+                     padding:9px 22px;border-radius:4px;cursor:pointer;font-weight:700;">
+        Generate import file
+      </button>
+    </div>
+  </div>
+
+  <!-- ============ EXCEPTIONS ============ -->
+  <div x-show="tab==='exceptions'">
+    <template x-for="r in exceptions.records" :key="r.history_path">
+      <div class="detail-panel" style="padding:12px 16px;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+          <span style="font-family:monospace;font-weight:600;" x-text="r.sn"></span>
+          <span style="color:var(--text-secondary);font-size:0.85em;"
+                x-text="(r.vendor + ' ' + r.model).trim()"></span>
+          <span style="color:var(--text-secondary);font-size:0.8em;margin-left:auto;"
+                x-text="r.date"></span>
+        </div>
+        <div style="color:var(--fail);font-size:0.85em;" x-text="r.note"></div>
+      </div>
+    </template>
+    <div x-show="exceptions.total === 0" style="color:var(--text-secondary);text-align:center;padding:40px;">
+      No exceptions — every pending record either passed the gate or has no blocking reason yet.
+    </div>
+  </div>
+
+  <!-- ============ EXPORTED ============ -->
+  <div x-show="tab==='exported'">
+    <template x-for="r in exported.records" :key="r.history_path">
+      <div style="display:grid;grid-template-columns:1.1fr 1.7fr 0.8fr 1fr 1.2fr;
+                  gap:8px;align-items:center;padding:9px 14px;font-size:0.88em;
+                  border-bottom:1px solid rgba(255,255,255,0.04);">
+        <span style="font-family:monospace;font-weight:600;" x-text="r.sn"></span>
+        <span style="color:var(--text-secondary);" x-text="(r.vendor + ' ' + r.model).trim()"></span>
+        <span style="color:var(--accent);">👤 <span x-text="r.operator"></span></span>
+        <span style="color:var(--text-secondary);font-size:0.85em;"
+              x-text="(r.synced_at || '').replace('T',' ').slice(0,16)"></span>
+        <a x-show="r.file" :href="'/cyclelution/api/download/' + r.file"
+           style="color:var(--accent);text-decoration:none;font-size:0.82em;"
+           x-text="r.file"></a>
+      </div>
+    </template>
+    <div x-show="exported.total === 0" style="color:var(--text-secondary);text-align:center;padding:40px;">
+      Nothing exported yet.
+    </div>
+  </div>
+</div>
+
+<script>
+function cyclelutionApp() {
+  return {
+    tab: 'ready',
+    production: 'T-Laptop',
+    productions: ['T-Laptop'],
+    counts: { ready: 0, exceptions: 0, exported: 0 },
+    ready: { groups: [], total: 0 },
+    exceptions: { records: [], total: 0 },
+    exported: { records: [], total: 0 },
+    selected: [],
+    busy: false,
+    banner: '', downloadUrl: '', error: '',
+
+    async init() { await this.reload(); },
+
+    async reload() {
+      await Promise.all([this.loadCounts(), this.loadReady(),
+                         this.loadExceptions(), this.loadExported()]);
+    },
+    async loadCounts() { this.counts = await (await fetch('/cyclelution/api/counts')).json(); },
+    async loadReady() {
+      this.ready = await (await fetch('/cyclelution/api/queue?status=ready')).json();
+      this.selected = this.selected.filter(hp =>
+        this.ready.groups.some(g => g.records.some(r => r.history_path === hp)));
+    },
+    async loadExceptions() { this.exceptions = await (await fetch('/cyclelution/api/queue?status=exceptions')).json(); },
+    async loadExported() { this.exported = await (await fetch('/cyclelution/api/queue?status=exported')).json(); },
+
+    allSelected(g) { return g.records.every(r => this.selected.includes(r.history_path)); },
+    toggleGroup(g) {
+      const paths = g.records.map(r => r.history_path);
+      if (this.allSelected(g)) this.selected = this.selected.filter(p => !paths.includes(p));
+      else this.selected = [...new Set([...this.selected, ...paths])];
+    },
+
+    async rescan() {
+      this.busy = true; this.error = ''; this.banner = '';
+      try {
+        const s = await (await fetch('/cyclelution/api/rescan', {method:'POST'})).json();
+        this.banner = `Rescan complete — ${s.ready} ready, ${s.pending} pending.`;
+        this.downloadUrl = '';
+        await this.reload();
+      } catch (e) { this.error = 'Rescan failed: ' + e; }
+      finally { this.busy = false; }
+    },
+
+    async generate() {
+      this.busy = true; this.error = ''; this.banner = '';
+      try {
+        const res = await fetch('/cyclelution/api/export', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ history_paths: this.selected }),
+        });
+        const d = await res.json();
+        if (!res.ok) { this.error = d.error || 'Export failed'; return; }
+        this.banner = `Generated ${d.count} record(s).`;
+        this.downloadUrl = d.download_url;
+        this.selected = [];
+        await this.reload();
+      } catch (e) { this.error = 'Export failed: ' + e; }
+      finally { this.busy = false; }
+    },
+
+    async exclude(r) {
+      if (!confirm(`Exclude ${r.sn}? It will be removed from all queues.`)) return;
+      await fetch('/cyclelution/api/exclude', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ history_path: r.history_path }),
+      });
+      await this.reload();
+    },
+  };
+}
+</script>
+{% endblock %}

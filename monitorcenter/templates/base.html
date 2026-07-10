@@ -23,6 +23,7 @@
       <a href="/wipe/"   class="{{ 'nav-active' if request.path.startswith('/wipe/')   else '' }}">Wipe</a>
       <a href="/cpu/"    class="{{ 'nav-active' if request.path.startswith('/cpu/')    else '' }}">CPU</a>
       <a href="/gpu/"    class="{{ 'nav-active' if request.path.startswith('/gpu/')    else '' }}">GPU</a>
+      <a href="/cyclelution/" class="{{ 'nav-active' if request.path.startswith('/cyclelution/') else '' }}">Cyclelution</a>
     </nav>
   </header>
   <main>{% block content %}{% endblock %}</main>
