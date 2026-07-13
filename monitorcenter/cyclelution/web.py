@@ -105,6 +105,13 @@ def api_queue():
             r["file"] = r["note"].replace("exported: ", "") if r["note"].startswith("exported: ") else ""
         return jsonify({"records": rows, "total": len(rows)})
 
+    if status == "excluded":
+        rows = [_row_display(r) for r in sync_state.list_by_status("excluded")]
+        for r in rows:
+            # note is "excluded: <reason>" or "superseded by a newer test upload"
+            r["reason"] = r["note"].replace("excluded: ", "") if r["note"].startswith("excluded: ") else r["note"]
+        return jsonify({"records": rows, "total": len(rows)})
+
     return jsonify({"error": "unknown status"}), 400
 
 

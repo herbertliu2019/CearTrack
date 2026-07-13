@@ -43,6 +43,9 @@
     <button class="tab-btn" :class="{active: tab==='exported'}" @click="tab='exported'">
       Exported <span x-text="counts.exported"></span>
     </button>
+    <button class="tab-btn" :class="{active: tab==='excluded'}" @click="tab='excluded'">
+      Excluded <span x-text="counts.excluded"></span>
+    </button>
   </div>
 
   <!-- Toast / download banner -->
@@ -191,6 +194,25 @@
       Nothing exported yet.
     </div>
   </div>
+
+  <!-- ============ EXCLUDED ============ -->
+  <div x-show="tab==='excluded' && isActive()">
+    <template x-for="r in excluded.records" :key="r.history_path">
+      <div style="display:grid;grid-template-columns:1.1fr 1.7fr 0.8fr 1fr 1.2fr;
+                  gap:8px;align-items:center;padding:9px 14px;font-size:0.88em;
+                  border-bottom:1px solid rgba(255,255,255,0.04);">
+        <span style="font-family:monospace;font-weight:600;" x-text="r.sn"></span>
+        <span style="color:var(--text-secondary);" x-text="(r.vendor + ' ' + r.model).trim()"></span>
+        <span style="color:var(--accent);">👤 <span x-text="r.operator"></span></span>
+        <span style="color:var(--warn);font-size:0.85em;" x-text="r.reason"></span>
+        <span style="color:var(--text-secondary);font-size:0.8em;"
+              x-text="r.date"></span>
+      </div>
+    </template>
+    <div x-show="excluded.total === 0" style="color:var(--text-secondary);text-align:center;padding:40px;">
+      Nothing excluded.
+    </div>
+  </div>
 </div>
 
 <script>
@@ -199,10 +221,11 @@ function cyclelutionApp() {
     tab: 'ready',
     production: 'T-Laptop',
     productions: [{ id: 'T-Laptop', label: 'T-Laptop', active: true }],
-    counts: { ready: 0, exceptions: 0, exported: 0 },
+    counts: { ready: 0, exceptions: 0, exported: 0, excluded: 0 },
     ready: { groups: [], total: 0 },
     exceptions: { records: [], total: 0 },
     exported: { records: [], total: 0 },
+    excluded: { records: [], total: 0 },
     selected: [],
     filterDate: '', filterText: '',
     busy: false,
@@ -247,10 +270,12 @@ function cyclelutionApp() {
         this.ready = { groups: [], total: 0 };
         this.exceptions = { records: [], total: 0 };
         this.exported = { records: [], total: 0 };
+        this.excluded = { records: [], total: 0 };
         this.selected = [];
         return;
       }
-      await Promise.all([this.loadReady(), this.loadExceptions(), this.loadExported()]);
+      await Promise.all([this.loadReady(), this.loadExceptions(),
+                         this.loadExported(), this.loadExcluded()]);
     },
     async loadCounts() { this.counts = await (await fetch('/cyclelution/api/counts?' + this.prodParam())).json(); },
     async loadReady() {
@@ -260,6 +285,7 @@ function cyclelutionApp() {
     },
     async loadExceptions() { this.exceptions = await (await fetch('/cyclelution/api/queue?status=exceptions&' + this.prodParam())).json(); },
     async loadExported() { this.exported = await (await fetch('/cyclelution/api/queue?status=exported&' + this.prodParam())).json(); },
+    async loadExcluded() { this.excluded = await (await fetch('/cyclelution/api/queue?status=excluded&' + this.prodParam())).json(); },
 
     allSelected(g) { return g.records.every(r => this.selected.includes(r.history_path)); },
     toggleGroup(g) {
