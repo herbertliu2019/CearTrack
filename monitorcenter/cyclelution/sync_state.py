@@ -170,30 +170,33 @@ def backfill_pending(db_path=None) -> int:
 
 def reconcile_sn(sn, db_path=None) -> list:
     """Enforce one live record per SN: among the active (ready/pending) rows
-    for this SN, keep the one with the newest record_ts and set the rest to
-    'excluded' (viewable, note explains it). Deterministic and idempotent —
-    independent of evaluation order. Never touches synced/excluded rows.
-    Returns the list of superseded history_paths."""
+    for this SN, keep the one that arrived LAST and set the earlier ones to
+    'excluded' (viewable, note explains it).
+
+    "Last" is arrival order, not test timestamp: the row's rowid increases
+    monotonically with each new upload, so later-received always wins. This
+    is immune to test-rig clock skew. rowid is preserved across status
+    updates (upsert UPDATE keeps it) and order-preserving across VACUUM, so
+    the result is deterministic and idempotent. Never touches
+    synced/excluded rows. Returns the superseded history_paths."""
     if not sn:
         return []
     conn = _open(db_path)
     try:
         rows = conn.execute(
-            "SELECT history_path, record_ts FROM laptop_sync "
-            "WHERE sn = ? AND sync_status IN ('ready', 'pending')",
+            "SELECT rowid AS rid, history_path FROM laptop_sync "
+            "WHERE sn = ? AND sync_status IN ('ready', 'pending') "
+            "ORDER BY rid",
             (sn,),
         ).fetchall()
         if len(rows) <= 1:
             return []
-        # Newest wins; null record_ts sorts oldest. Tie-break on history_path.
-        winner = max(rows, key=lambda r: (r["record_ts"] or "", r["history_path"]))
+        # Highest rowid = latest arrival = winner; supersede the earlier ones.
         superseded = []
         now = _now()
-        note = f"superseded by newer test {winner['record_ts'] or ''}".strip()
+        note = "superseded by a newer test upload"
         with conn:
-            for r in rows:
-                if r["history_path"] == winner["history_path"]:
-                    continue
+            for r in rows[:-1]:
                 conn.execute(
                     "UPDATE laptop_sync SET sync_status = 'excluded', "
                     "sync_note = ?, updated_at = ? WHERE history_path = ?",
