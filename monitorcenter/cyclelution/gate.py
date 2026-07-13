@@ -37,10 +37,11 @@ def evaluate(norm, wipe_fn) -> GateResult:
     exceptions = list(norm.exceptions)   # start with normalizer's hard failures
     soft = []
     ctx = norm.context
-    storage = ctx.get("storage") or []
+    disk_state = ctx.get("context", {}).get("disk_state", "has_disk")
+    storage = ctx.get("storage") or []   # real disks only
 
-    # ---- wipe hard check (conditional on disk presence) ----
-    if storage:
+    # ---- storage / wipe check, branched on disk state ----
+    if disk_state == "has_disk":
         for dev in storage:
             sn = (dev.get("serial") or "").strip()
             rec = wipe_fn(sn) if sn else None
@@ -52,8 +53,14 @@ def evaluate(norm, wipe_fn) -> GateResult:
                 exceptions.append(
                     {"field": "wipe", "reason": f"drive {sn} wipe result={rec.get('result')!r} (need PASSED)"}
                 )
-    else:
-        soft.append("NO_DISK")
+    elif disk_state == "no_disk":
+        soft.append("NO_DISK")   # operator-confirmed empty; visual re-check on export
+    else:  # disk_unverified — a disk may exist with data; block until resolved
+        reason = ctx.get("context", {}).get("disk_reason") or "no disk detected, not confirmed"
+        exceptions.append({
+            "field": "storage",
+            "reason": f"storage not verified ({reason}) — fix BIOS/re-test or confirm no disk before export",
+        })
 
     # ---- soft: laptop test overall FAIL ----
     if str(ctx.get("overall_result", "")).upper() == "FAIL":

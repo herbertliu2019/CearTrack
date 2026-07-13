@@ -157,6 +157,7 @@ rulesets:
     map:
       no_disk: "ND-No Data"
       has_disk: "Pass"
+      disk_unverified: ""      # blank; the gate blocks these with a clear reason
 
 # ---------------------------------------------------------------------
 # Parse rules consumed by the `parse` converter (named parsers).

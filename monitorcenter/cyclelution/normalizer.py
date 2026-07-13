@@ -80,13 +80,28 @@ def build_context(envelope: dict, wipe_fn=None) -> dict:
     """
     wipe_fn = wipe_fn or _wipe_lookup.lookup
     payload = envelope.get("payload", {}) or {}
-    storage = payload.get("storage") or []
+    raw_storage = payload.get("storage") or []
 
-    disk_state = "no_disk" if len(storage) == 0 else "has_disk"
+    # laptop_test.sh emits a placeholder entry (device "none", carrying a
+    # fail_reason) when it detects no internal disk — that is NOT a real disk.
+    real_disks = [d for d in raw_storage
+                  if d.get("device") != "none" and "fail_reason" not in d]
+    placeholders = [d for d in raw_storage
+                    if d.get("device") == "none" or "fail_reason" in d]
+
+    disk_reason = ""
     wipe = {}
-    if storage:
-        primary_sn = (storage[0].get("serial") or "").strip()
+    if real_disks:
+        disk_state = "has_disk"
+        primary_sn = (real_disks[0].get("serial") or "").strip()
         wipe = wipe_fn(primary_sn) or {}
+    elif placeholders:
+        disk_reason = (placeholders[0].get("fail_reason") or "").strip()
+        # Only an operator-CONFIRMED empty bay is safe to treat as no-disk;
+        # a hidden/undetected disk may hold data -> must be verified (blocked).
+        disk_state = "no_disk" if disk_reason == "NO_DISK_CONFIRMED" else "disk_unverified"
+    else:
+        disk_state = "no_disk"   # truly empty storage list (older reports)
 
     return {
         "system": payload.get("system", {}) or {},
@@ -94,9 +109,9 @@ def build_context(envelope: dict, wipe_fn=None) -> dict:
         "memory": payload.get("memory", {}) or {},
         "battery": payload.get("battery", {}) or {},
         "manual_input": read_manual_input(payload),
-        "storage": storage,
+        "storage": real_disks,   # gate checks real disks only
         "wipe": wipe,
-        "context": {"disk_state": disk_state},
+        "context": {"disk_state": disk_state, "disk_reason": disk_reason},
         "overall_result": envelope.get("overall_result", ""),
     }
 
@@ -110,7 +125,9 @@ def _c_const(cfg, ctx, cfgroot):
 
 
 def _blank_if_no_disk(cfg, ctx):
-    if cfg.get("no_disk_blank") and ctx["context"]["disk_state"] == "no_disk":
+    # Storage columns are blank whenever there is no verified real disk
+    # (no_disk or disk_unverified). Only has_disk fills them.
+    if cfg.get("no_disk_blank") and ctx["context"]["disk_state"] != "has_disk":
         raise _Skip()
 
 

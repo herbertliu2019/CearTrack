@@ -129,6 +129,21 @@ def _checks():
     g7 = gate.evaluate(r7, wipe_fn=_wipe_pass)
     assert g7.status == "ready" and "NO_DISK" in g7.soft_flags, g7
 
+    # 4a. diskless placeholder, operator CONFIRMED no disk -> safe, ready+NO_DISK
+    ph_ok = [{"device": "none", "model": "NOT DETECTED", "fail_reason": "NO_DISK_CONFIRMED"}]
+    r7a = normalizer.normalize(_mini_env(storage=ph_ok), wipe_fn=_wipe_pass)
+    assert r7a.values["ddlProperty003"] == "" and r7a.values["ddlProperty005"] == "ND-No Data"
+    assert not r7a.exceptions, r7a.exceptions
+    g7a = gate.evaluate(r7a, wipe_fn=_wipe_pass)
+    assert g7a.status == "ready" and "NO_DISK" in g7a.soft_flags, g7a
+
+    # 4b. diskless placeholder NOT confirmed (hidden/RAID) -> blocked (data-leak guard)
+    for fr in ("DISK_PRESENT_BUT_HIDDEN", "DELL_RAID_MODE", "NO_STORAGE_DETECTED"):
+        ph = [{"device": "none", "model": "NOT DETECTED", "fail_reason": fr}]
+        gb = gate.evaluate(normalizer.normalize(_mini_env(storage=ph), wipe_fn=_wipe_pass),
+                           wipe_fn=_wipe_pass)
+        assert gb.status == "pending" and "not verified" in gb.note, (fr, gb)
+
     # 5. config-driven: drop 16 from the memory domain -> 15.4 now buckets to 24
     cfg = copy.deepcopy(normalizer.load_config())
     cfg["domains"]["memory"] = [g for g in cfg["domains"]["memory"] if g != 16]
