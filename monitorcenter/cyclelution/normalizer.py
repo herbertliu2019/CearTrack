@@ -136,6 +136,8 @@ def _c_direct(cfg, ctx, cfgroot):
 
 def _c_bucket(cfg, ctx, cfgroot):
     raw = _get_path(ctx, cfg["source"])
+    if (raw is None or raw == "") and cfg.get("source_fallback"):
+        raw = _get_path(ctx, cfg["source_fallback"])   # e.g. physical_gb -> total_gb
     if raw is None or raw == "":
         raise _Fail(f"field '{cfg['source']}' empty (bucket)")
     try:
