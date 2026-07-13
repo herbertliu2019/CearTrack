@@ -156,7 +156,10 @@ def api_download(filename):
 def api_exclude():
     data = request.get_json(silent=True) or {}
     hp = data.get("history_path")
+    reason = (data.get("reason") or "").strip()
     if not hp:
         return jsonify({"error": "history_path required"}), 400
-    sync_state.set_status(hp, "excluded", note="manually excluded")
-    return jsonify({"status": "ok", "history_path": hp})
+    if not reason:
+        return jsonify({"error": "a reason is required to exclude"}), 400
+    sync_state.set_status(hp, "excluded", note=f"excluded: {reason}")
+    return jsonify({"status": "ok", "history_path": hp, "reason": reason})

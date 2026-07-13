@@ -94,13 +94,15 @@ def _checks():
     # empty selection rejected
     assert c.post("/cyclelution/api/export", json={"history_paths": []}).status_code == 400
 
-    # exclude a fresh pending record -> leaves the pending/exception pool
+    # exclude a fresh pending record -> requires a reason, stored in the note
     pend = _TMP / "pending.json"
     pend.write_text("{}", encoding="utf-8")
     sync_state.ensure_pending(str(pend), sn="PEND1")
-    ex = c.post("/cyclelution/api/exclude", json={"history_path": str(pend)})
+    assert c.post("/cyclelution/api/exclude", json={"history_path": str(pend)}).status_code == 400
+    ex = c.post("/cyclelution/api/exclude", json={"history_path": str(pend), "reason": "Shred"})
     assert ex.status_code == 200
-    assert sync_state.get(str(pend))["sync_status"] == "excluded"
+    row = sync_state.get(str(pend))
+    assert row["sync_status"] == "excluded" and row["sync_note"] == "excluded: Shred"
 
 
 def test_phase4():

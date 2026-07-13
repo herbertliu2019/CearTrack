@@ -300,10 +300,13 @@ function cyclelutionApp() {
     },
 
     async exclude(r) {
-      if (!confirm(`Exclude ${r.sn}? It will be removed from all queues.`)) return;
+      const reason = prompt(`Exclude ${r.sn}? Enter a reason (e.g. Shred, Damaged, Sample):`);
+      if (reason === null) return;              // cancelled
+      const trimmed = reason.trim();
+      if (!trimmed) { alert('A reason is required to exclude a record.'); return; }
       await fetch('/cyclelution/api/exclude', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ history_path: r.history_path }),
+        body: JSON.stringify({ history_path: r.history_path, reason: trimmed }),
       });
       await this.reload();
     },
