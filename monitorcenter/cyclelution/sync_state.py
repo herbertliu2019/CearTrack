@@ -206,3 +206,22 @@ def reconcile_sn(sn, db_path=None) -> list:
         return superseded
     finally:
         conn.close()
+
+
+def reconcile_all(db_path=None) -> int:
+    """Reconcile every SN that currently has more than one active
+    (ready/pending) row. Use to clean up duplicates that already sat in the
+    queue before dedup existed. Returns the total superseded. Idempotent."""
+    conn = _open(db_path)
+    try:
+        dup_sns = [
+            r["sn"] for r in conn.execute(
+                "SELECT sn FROM laptop_sync "
+                "WHERE sync_status IN ('ready', 'pending') "
+                "  AND sn IS NOT NULL AND sn != '' "
+                "GROUP BY sn HAVING COUNT(*) > 1"
+            )
+        ]
+    finally:
+        conn.close()
+    return sum(len(reconcile_sn(sn, db_path=db_path)) for sn in dup_sns)

@@ -57,6 +57,19 @@ def _checks():
     assert sync_state.get(syn, db_path=idx)["sync_status"] == "synced", "synced must survive"
     assert sync_state.get(rdy, db_path=idx)["sync_status"] == "ready"
 
+    # reconcile_all: two pre-existing READY dupes for one SN (the screenshot
+    # case) collapse to just the last-arrived, without any re-evaluation.
+    d1 = "h/2026/07-09/DUP_1.json"
+    d2 = "h/2026/07-09/DUP_2.json"
+    sync_state.set_status(d1, "ready", sn="DUPSN", db_path=idx)
+    sync_state.set_status(d2, "ready", sn="DUPSN", db_path=idx)   # arrives later
+    n = sync_state.reconcile_all(db_path=idx)
+    assert n == 1, n
+    assert sync_state.get(d1, db_path=idx)["sync_status"] == "excluded"
+    assert sync_state.get(d2, db_path=idx)["sync_status"] == "ready"
+    # idempotent: running again changes nothing
+    assert sync_state.reconcile_all(db_path=idx) == 0
+
 
 def _migration_check():
     """A DB created without record_ts gets the column added on next open."""

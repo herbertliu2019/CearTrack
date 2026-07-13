@@ -43,7 +43,8 @@ def scan_pending(config=None, wipe_fn=None, db_path=None) -> dict:
     cfg = config or _normalizer.load_config()
     wipe_fn = wipe_fn or wipe_lookup.lookup
 
-    summary = {"scanned": 0, "ready": 0, "pending": 0, "missing_file": 0, "errors": 0}
+    summary = {"scanned": 0, "ready": 0, "pending": 0, "missing_file": 0,
+               "errors": 0, "superseded": 0}
     for row in sync_state.list_by_status("pending", db_path=db_path):
         hp = row["history_path"]
         summary["scanned"] += 1
@@ -56,6 +57,10 @@ def scan_pending(config=None, wipe_fn=None, db_path=None) -> dict:
         except Exception as e:
             summary["errors"] += 1
             print(f"[scan] error on {hp}: {e}")
+
+    # Also collapse any pre-existing duplicates already sitting as ready/pending
+    # (evaluate_one above only reconciles the SNs it touched).
+    summary["superseded"] = sync_state.reconcile_all(db_path=db_path)
     return summary
 
 
