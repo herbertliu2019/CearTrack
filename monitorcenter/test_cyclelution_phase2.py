@@ -121,10 +121,11 @@ def _checks():
     r6 = normalizer.normalize(_mini_env(), wipe_fn=wipe_garbage)
     assert any(e["field"] == "ddlProperty004" for e in r6.exceptions), r6.exceptions
 
-    # 4. no-disk branch: storage cols blank, ddl005 ND-No Data, NO_DISK flag
+    # 4. no-disk branch: Storage Size = "No Storage", Type/HDD-SN blank,
+    #    ddl005 ND-No Data, NO_DISK flag
     r7 = normalizer.normalize(_mini_env(storage=[]), wipe_fn=_wipe_pass)
-    assert r7.values["ddlProperty003"] == "" and r7.values["ddlProperty004"] == ""
-    assert r7.values["TxtProperty003"] == ""
+    assert r7.values["ddlProperty003"] == "No Storage", r7.values["ddlProperty003"]
+    assert r7.values["ddlProperty004"] == "" and r7.values["TxtProperty003"] == ""
     assert r7.values["ddlProperty005"] == "ND-No Data"
     g7 = gate.evaluate(r7, wipe_fn=_wipe_pass)
     assert g7.status == "ready" and "NO_DISK" in g7.soft_flags, g7
@@ -132,7 +133,7 @@ def _checks():
     # 4a. diskless placeholder, operator CONFIRMED no disk -> safe, ready+NO_DISK
     ph_ok = [{"device": "none", "model": "NOT DETECTED", "fail_reason": "NO_DISK_CONFIRMED"}]
     r7a = normalizer.normalize(_mini_env(storage=ph_ok), wipe_fn=_wipe_pass)
-    assert r7a.values["ddlProperty003"] == "" and r7a.values["ddlProperty005"] == "ND-No Data"
+    assert r7a.values["ddlProperty003"] == "No Storage" and r7a.values["ddlProperty005"] == "ND-No Data"
     assert not r7a.exceptions, r7a.exceptions
     g7a = gate.evaluate(r7a, wipe_fn=_wipe_pass)
     assert g7a.status == "ready" and "NO_DISK" in g7a.soft_flags, g7a

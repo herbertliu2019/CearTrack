@@ -50,7 +50,7 @@ columns:
   # reports that lack physical_gb. Still bucketed up to a valid domain value.
   ddlProperty001: { type: bucket, source: "memory.physical_gb", source_fallback: "memory.total_gb", domain: memory, unit: "GB", over_max_exception: true }
   ddlProperty002: { type: const,  value: "Resale Area" }
-  ddlProperty003: { type: parse,  source: "wipe.capacity", parser: storage_size, domain: storage_size, no_disk_blank: true }
+  ddlProperty003: { type: parse,  source: "wipe.capacity", parser: storage_size, domain: storage_size, no_disk_blank: true, no_disk_value: "No Storage" }
   ddlProperty004: { type: table,  source: "wipe.device_type", ruleset: storage_type, no_disk_blank: true }
   ddlProperty005: { type: table,  source: "context.disk_state", ruleset: data_sanitization }
   ddlProperty006: { type: const,  value: "03 Tested" }

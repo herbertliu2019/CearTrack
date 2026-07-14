@@ -36,6 +36,12 @@ class _Skip(Exception):
     """Raised by a converter to signal 'leave this column blank'."""
 
 
+class _UseValue(Exception):
+    """Raised by a converter to short-circuit to a fixed value."""
+    def __init__(self, value):
+        self.value = value
+
+
 class _Fail(Exception):
     """Raised by a converter to signal an exception-list entry."""
 
@@ -126,8 +132,12 @@ def _c_const(cfg, ctx, cfgroot):
 
 def _blank_if_no_disk(cfg, ctx):
     # Storage columns are blank whenever there is no verified real disk
-    # (no_disk or disk_unverified). Only has_disk fills them.
+    # (no_disk or disk_unverified). Only has_disk fills them. A column may
+    # opt into a fixed value for the genuine no-disk case via no_disk_value
+    # (e.g. Storage Size -> "No Storage").
     if cfg.get("no_disk_blank") and ctx["context"]["disk_state"] != "has_disk":
+        if ctx["context"]["disk_state"] == "no_disk" and cfg.get("no_disk_value"):
+            raise _UseValue(cfg["no_disk_value"])
         raise _Skip()
 
 
@@ -305,6 +315,8 @@ def normalize(envelope: dict, config=None, wipe_fn=None) -> NormResult:
             continue
         try:
             res.values[col] = conv(rule, ctx, cfg)
+        except _UseValue as u:
+            res.values[col] = u.value
         except _Skip:
             res.values[col] = ""
         except _Fail as e:
