@@ -54,12 +54,18 @@ def evaluate(norm, wipe_fn) -> GateResult:
                     {"field": "wipe", "reason": f"drive {sn} wipe result={rec.get('result')!r} (need PASSED)"}
                 )
     elif disk_state == "no_disk":
-        soft.append("NO_DISK")   # operator-confirmed empty; visual re-check on export
-    else:  # disk_unverified — a disk may exist with data; block until resolved
-        reason = ctx.get("context", {}).get("disk_reason") or "no disk detected, not confirmed"
+        reason = ctx.get("context", {}).get("disk_reason", "")
+        if reason and reason != "NO_DISK_CONFIRMED":
+            # Detected as diskless but the operator skipped the confirmation
+            # prompt — still Ready, with a louder flag for the export check.
+            soft.append("NO_DISK_UNCONFIRMED")
+        else:
+            soft.append("NO_DISK")   # operator-confirmed empty (or legacy empty list)
+    else:  # disk_unverified — operator said a disk IS installed but hidden (BIOS RAID)
+        reason = ctx.get("context", {}).get("disk_reason") or "disk present but hidden"
         exceptions.append({
             "field": "storage",
-            "reason": f"storage not verified ({reason}) — fix BIOS/re-test or confirm no disk before export",
+            "reason": f"storage not verified ({reason}) — fix BIOS/re-test before export",
         })
 
     # ---- soft: laptop test overall FAIL ----

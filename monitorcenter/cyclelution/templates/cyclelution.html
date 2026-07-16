@@ -120,7 +120,8 @@
             <span x-text="r.grade"></span>
             <span>
               <template x-for="f in r.flags" :key="f">
-                <span class="badge" :class="f==='TEST_FAIL' ? 'warn' : 'pass'"
+                <span class="badge"
+                      :class="(f==='TEST_FAIL' || f==='NO_DISK_UNCONFIRMED') ? 'warn' : 'pass'"
                       style="margin-right:4px;font-size:0.72em;" x-text="f"></span>
               </template>
             </span>

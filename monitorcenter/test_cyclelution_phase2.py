@@ -138,12 +138,20 @@ def _checks():
     g7a = gate.evaluate(r7a, wipe_fn=_wipe_pass)
     assert g7a.status == "ready" and "NO_DISK" in g7a.soft_flags, g7a
 
-    # 4b. diskless placeholder NOT confirmed (hidden/RAID) -> blocked (data-leak guard)
-    for fr in ("DISK_PRESENT_BUT_HIDDEN", "DELL_RAID_MODE", "NO_STORAGE_DETECTED"):
+    # 4b. Enter-skipped diskless (detected none, unconfirmed) -> Ready with a
+    #     louder NO_DISK_UNCONFIRMED flag; Storage Size still "No Storage"
+    for fr in ("NO_STORAGE_DETECTED", "DELL_RAID_MODE"):
         ph = [{"device": "none", "model": "NOT DETECTED", "fail_reason": fr}]
-        gb = gate.evaluate(normalizer.normalize(_mini_env(storage=ph), wipe_fn=_wipe_pass),
-                           wipe_fn=_wipe_pass)
-        assert gb.status == "pending" and "not verified" in gb.note, (fr, gb)
+        rb = normalizer.normalize(_mini_env(storage=ph), wipe_fn=_wipe_pass)
+        assert rb.values["ddlProperty003"] == "No Storage", (fr, rb.values["ddlProperty003"])
+        gb = gate.evaluate(rb, wipe_fn=_wipe_pass)
+        assert gb.status == "ready" and "NO_DISK_UNCONFIRMED" in gb.soft_flags, (fr, gb)
+
+    # 4c. operator answered a disk IS installed but hidden -> blocked
+    ph = [{"device": "none", "model": "NOT DETECTED", "fail_reason": "DISK_PRESENT_BUT_HIDDEN"}]
+    gb = gate.evaluate(normalizer.normalize(_mini_env(storage=ph), wipe_fn=_wipe_pass),
+                       wipe_fn=_wipe_pass)
+    assert gb.status == "pending" and "not verified" in gb.note, gb
 
     # 5. config-driven: drop 16 from the memory domain -> 15.4 now buckets to 24
     cfg = copy.deepcopy(normalizer.load_config())

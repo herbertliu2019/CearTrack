@@ -103,9 +103,11 @@ def build_context(envelope: dict, wipe_fn=None) -> dict:
         wipe = wipe_fn(primary_sn) or {}
     elif placeholders:
         disk_reason = (placeholders[0].get("fail_reason") or "").strip()
-        # Only an operator-CONFIRMED empty bay is safe to treat as no-disk;
-        # a hidden/undetected disk may hold data -> must be verified (blocked).
-        disk_state = "no_disk" if disk_reason == "NO_DISK_CONFIRMED" else "disk_unverified"
+        # Nothing detected -> treat as diskless (goes to Ready). Only when the
+        # operator explicitly answered that a disk IS installed but hidden
+        # (BIOS RAID) do we block — that disk may hold data. Skipped/unasked
+        # confirmations still pass but carry a NO_DISK_UNCONFIRMED flag.
+        disk_state = "disk_unverified" if disk_reason == "DISK_PRESENT_BUT_HIDDEN" else "no_disk"
     else:
         disk_state = "no_disk"   # truly empty storage list (older reports)
 
