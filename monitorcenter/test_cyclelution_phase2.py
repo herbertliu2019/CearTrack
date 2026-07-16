@@ -147,6 +147,13 @@ def _checks():
         gb = gate.evaluate(rb, wipe_fn=_wipe_pass)
         assert gb.status == "ready" and "NO_DISK_UNCONFIRMED" in gb.soft_flags, (fr, gb)
 
+    # 4b2. no battery (script emits only {"status": "NOT_FOUND"}) -> not a fail:
+    #      TxtProperty005 = "NO BATTERY", record still Ready
+    r_nb = normalizer.normalize(_mini_env(battery={"status": "NOT_FOUND"}), wipe_fn=_wipe_pass)
+    assert r_nb.values["TxtProperty005"] == "NO BATTERY", r_nb.values["TxtProperty005"]
+    assert not any(e["field"] == "TxtProperty005" for e in r_nb.exceptions), r_nb.exceptions
+    assert gate.evaluate(r_nb, wipe_fn=_wipe_pass).status == "ready"
+
     # 4c. operator answered a disk IS installed but hidden -> blocked
     ph = [{"device": "none", "model": "NOT DETECTED", "fail_reason": "DISK_PRESENT_BUT_HIDDEN"}]
     gb = gate.evaluate(normalizer.normalize(_mini_env(storage=ph), wipe_fn=_wipe_pass),

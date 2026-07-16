@@ -68,7 +68,7 @@ columns:
   # ---- TxtProperty slots ----
   TxtProperty001: { type: direct, source: "manual_input.mark", optional: true }
   TxtProperty003: { type: direct, source: "wipe.drive_sn", no_disk_blank: true }
-  TxtProperty005: { type: parse,  source: "battery.health_percent", parser: battery_health }
+  TxtProperty005: { type: parse,  source: "battery.health_percent", parser: battery_health, empty_value: "NO BATTERY" }
   TxtProperty006: { type: parse,  source: "cpu.model", parser: cpu_suffix }
   # TxtProperty012 Video Card -> empty (laptop has no discrete GPU)
 

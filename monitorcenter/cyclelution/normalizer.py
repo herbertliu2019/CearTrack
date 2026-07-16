@@ -234,6 +234,10 @@ def _c_parse(cfg, ctx, cfgroot):
         return out.upper()
 
     if not s:
+        # A column may map "source missing" to a fixed value instead of an
+        # exception (e.g. battery.health_percent absent -> "NO BATTERY").
+        if cfg.get("empty_value") is not None:
+            return cfg["empty_value"]
         raise _Fail(f"field '{cfg['source']}' empty for parser {cfg['parser']}")
 
     if kind == "regex_first":
