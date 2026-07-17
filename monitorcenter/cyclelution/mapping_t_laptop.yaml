@@ -33,7 +33,7 @@ columns:
   Qty:           { type: const,  value: "1" }
   QtyBase:       { type: const,  value: "Unit" }
   Weight:        { type: direct,  source: "manual_input.weight_lbs", required: true, numeric: true }
-  RTS:           { type: const,  value: "Y" }   # Ready to Ship — changed from N per user 2026-07 update
+  RTS:           { type: const,  value: "N" }
   TDM:           { type: const,  value: "N" }
   SerialNumber:  { type: direct,  source: "system.serial_number", required: true }
   BusID:         { type: const,  value: "IT23041900028" }   # user-confirmed 2026-07-09 (missing from req doc)
@@ -49,7 +49,7 @@ columns:
   # Prefer real physical capacity; fall back to usable total_gb for pre-v?
   # reports that lack physical_gb. Still bucketed up to a valid domain value.
   ddlProperty001: { type: bucket, source: "memory.physical_gb", source_fallback: "memory.total_gb", domain: memory, unit: "GB", over_max_exception: true }
-  ddlProperty002: { type: const,  value: "Resale Area" }
+  ddlProperty002: { type: const,  value: "Testing Area" }
   ddlProperty003: { type: parse,  source: "wipe.capacity", parser: storage_size, domain: storage_size, no_disk_blank: true, no_disk_value: "No Storage" }
   ddlProperty004: { type: table,  source: "wipe.device_type", ruleset: storage_type, no_disk_blank: true }
   ddlProperty005: { type: table,  source: "context.disk_state", ruleset: data_sanitization }
