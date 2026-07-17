@@ -33,7 +33,7 @@ def _wipe_pass(sn):
 
 GOLDEN_5CG01809VM = {
     "ProductName": "T - Laptop", "Office": "05 Testing/Resale", "Qty": "1",
-    "QtyBase": "Unit", "Weight": "3.38", "RTS": "N", "TDM": "N",
+    "QtyBase": "Unit", "Weight": "3.38", "RTS": "Y", "TDM": "N",
     "SerialNumber": "5CG01809VM", "BusID": "IT23041900028",
     "Condition": "C5 - Used Very Good", "Manufacturer": "HP",
     "Model": "PROBOOK 640 G5", "Color": "Gray", "Size": "14 inch",

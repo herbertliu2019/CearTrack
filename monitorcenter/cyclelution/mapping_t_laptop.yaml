@@ -33,7 +33,7 @@ columns:
   Qty:           { type: const,  value: "1" }
   QtyBase:       { type: const,  value: "Unit" }
   Weight:        { type: direct,  source: "manual_input.weight_lbs", required: true, numeric: true }
-  RTS:           { type: const,  value: "N" }
+  RTS:           { type: const,  value: "Y" }   # Ready to Ship — changed from N per user 2026-07 update
   TDM:           { type: const,  value: "N" }
   SerialNumber:  { type: direct,  source: "system.serial_number", required: true }
   BusID:         { type: const,  value: "IT23041900028" }   # user-confirmed 2026-07-09 (missing from req doc)
