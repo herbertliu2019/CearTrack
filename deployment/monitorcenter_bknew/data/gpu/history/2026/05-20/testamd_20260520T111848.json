@@ -1,0 +1,61 @@
+{
+  "module": "gpu",
+  "sn": "testamd",
+  "timestamp": "2026-05-20 11:18:48",
+  "overall_result": "PASS",
+  "summary": "GPU:Radeon RX 580 VRAM:4096MB TEMP_MAX:79C VKMARK:11230 RESULT:PASS",
+  "hostname": "test",
+  "payload": {
+    "test_info": {
+      "test_time": "2026-05-20 11:18:48",
+      "test_station": "test",
+      "test_tier": "FULL",
+      "script_version": "1.1.0",
+      "burn_duration_seconds": 120,
+      "glmark2_duration_seconds": 332,
+      "total_duration_seconds": 561
+    },
+    "gpu": {
+      "vendor": "AMD",
+      "name": "Radeon RX 580",
+      "chip": "polaris10",
+      "vram_mb": 4096,
+      "vram_type": "GDDR5",
+      "vram_bus_width": 256,
+      "vram_bandwidth_gbps": 224.0,
+      "driver_version": "",
+      "bios_version": "015.050.002.001.000000",
+      "pcie_gen": 3,
+      "pcie_gen_current": 3,
+      "pcie_width_current": 16,
+      "pcie_width_max": 16,
+      "clock_gpu_mhz": 1366,
+      "clock_mem_mhz": 1750,
+      "power_limit_w": "135",
+      "subvendor": "Micro-Star International Co., Ltd. [MSI] Radeon RX 580 ARMOR 8G OC",
+      "device_id": "1002:67DF",
+      "gpu_sn": ""
+    },
+    "thermal": {
+      "temp_max_c": 79,
+      "temp_avg_c": 63,
+      "util_avg_pct": 82,
+      "power_max_w": 130.0,
+      "thermal_log_path": "/tmp/gpu_logs/thermal_20260520_110927.log"
+    },
+    "vram_test": {
+      "tool": "glmark2",
+      "duration_seconds": 120,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "vulkan_benchmark": {
+      "tool": "glmark2",
+      "resolution": "1920x1080",
+      "score": 11230,
+      "status": "PASS"
+    },
+    "dmesg_gpu_errors": [],
+    "overall_result": "PASS"
+  }
+}

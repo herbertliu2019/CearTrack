@@ -1,0 +1,59 @@
+{
+  "module": "gpu",
+  "sn": "IT23041900028",
+  "timestamp": "2026-05-13 15:19:35",
+  "overall_result": "PASS",
+  "summary": "GPU:NVIDIA GeForce RTX 2080 SUPER VRAM:8192MB TEMP_MAX:84C VKMARK:20775 RESULT:PASS",
+  "hostname": "GPUTESTSTATION1",
+  "payload": {
+    "test_info": {
+      "test_time": "2026-05-13 15:19:35",
+      "test_station": "GPUTESTSTATION1",
+      "script_version": "1.1.0",
+      "burn_duration_seconds": 120,
+      "glmark2_duration_seconds": 330,
+      "total_duration_seconds": 503
+    },
+    "gpu": {
+      "vendor": "NVIDIA",
+      "name": "NVIDIA GeForce RTX 2080 SUPER",
+      "chip": "TU104",
+      "vram_mb": 8192,
+      "vram_type": "GDDR6",
+      "vram_bus_width": 256,
+      "vram_bandwidth_gbps": 496.1,
+      "driver_version": "535.288.01",
+      "bios_version": "90.04.7A.80.32",
+      "pcie_gen": 3,
+      "pcie_gen_current": 1,
+      "pcie_width_current": 4,
+      "pcie_width_max": 16,
+      "clock_gpu_mhz": 2100,
+      "clock_mem_mhz": 7751,
+      "power_limit_w": "250.00",
+      "subvendor": "ASUSTeK Computer Inc. TU104 [GeForce RTX 2080 SUPER]",
+      "device_id": "10DE:1E81",
+      "gpu_sn": ""
+    },
+    "thermal": {
+      "temp_max_c": 84,
+      "temp_avg_c": 62,
+      "util_avg_pct": 92,
+      "power_max_w": 255.0,
+      "thermal_log_path": "/tmp/gpu_logs/thermal_20260513_151112.log"
+    },
+    "vram_test": {
+      "tool": "gpu-burn",
+      "duration_seconds": 120,
+      "errors": 0,
+      "status": "PASS"
+    },
+    "vulkan_benchmark": {
+      "tool": "glmark2",
+      "score": 20775,
+      "status": "PASS"
+    },
+    "dmesg_gpu_errors": [],
+    "overall_result": "PASS"
+  }
+}

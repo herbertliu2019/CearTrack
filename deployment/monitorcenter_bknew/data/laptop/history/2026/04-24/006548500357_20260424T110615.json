@@ -1,0 +1,109 @@
+{
+  "module": "laptop",
+  "sn": "006548500357",
+  "timestamp": "2026-04-24T11:06:15Z",
+  "overall_result": "PASS",
+  "summary": "PASS with 1 warning(s)",
+  "hostname": "test",
+  "payload": {
+    "test_info": {
+      "test_time": "2026-04-24T11:06:15Z",
+      "hostname": "test",
+      "script_version": "2.0.0"
+    },
+    "system": {
+      "vendor": "Microsoft Corporation",
+      "model": "Surface Book 2",
+      "serial_number": "006548500357",
+      "bios_version": "394.779.768"
+    },
+    "cpu": {
+      "model": "Intel(R) Core(TM) i7-8650U CPU @ 1.90GHz",
+      "cores": 4,
+      "threads": 4,
+      "max_mhz": "4200",
+      "architecture": "x86_64"
+    },
+    "memory": {
+      "total_gb": "15.5",
+      "type": "LPDDR3",
+      "speed": "1867 MT/s",
+      "slots_total": 2,
+      "slots_used": 2
+    },
+    "storage": [
+      {
+        "device": "nvme0n1",
+        "model": "KXG50ZNV512G TOSHIBA",
+        "serial": "893S10QZT88Q",
+        "size": "476.9G",
+        "type": "SSD",
+        "smart": "PASSED",
+        "power_on_hours": "1,986"
+      }
+    ],
+    "battery": {
+      "manufacturer": "DYN",
+      "model": "M1005046",
+      "health_percent": "61.7",
+      "current_percent": "88",
+      "cycle_count": "136",
+      "voltage_v": "7.37",
+      "battery_condition": "OK",
+      "status": "PASS"
+    },
+    "screen": {
+      "resolution": "3240x2160",
+      "interface": "unknown",
+      "dead_pixel_check": "PASS",
+      "backlight_check": "PASS"
+    },
+    "camera": {
+      "device_status": "HARDWARE_DETECTED",
+      "device_count": 14,
+      "driver_type": "ipu3",
+      "capture_method": "none",
+      "capture_result": "NOT_SUPPORTED",
+      "image_quality_check": "SKIPPED",
+      "driver_note": "driver_init_failed"
+    },
+    "audio": {
+      "speaker_device_status": "4",
+      "mic_device_status": "1",
+      "speaker_quality_check": "PASS",
+      "mic_record_check": "PASS"
+    },
+    "keyboard": {
+      "device_status": "2",
+      "keys_check": "PASS",
+      "touchpad_check": "PASS"
+    },
+    "network": {
+      "wifi_status": "PASS",
+      "wifi_device": "wlp1s0",
+      "ethernet_status": "PASS",
+      "ethernet_device": "enxa0cec8373e5c",
+      "internet_test": "PASS",
+      "internet_test_via": "enxa0cec8373e5c"
+    },
+    "ports": {
+      "usb_device_count": 13,
+      "usb3_count": 1,
+      "physical_check": "PASS"
+    },
+    "appearance": {
+      "hinge_check": "PASS",
+      "scratch_check": "PASS"
+    },
+    "kernel_health": {
+      "status": "PASS",
+      "fail_count": 0,
+      "warn_count": 0,
+      "matched_signals": []
+    },
+    "overall_result": "PASS"
+  },
+  "warnings": [
+    "Camera driver init failed — verify in OEM OS"
+  ]
+}

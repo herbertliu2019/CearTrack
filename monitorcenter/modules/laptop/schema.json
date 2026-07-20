@@ -30,7 +30,7 @@
       "fields": [
         {"path": "payload.cpu.model", "label": "CPU"},
         {"path": "payload.cpu.cores", "label": "Cores", "suffix": " cores"},
-        {"path": "payload.memory.total_gb", "label": "Memory", "suffix": " GB"},
+        {"path": "payload.memory.physical_gb", "label": "Memory", "suffix": " GB"},
         {"path": "payload.memory.type", "label": "Memory Type"},
         {"path": "payload.battery.health_percent",   "label": "Battery Health",    "suffix": "%"},
         {"path": "payload.battery.cycle_count",     "label": "Battery Cycles"},

@@ -382,7 +382,9 @@ tr.info-only-row { background: rgba(143,188,143,0.06); }
           <input type="date" x-model="customStart" style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:6px 10px;color:var(--text-primary);font-size:0.85em;">
           <span style="color:var(--text-secondary);">–</span>
           <input type="date" x-model="customEnd" style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:6px 10px;color:var(--text-primary);font-size:0.85em;">
-          <button class="tab-btn active" @click="loadCustom()">Apply</button>
+          <button class="tab-btn active" @click="loadCustom()" :disabled="customLoading"
+                  :style="customLoading ? 'cursor:not-allowed;opacity:0.6;' : ''"
+                  x-text="customLoading ? 'Loading…' : 'Apply'"></button>
         </div>
       </template>
     </div>
@@ -907,6 +909,7 @@ function gpuApp() {
     searched:      false,
     customStart:   '',
     customEnd:     '',
+    customLoading: false,
     filterFailed:  false,
     drawerOpen:    false,
     drawerSn:      null,
@@ -1048,9 +1051,14 @@ function gpuApp() {
     },
 
     async loadCustom() {
-      if (!this.customStart || !this.customEnd) return;
-      this.tabLabel = 'Custom';
-      await this.loadRange('custom', this.customStart, this.customEnd);
+      if (!this.customStart || !this.customEnd || this.customLoading) return;
+      this.customLoading = true;
+      try {
+        this.tabLabel = 'Custom';
+        await this.loadRange('custom', this.customStart, this.customEnd);
+      } finally {
+        this.customLoading = false;
+      }
     },
 
     async loadDayRecords(dateStr) {

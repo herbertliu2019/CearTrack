@@ -142,6 +142,27 @@
       </div>
     </div>
 
+    <!-- By Grade -->
+    <div class="detail-panel" style="padding:16px 20px;margin-bottom:24px;border:1px solid rgba(59,130,246,0.25);">
+      <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                  letter-spacing:0.06em;color:#818cf8;margin-bottom:14px;">By Grade</div>
+      <template x-if="!(today.by_grade ?? []).length">
+        <div style="color:var(--text-secondary);font-size:0.88em;">No grade data</div>
+      </template>
+      <template x-for="item in (today.by_grade ?? [])" :key="item.grade">
+        <div style="margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+            <span style="font-size:0.9em;" x-text="'Grade ' + item.grade"></span>
+            <span style="font-weight:700;" :style="'color:' + gradeColor(item.grade)" x-text="item.count"></span>
+          </div>
+          <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+            <div style="height:100%;border-radius:2px;transition:width 0.5s;"
+                 :style="'width:' + item.pct + '%; background:' + gradeColor(item.grade)"></div>
+          </div>
+        </div>
+      </template>
+    </div>
+
     <!-- Today's records as cards -->
     <div x-show="(today.records ?? []).length > 0"
          style="display:flex;justify-content:flex-end;margin-bottom:10px;">
@@ -341,8 +362,27 @@
       </div>
     </div>
 
-    <!-- By Brand + Fail Reasons -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+    <!-- By Brand + By Grade + Fail Reasons -->
+    <div class="three-col-stats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px;">
+      <div class="detail-panel" style="padding:16px 20px;border:1px solid rgba(59,130,246,0.25);">
+        <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                    letter-spacing:0.06em;color:#818cf8;margin-bottom:14px;">By Grade</div>
+        <template x-if="!(week.by_grade ?? []).length">
+          <div style="color:var(--text-secondary);font-size:0.88em;">No grade data</div>
+        </template>
+        <template x-for="item in (week.by_grade ?? [])" :key="item.grade">
+          <div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+              <span style="font-size:0.9em;" x-text="'Grade ' + item.grade"></span>
+              <span style="font-weight:700;" :style="'color:' + gradeColor(item.grade)" x-text="item.count"></span>
+            </div>
+            <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+              <div style="height:100%;border-radius:2px;transition:width 0.5s;"
+                   :style="'width:' + item.pct + '%; background:' + gradeColor(item.grade)"></div>
+            </div>
+          </div>
+        </template>
+      </div>
       <div class="detail-panel" style="padding:16px 20px;">
         <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
                     letter-spacing:0.06em;color:var(--accent);margin-bottom:14px;">By Brand</div>
@@ -641,8 +681,27 @@
       </div>
     </div>
 
-    <!-- By Brand + Fail Reasons -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+    <!-- By Brand + By Grade + Fail Reasons -->
+    <div class="three-col-stats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px;">
+      <div class="detail-panel" style="padding:16px 20px;border:1px solid rgba(59,130,246,0.25);">
+        <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                    letter-spacing:0.06em;color:#818cf8;margin-bottom:14px;">By Grade</div>
+        <template x-if="!(month.by_grade ?? []).length">
+          <div style="color:var(--text-secondary);font-size:0.88em;">No grade data</div>
+        </template>
+        <template x-for="item in (month.by_grade ?? [])" :key="item.grade">
+          <div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+              <span style="font-size:0.9em;" x-text="'Grade ' + item.grade"></span>
+              <span style="font-weight:700;" :style="'color:' + gradeColor(item.grade)" x-text="item.count"></span>
+            </div>
+            <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+              <div style="height:100%;border-radius:2px;transition:width 0.5s;"
+                   :style="'width:' + item.pct + '%; background:' + gradeColor(item.grade)"></div>
+            </div>
+          </div>
+        </template>
+      </div>
       <div class="detail-panel" style="padding:16px 20px;">
         <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
                     letter-spacing:0.06em;color:var(--accent);margin-bottom:14px;">By Brand</div>
@@ -928,10 +987,11 @@
       <input type="date" x-model="customTo"
              style="background:var(--bg-card);border:1px solid var(--border);
                     color:var(--text-primary);padding:8px 14px;border-radius:4px;font-size:0.9em;">
-      <button @click="loadCustom()"
-              style="padding:8px 22px;background:var(--accent);color:var(--bg-primary);
-                     border:none;border-radius:4px;cursor:pointer;font-weight:700;font-size:0.9em;">
-        Apply
+      <button @click="loadCustom()" :disabled="customLoading"
+              :style="'padding:8px 22px;background:var(--accent);color:var(--bg-primary);
+                     border:none;border-radius:4px;font-weight:700;font-size:0.9em;' +
+                     (customLoading ? 'cursor:not-allowed;opacity:0.6;' : 'cursor:pointer;')"
+              x-text="customLoading ? 'Loading…' : 'Apply'">
       </button>
     </div>
 
@@ -965,8 +1025,27 @@
           </div>
         </div>
 
-        <!-- By Brand + Fail Reasons -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+        <!-- By Brand + By Grade + Fail Reasons -->
+        <div class="three-col-stats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px;">
+          <div class="detail-panel" style="padding:16px 20px;border:1px solid rgba(59,130,246,0.25);">
+            <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
+                        letter-spacing:0.06em;color:#818cf8;margin-bottom:14px;">By Grade</div>
+            <template x-if="!(custom.by_grade ?? []).length">
+              <div style="color:var(--text-secondary);font-size:0.88em;">No grade data</div>
+            </template>
+            <template x-for="item in (custom.by_grade ?? [])" :key="item.grade">
+              <div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+                  <span style="font-size:0.9em;" x-text="'Grade ' + item.grade"></span>
+                  <span style="font-weight:700;" :style="'color:' + gradeColor(item.grade)" x-text="item.count"></span>
+                </div>
+                <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+                  <div style="height:100%;border-radius:2px;transition:width 0.5s;"
+                       :style="'width:' + item.pct + '%; background:' + gradeColor(item.grade)"></div>
+                </div>
+              </div>
+            </template>
+          </div>
           <div class="detail-panel" style="padding:16px 20px;">
             <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;
                         letter-spacing:0.06em;color:var(--accent);margin-bottom:14px;">By Brand</div>

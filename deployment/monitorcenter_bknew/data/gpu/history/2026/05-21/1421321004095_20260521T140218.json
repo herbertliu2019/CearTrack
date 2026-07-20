@@ -1,0 +1,62 @@
+{
+  "module": "gpu",
+  "sn": "1421321004095",
+  "timestamp": "2026-05-21 14:02:18",
+  "overall_result": "INFO_ONLY",
+  "summary": "GPU:Quadro P400 VRAM:2048MB MODE:INFO_ONLY",
+  "hostname": "GPUTESTSTATION2",
+  "payload": {
+    "test_info": {
+      "test_time": "2026-05-21 14:02:18",
+      "test_station": "GPUTESTSTATION2",
+      "test_tier": "INFO_ONLY",
+      "script_version": "1.1.0",
+      "burn_duration_seconds": 120,
+      "glmark2_duration_seconds": 0,
+      "total_duration_seconds": 6
+    },
+    "gpu": {
+      "vendor": "NVIDIA",
+      "name": "Quadro P400",
+      "chip": "GP107GL",
+      "vram_mb": 2048,
+      "vram_type": "GDDR5",
+      "vram_bus_width": 64,
+      "vram_bandwidth_gbps": 32.1,
+      "driver_version": "535.309.01",
+      "legacy_driver_needed": "",
+      "bios_version": "86.07.8F.00.0A",
+      "pcie_gen": 3,
+      "pcie_gen_current": 1,
+      "pcie_width_current": 4,
+      "pcie_width_max": 16,
+      "clock_gpu_mhz": 1252,
+      "clock_mem_mhz": 2005,
+      "power_limit_w": "N/A",
+      "subvendor": "Dell GP107GL [Quadro P400]",
+      "device_id": "10DE:1CB3",
+      "gpu_sn": "1421321004095"
+    },
+    "thermal": {
+      "temp_max_c": 0,
+      "temp_avg_c": 0,
+      "util_avg_pct": 0,
+      "power_max_w": 0,
+      "thermal_log_path": "/tmp/gpu_logs/thermal_20260521_140212.log"
+    },
+    "vram_test": {
+      "tool": "skipped",
+      "duration_seconds": 120,
+      "errors": 0,
+      "status": "SKIPPED"
+    },
+    "vulkan_benchmark": {
+      "tool": "glmark2",
+      "resolution": "1920x1080",
+      "score": 0,
+      "status": "SKIPPED"
+    },
+    "dmesg_gpu_errors": [],
+    "overall_result": "INFO_ONLY"
+  }
+}

@@ -695,10 +695,11 @@
       <input type="date" x-model="customTo"
              style="background:#0d1a2e;border:1px solid var(--border);
                     color:var(--text-primary);padding:8px 14px;border-radius:4px;font-size:0.9em;">
-      <button @click="loadCustom()"
-              style="padding:8px 22px;background:var(--accent);color:#0d1520;
-                     border:none;border-radius:4px;cursor:pointer;font-weight:700;font-size:0.9em;">
-        Apply
+      <button @click="loadCustom()" :disabled="customLoading"
+              :style="'padding:8px 22px;background:var(--accent);color:#0d1520;
+                     border:none;border-radius:4px;font-weight:700;font-size:0.9em;' +
+                     (customLoading ? 'cursor:not-allowed;opacity:0.6;' : 'cursor:pointer;')"
+              x-text="customLoading ? 'Loading…' : 'Apply'">
       </button>
     </div>
 
@@ -916,6 +917,7 @@ function wipeApp() {
 
     customFrom:  '',
     customTo:    '',
+    customLoading: false,
     lastScanned: '',
     detailOpen:  null,
     copied:      null,
@@ -988,10 +990,15 @@ function wipeApp() {
     },
 
     async loadCustom() {
-      if (!this.customFrom || !this.customTo) return;
-      const url = `/wipe/api/stats?period=custom&start=${this.customFrom}&end=${this.customTo}`;
-      const r = await fetch(url).then(r => r.json());
-      this.custom = r;
+      if (!this.customFrom || !this.customTo || this.customLoading) return;
+      this.customLoading = true;
+      try {
+        const url = `/wipe/api/stats?period=custom&start=${this.customFrom}&end=${this.customTo}`;
+        const r = await fetch(url).then(r => r.json());
+        this.custom = r;
+      } finally {
+        this.customLoading = false;
+      }
     },
 
     async runSearch() {

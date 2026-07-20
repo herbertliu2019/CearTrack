@@ -139,3 +139,38 @@ sudo systemctl restart nginx
 curl http://localhost:5004/
 # 应该返回 HTML
 ```
+
+
+
+
+command:
+GPU report:
+
+
+# PDF 重新生成（可选）
+/opt/monitorcenter/venv/bin/python3 /opt/monitorcenter/scripts/backfill_gpu_pdfs.py --overwrite
+
+
+update laptop or gpu script in monitorcenter:
+
+Laptop:
+
+bash deploy_script.sh laptop_test.sh
+
+GPU script:
+
+bash deploy_script.sh gpu_test.sh
+
+sync cpu test data from sharepoint:
+
+1.source /opt/monitorcenter/venv/bin/activate
+2.python /opt/monitorcenter/sharepoint_sync_incremental.py --full
+
+
+
+full scan in command:
+
+curl -X POST "http://192.168.30.18:5004/cpu/api/scan?full=1"
+
+sqlite3 /opt/monitorcenter/data/cpu/cpu.db \
+  "SELECT COUNT(*) FROM cpu_records WHERE image_path IS NOT NULL;"

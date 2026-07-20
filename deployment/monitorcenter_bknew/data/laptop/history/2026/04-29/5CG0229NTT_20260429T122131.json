@@ -1,0 +1,113 @@
+{
+  "module": "laptop",
+  "sn": "5CG0229NTT",
+  "timestamp": "2026-04-29T12:21:31Z",
+  "overall_result": "PASS",
+  "summary": "All tests passed",
+  "hostname": "test",
+  "payload": {
+    "test_info": {
+      "test_time": "2026-04-29T12:21:31Z",
+      "hostname": "test",
+      "script_version": "2.0.0"
+    },
+    "system": {
+      "vendor": "HP",
+      "model": "HP ProBook 640 G5",
+      "serial_number": "5CG0229NTT",
+      "bios_version": "R72 Ver. 01.26.00"
+    },
+    "cpu": {
+      "model": "Intel(R) Core(TM) i7-8665U CPU @ 1.90GHz",
+      "cores": 8,
+      "threads": 8,
+      "max_mhz": "4800",
+      "architecture": "x86_64"
+    },
+    "memory": {
+      "total_gb": "15.4",
+      "type": "DDR4",
+      "speed": "2667 MT/s",
+      "slots_total": 2,
+      "slots_used": 1
+    },
+    "storage": [
+      {
+        "device": "nvme0n1",
+        "model": "PM981 NVMe Samsung 256GB",
+        "serial": "S443NX0M353504",
+        "size": "238.5G",
+        "type": "SSD NVMe",
+        "smart": "PASSED",
+        "power_on_hours": "24,639",
+        "ssd_health_percent": "97",
+        "ssd_grade": "A",
+        "ssd_available_spare": "100%",
+        "ssd_data_written": "13.4 TB"
+      }
+    ],
+    "battery": {
+      "manufacturer": "Hewlett-Packard",
+      "model": "Primary",
+      "health_percent": "69.8",
+      "current_percent": "98",
+      "cycle_count": "118",
+      "voltage_v": "12.24",
+      "battery_condition": "OK",
+      "status": "PASS"
+    },
+    "screen": {
+      "resolution": "1366x768",
+      "interface": "unknown",
+      "dead_pixel_check": "PASS",
+      "backlight_check": "PASS"
+    },
+    "camera": {
+      "device_status": "NOT_FOUND",
+      "device_count": 0,
+      "driver_type": "unknown",
+      "capture_method": "none",
+      "capture_result": "SKIPPED",
+      "driver_note": "no_hardware",
+      "image_base64": ""
+    },
+    "audio": {
+      "speaker_device_status": "4",
+      "mic_device_status": "1",
+      "speaker_quality_check": "PASS",
+      "mic_record_check": "PASS",
+      "speaker_card_used": "0",
+      "mic_card_used": "0"
+    },
+    "keyboard": {
+      "device_status": "1",
+      "keys_check": "PASS",
+      "touchpad_check": "PASS"
+    },
+    "network": {
+      "wifi_status": "PASS",
+      "wifi_device": "wlp1s0",
+      "ethernet_status": "PASS",
+      "ethernet_device": "enxa0cec8373e5c",
+      "internet_test": "PASS",
+      "internet_test_via": "enxa0cec8373e5c"
+    },
+    "ports": {
+      "usb_device_count": 8,
+      "usb3_count": 1,
+      "physical_check": "PASS"
+    },
+    "appearance": {
+      "hinge_check": "PASS",
+      "scratch_check": "PASS"
+    },
+    "kernel_health": {
+      "status": "PASS",
+      "fail_count": 0,
+      "warn_count": 0,
+      "matched_signals": []
+    },
+    "overall_result": "PASS"
+  },
+  "warnings": []
+}

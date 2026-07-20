@@ -1,0 +1,340 @@
+--- IPDT64 - Revision: 4.1.9.41
+--- IPDT64 - Start Time: 6/29/2026 9:17:03 AM
+
+CPU1
+Genuine Intel CPU Test
+Module Version: 1.0.26.64b.W
+Start Time: Mon Jun 29 09:17:04 2026
+Test Result - PASS 
+Expected: GenuineIntel
+Detected: GenuineIntel
+End Time: Mon Jun 29 09:17:04 2026
+Total Time: in seconds: 0
+--------------------------------------------------------------------
+CPU1
+CPU Brand String Test
+Module Version: 1.0.28.64b.W
+Start Time: Mon Jun 29 09:17:04 2026
+Test Result - PASS 
+Expected: Intel(R) Core(TM) 
+Detected: 12th Gen Intel(R) Core(TM) i7-12700
+Intel(R) Core(TM) processor detected..!!..
+End Time: Mon Jun 29 09:17:04 2026
+Total Time: in seconds: 0
+--------------------------------------------------------------------
+CPU1
+Cache Test
+Module Version: 1.0.24.64b.W
+Start Time: Mon Jun 29 09:17:04 2026
+Test Result - PASS
+
+ --- Reading Cache Size ---  
+
+- Detected L1 Data Cache Size --> 48
+- Detected L1 Inst Cache Size --> 32
+
+- Detected L2 Cache Size --> 1280
+- Detected L3 Cache Size --> 25600
+
+Cache Size Test Passed!!!
+
+End Time: Mon Jun 29 09:17:04 2026
+Total Time: in seconds: 0
+--------------------------------------------------------------------
+CPU1
+MMXSSE Test
+Module Version: 1.0.30.64b.W
+Start Time: Mon Jun 29 09:17:04 2026
+Test Result - PASS
+
+DetectUtils64 DLL Version - 1.1.9
+
+ --- Determining MMX - SSE capabilities --- 
+..MMX is supported on this CPU..
+..SSE is supported on this CPU..
+..SSE2 is supported on this CPU..
+..SSE3 is supported on this CPU..
+..SSSE3 is supported on this CPU..
+..SSE4.1 is supported on this CPU..
+..SSE4.2 is supported on this CPU..
+
+MMX Test Result --- PASS
+SSE Test Result --- PASS
+SSE2 Test Result --- PASS
+SSE3 Test Result --- PASS
+SSSE3 Test Result --- PASS
+SSE4.1 Test Result --- PASS
+SSE4.2 Test Result --- PASS
+
+End Time: Mon Jun 29 09:17:04 2026
+Total Time: in seconds: 0
+--------------------------------------------------------------------
+CPU1
+IMC Test
+Module Version: 1.0.26.64b.W
+Start Time: Mon Jun 29 09:17:04 2026
+Test Result - PASS
+--- Reading Memory Size --- 
+Detected Memory Size is --> 16.00GB
+--- Subtest - Memory Size Test Passed!!!  ---
+--- Integrated Memory Controller Stress Test --- 
+Memory to be allocated = 1048576 bytes
+Memory Allocated.
+Test 1 Ones and Zeros Moving Inversions write operations - Passed
+Test 1 Ones and Zeros Moving Inversions verification operations - Passed
+Test 2 32Bits Sliding Ones write operations - Passed
+Test 2 32Bits Sliding Ones verification operations - Passed
+Test 3 32Bits Sliding Zero write operations - Passed
+Test 3 32Bits Sliding Zero verification operations - Passed
+Memory Deallocated.
+--- Subtest - Memory Stress Test Passed!!!  ---
+Integrated Memory Controller Test Passed!!!
+End Time: Mon Jun 29 09:17:04 2026
+Total Time: in seconds: 0
+--------------------------------------------------------------------
+CPU1
+Parallel_PrimeNum Test
+Module Version: 1.0.0.13
+Start Time: 6/29/2026 9:17:05 AM
+Test Result - PASS
+ 
+Module GraphicsW.exe Completed - Pass
+Module Math_PrimeNum.exe Completed - Pass
+ 
+ 
+GraphicsW Module Test
+Module Version: 1.0.10.64b.W
+Start Time: Mon Jun 29 09:17:05 2026
+GraphicsW Module Test: PASS
+End Time: Mon Jun 29 09:17:51 2026
+Total Time: in seconds: 46
+ 
+ 
+Prime Number Generation Test
+Module Version: 1.0.29.64b.W
+Start Time: Mon Jun 29 09:17:05 2026
+DetectUtils64 DLL Version - 1.1.9
+AVX is supported in your OS
+Max AVX supported = AVX2
+Test Result - PASS
+Operation Per Second: 547228
+Error: 0
+--- Prime Number Generation Test Passed!!!---
+End Time: Mon Jun 29 09:17:50 2026
+Total Time: in seconds: 45
+ 
+Parallel_PrimeNum
+End Time: 6/29/2026 9:17:51 AM
+--------------------------------------------------------------------
+CPU1
+Parallel_FP Test
+Module Version: 1.0.0.13
+Start Time: 6/29/2026 9:17:51 AM
+Test Result - PASS
+ 
+Module GraphicsW.exe Completed - Pass
+Module AVX.exe Completed - Pass
+Module Math_FP.exe Completed - Pass
+ 
+ 
+GraphicsW Module Test
+Module Version: 1.0.10.64b.W
+Start Time: Mon Jun 29 09:17:51 2026
+GraphicsW Module Test: PASS
+End Time: Mon Jun 29 09:18:37 2026
+Total Time: in seconds: 46
+ 
+ 
+AVX Test
+Module Version: 2.0.31.64b.W
+Start Time: Mon Jun 29 09:17:51 2026
+Test Result - PASS
+
+DetectUtils64 DLL Version - 1.1.9
+
+  --- CPU Features Detection --- 
+..AVX is supported by this CPU..
+..AVX2 is supported by this CPU..
+..AVX512BW is NOT supported by this CPU..
+..AVX512CD is NOT supported by this CPU..
+..AVX512DQ is NOT supported by this CPU..
+..AVX512ER is NOT supported by this CPU..
+..AVX512F is NOT supported by this CPU..
+..AVX512IFMA52 is NOT supported by this CPU..
+..AVX512PF is NOT supported by this CPU..
+..AVX512VBMI is NOT supported by this CPU..
+..AVX512VL is NOT supported by this CPU..
+..AES is supported by this CPU..
+..PCLMULQDQ is supported by this CPU..
+
+..AVX is supported by this Operating System..
+
+Most Advanced AVX Feature Detected.. AVX2
+AVX2 Test Result --- PASS
+AES Test Result --- PASS
+PCLMULQDQ Test Result --- PASS
+
+End Time: Mon Jun 29 09:18:36 2026
+Total Time: in seconds: 45
+ 
+ 
+Floating Point Test
+Module Version: 1.0.28.64b.W
+Start Time: Mon Jun 29 09:17:51 2026
+DetectUtils64 DLL Version - 1.1.9
+AVX is supported in your OS
+Max AVX supported = AVX2
+FMA3 supported
+Test Result - PASS
+Million Floating Points per Second, MFLOPS: 4.875
+Error: 0
+--- Floating Point Test Passed!!!---
+End Time: Mon Jun 29 09:18:36 2026
+Total Time: in seconds: 45
+ 
+Parallel_FP
+End Time: 6/29/2026 9:18:37 AM
+--------------------------------------------------------------------
+CPU1
+Parallel_Math Test
+Module Version: 1.0.0.13
+Start Time: 6/29/2026 9:18:37 AM
+Test Result - PASS
+ 
+Module GraphicsW.exe Completed - Pass
+Module Math_PrimeNum.exe Completed - Pass
+Module FMA3.exe Completed - Pass
+ 
+ 
+GraphicsW Module Test
+Module Version: 1.0.10.64b.W
+Start Time: Mon Jun 29 09:18:37 2026
+GraphicsW Module Test: PASS
+End Time: Mon Jun 29 09:19:23 2026
+Total Time: in seconds: 46
+ 
+ 
+Prime Number Generation Test
+Module Version: 1.0.29.64b.W
+Start Time: Mon Jun 29 09:18:37 2026
+DetectUtils64 DLL Version - 1.1.9
+AVX is supported in your OS
+Max AVX supported = AVX2
+Test Result - PASS
+Operation Per Second: 390960
+Error: 0
+--- Prime Number Generation Test Passed!!!---
+End Time: Mon Jun 29 09:19:22 2026
+Total Time: in seconds: 45
+ 
+ 
+FMA3 Test
+Module Version: 1.0.29.64b.W
+Start Time: Mon Jun 29 09:18:37 2026
+Test Result - PASS
+
+DetectUtils64 DLL Version - 1.1.9
+
+  --- CPU Features Detection --- 
+..FMA3 is supported by this CPU..
+..FMA3 is supported by this Operating System..
+
+FMA3 Test Result --- PASS
+
+End Time: Mon Jun 29 09:19:22 2026
+Total Time: in seconds: 45
+ 
+Parallel_Math
+End Time: 6/29/2026 9:19:23 AM
+--------------------------------------------------------------------
+CPU1
+Parallel_GPUStressW Test
+Module Version: 1.0.0.13
+Start Time: 6/29/2026 9:19:23 AM
+Test Result - PASS
+ 
+Module GPUStressW.exe Completed - Pass
+Module Math_PrimeNum.exe Completed - Pass
+Module Math_FP.exe Completed - Pass
+ 
+ 
+GPUStressW Module Test
+Module Version: 1.0.22.64b.W
+Start Time: Mon Jun 29 09:19:23 2026
+GPUStressW Module Test: PASS
+End Time: Mon Jun 29 09:19:53 2026
+Total Time: in seconds: 30
+ 
+ 
+Prime Number Generation Test
+Module Version: 1.0.29.64b.W
+Start Time: Mon Jun 29 09:19:23 2026
+DetectUtils64 DLL Version - 1.1.9
+AVX is supported in your OS
+Max AVX supported = AVX2
+Test Result - PASS
+Operation Per Second: 1252784
+Error: 0
+--- Prime Number Generation Test Passed!!!---
+End Time: Mon Jun 29 09:19:53 2026
+Total Time: in seconds: 30
+ 
+ 
+Floating Point Test
+Module Version: 1.0.28.64b.W
+Start Time: Mon Jun 29 09:19:23 2026
+DetectUtils64 DLL Version - 1.1.9
+AVX is supported in your OS
+Max AVX supported = AVX2
+FMA3 supported
+Test Result - PASS
+Million Floating Points per Second, MFLOPS: 44.07
+Error: 0
+--- Floating Point Test Passed!!!---
+End Time: Mon Jun 29 09:19:53 2026
+Total Time: in seconds: 30
+ 
+Parallel_GPUStressW
+End Time: 6/29/2026 9:19:53 AM
+--------------------------------------------------------------------
+CPU1
+DGEMM Stress Test
+Module Version: 1.0.17.64b.W
+Start Time: Mon Jun 29 09:19:53 2026
+Test Result - PASS
+
+DetectUtils64 DLL Version - 1.1.9
+
+  --- CPU Features Detection --- 
+..AVX is supported by this Operating System..
+
+Most Advanced AVX Feature Detected.. AVX2
+DGEMM AVX2 Test Result --- PASS
+
+End Time: Mon Jun 29 09:20:53 2026
+Total Time: in seconds: 60
+--------------------------------------------------------------------
+CPU1
+Frequency Check
+Module Version: 1.0.7.64b.W
+Start Time: Mon Jun 29 09:20:53 2026
+Test Result - NO COMPARE OPTION USED
+Processor Name: 12th Gen Intel(R) Core(TM) i7-12700
+Measured Processor Frequency: 2.111741
+End Time: Mon Jun 29 09:20:54 2026
+Total Time: in seconds: 1
+--------------------------------------------------------------------
+
+System Information
+------------------
+Processor Name: 12th Gen Intel(R) Core(TM) i7-12700
+Processor Information: Family 6 Model 97 Stepping 2
+Number of Physical Cores: 12
+Number of Logical Cores: 20
+Operating System: Microsoft Windows 10 Home 64-bit
+Graphics Information: Intel(R) UHD Graphics 770
+--------------------------------------------------------------------
+
+--- IPDT64 - End Time: 6/29/2026 9:20:54 AM
+--- IPDT64 - Result: Pass
+--------------------------------------------------------------------

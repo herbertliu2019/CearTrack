@@ -367,7 +367,9 @@
           <input type="date" x-model="customEnd"
                  style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;
                         padding:6px 10px;color:var(--text-primary);font-size:0.85em;">
-          <button class="tab-btn active" @click="loadCustom()">Apply</button>
+          <button class="tab-btn active" @click="loadCustom()" :disabled="customLoading"
+                  :style="customLoading ? 'cursor:not-allowed;opacity:0.6;' : ''"
+                  x-text="customLoading ? 'Loading…' : 'Apply'"></button>
         </div>
       </template>
     </div><!-- /row 2 -->
@@ -727,6 +729,7 @@ function cpuApp() {
     searched:      false,
     customStart:   '',
     customEnd:     '',
+    customLoading: false,
     expandedId:    null,
     scanning:      false,
     scanStatus:    null,
@@ -769,9 +772,14 @@ function cpuApp() {
     },
 
     async loadCustom() {
-      if (!this.customStart || !this.customEnd) return;
-      this.periodLabel = 'Custom';
-      await this.loadStats('custom', this.customStart, this.customEnd);
+      if (!this.customStart || !this.customEnd || this.customLoading) return;
+      this.customLoading = true;
+      try {
+        this.periodLabel = 'Custom';
+        await this.loadStats('custom', this.customStart, this.customEnd);
+      } finally {
+        this.customLoading = false;
+      }
     },
 
     async search() {

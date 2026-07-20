@@ -9,13 +9,14 @@ function laptopApp(moduleName) {
     searched: false,
 
     // Per-tab data
-    today:  { stats: {}, records: [] },
-    week:   { stats: null, by_brand: [], fail_reasons: [], daily: [], records: [], start: null, end: null },
-    month:  { stats: null, by_brand: [], fail_reasons: [], daily: [], records: [], start: null, end: null },
-    custom: { stats: null, by_brand: [], fail_reasons: [], daily: [], records: [] },
+    today:  { stats: {}, by_grade: [], records: [] },
+    week:   { stats: null, by_brand: [], by_grade: [], fail_reasons: [], daily: [], records: [], start: null, end: null },
+    month:  { stats: null, by_brand: [], by_grade: [], fail_reasons: [], daily: [], records: [], start: null, end: null },
+    custom: { stats: null, by_brand: [], by_grade: [], fail_reasons: [], daily: [], records: [] },
 
     customFrom: '',
     customTo:   '',
+    customLoading: false,
     detailOpen: null,   // single record expand key
     openSections: {},   // brand/day expand keys
     groupBy: 'date',    // 'date' | 'operator'  (week/month/custom)
@@ -44,8 +45,13 @@ function laptopApp(moduleName) {
       const passed = records.filter(r => r.overall_result === 'PASS').length;
       const warned = records.filter(r => r.overall_result === 'WARN').length;
       const failed = records.filter(r => r.overall_result === 'FAIL').length;
+
+      const statsR = await fetch(`/${this.moduleName}/api/stats`);
+      const statsD = await statsR.json();
+
       this.today = {
         stats: { total, passed, warned, failed, pass_rate: total ? Math.round(passed / total * 100) : 0 },
+        by_grade: statsD.by_grade ?? [],
         records,
       };
     },
@@ -56,6 +62,7 @@ function laptopApp(moduleName) {
       this.week = {
         stats:       { total: d.total, passed: d.passed, warned: d.warned ?? 0, failed: d.failed, pass_rate: d.pass_rate },
         by_brand:    (d.brands    ?? []).map(([name, count]) => ({ name, count })),
+        by_grade:    d.by_grade ?? [],
         fail_reasons:(d.fail_reasons ?? []).map(([reason, count]) => ({ reason, count })),
         daily:       d.daily ?? [],
         records:     d.records ?? [],
@@ -70,6 +77,7 @@ function laptopApp(moduleName) {
       this.month = {
         stats:       { total: d.total, passed: d.passed, warned: d.warned ?? 0, failed: d.failed, pass_rate: d.pass_rate },
         by_brand:    (d.brands    ?? []).map(([name, count]) => ({ name, count })),
+        by_grade:    d.by_grade ?? [],
         fail_reasons:(d.fail_reasons ?? []).map(([reason, count]) => ({ reason, count })),
         daily:       d.daily ?? [],
         records:     d.records ?? [],
@@ -79,16 +87,22 @@ function laptopApp(moduleName) {
     },
 
     async loadCustom() {
-      if (!this.customFrom || !this.customTo) return;
-      const url = `/${this.moduleName}/api/stats/range?from=${this.customFrom}&to=${this.customTo}`;
-      const d = await (await fetch(url)).json();
-      this.custom = {
-        stats:       { total: d.total, passed: d.passed, warned: d.warned ?? 0, failed: d.failed, pass_rate: d.pass_rate },
-        by_brand:    (d.brands    ?? []).map(([name, count]) => ({ name, count })),
-        fail_reasons:(d.fail_reasons ?? []).map(([reason, count]) => ({ reason, count })),
-        daily:       d.daily ?? [],
-        records:     d.records ?? [],
-      };
+      if (!this.customFrom || !this.customTo || this.customLoading) return;
+      this.customLoading = true;
+      try {
+        const url = `/${this.moduleName}/api/stats/range?from=${this.customFrom}&to=${this.customTo}`;
+        const d = await (await fetch(url)).json();
+        this.custom = {
+          stats:       { total: d.total, passed: d.passed, warned: d.warned ?? 0, failed: d.failed, pass_rate: d.pass_rate },
+          by_brand:    (d.brands    ?? []).map(([name, count]) => ({ name, count })),
+          by_grade:    d.by_grade ?? [],
+          fail_reasons:(d.fail_reasons ?? []).map(([reason, count]) => ({ reason, count })),
+          daily:       d.daily ?? [],
+          records:     d.records ?? [],
+        };
+      } finally {
+        this.customLoading = false;
+      }
     },
 
     async runSearch() {
@@ -204,6 +218,11 @@ function laptopApp(moduleName) {
       if (result === 'PASS') return 'pass';
       if (result === 'FAIL') return 'fail';
       return 'warn';
+    },
+
+    gradeColor(grade) {
+      const colors = { A: '#22c55e', B: '#3b82f6', C: '#f43f5e' };
+      return colors[grade] || 'var(--text-secondary)';
     },
 
     fmtRange(start, end) {

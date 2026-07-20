@@ -1,0 +1,216 @@
+下面是一套按"从底层往上层"排查的流程,每步都有明确的判断点。**先 `sudo -i` 切 root**,所有命令都需要 root。
+
+## Step 0 — 先抓一份全景快照(便于对比)
+
+```bash
+sudo -i
+lspci -nnk | grep -iA3 -E "network|wireless"
+lsmod | grep -E "iwlwifi|iwlmvm|iwldvm|ath|rtw|mt76|cfg80211|mac80211"
+rfkill list
+iw dev
+ip link
+dmesg | grep -iE "iwlwifi|ath1?0?k|rtw|mt76|firmware" | tail -30
+```
+把这几条的输出留着,后面每一步都靠它判断。
+
+---
+
+## Step 1 — 硬件在不在?(最底层)
+
+```bash
+lspci -nnk | grep -iA3 -E "network|wireless"
+```
+
+**看什么:**
+- **完全没输出** → PCI 上根本没有无线网卡。原因:BIOS 里 WLAN/无线被禁用、Intel CNVi 被关、或网卡物理松动/被拆。→ **进 BIOS 检查 WLAN 开关**,这一层软件救不了。
+- **有输出**,类似:
+  ```
+  00:14.3 Network controller [0280]: Intel Corporation Wi-Fi 6 AX201 [8086:a0f0]
+      Subsystem: ...
+      Kernel driver in use: iwlwifi        ← 关键行 A
+      Kernel modules: iwlwifi              ← 关键行 B
+  ```
+
+USB 网卡(转接/内置 USB)另查:
+```bash
+lsusb | grep -iE "wlan|wireless|802\.11|wi-?fi"
+```
+
+---
+
+## Step 2 — 驱动绑上没有?
+
+看 Step 1 里的 **`Kernel driver in use:`**
+
+- **这一行不存在** → 驱动没绑上。手动加载:
+  ```bash
+  modprobe iwlwifi          # Intel
+  # 其他卡按 Kernel modules 那行提示的名字
+  ```
+- **有 `Kernel driver in use: iwlwifi`** → 驱动绑好了,进 Step 3。
+
+顺便确认 Intel 的 **op-mode 模块**(这是最常见的坑):
+```bash
+lsmod | grep -E "iwlwifi|iwlmvm|iwldvm"
+```
+- 只有 `iwlwifi`、**没有 `iwlmvm`(或老卡的 `iwldvm`)** → **不会生成 wlan0 接口**。补:
+  ```bash
+  modprobe iwlmvm     # 新卡(AX200/AX201/AC9560 等)
+  modprobe iwldvm     # 老卡(6205/6300 等)
+  ```
+
+---
+
+## Step 3 — 固件加载成功没?(软件修不了的一类)
+
+```bash
+dmesg | grep -i iwlwifi | head -20
+```
+
+**好的样子:**
+```
+iwlwifi 0000:00:14.3: loaded firmware version 66.f1c864e0.0 op_mode iwlmvm
+```
+
+**坏的样子:**
+```
+iwlwifi 0000:00:14.3: Direct firmware load for iwlwifi-so-a0-gf-a0-83.ucode failed with error -2
+iwlwifi 0000:00:14.3: no suitable firmware found!
+```
+→ **Live USB 里缺这个固件文件**。确认本地有哪些:
+```bash
+ls /lib/firmware/ | grep -i iwlwifi | head -20
+```
+把 dmesg 里要求的那个 `.ucode` 文件名和上面列表对比。缺 → 这台在 Live USB 上测不出 WiFi,**不代表卡坏**(需要更新 linux-firmware 或进正式系统验证)。
+
+---
+
+## Step 4 — rfkill 阻断?
+
+```bash
+rfkill list
+```
+
+**输出:**
+```
+1: phy0: Wireless LAN
+    Soft blocked: yes      ← 软件阻断,可以解
+    Hard blocked: no
+```
+
+- **Soft blocked: yes** → 软阻断,解开:
+  ```bash
+  rfkill unblock all
+  # 如果解不开,toggle 一下复位卡住的状态:
+  rfkill block wifi; sleep 1; rfkill unblock wifi
+  ```
+- **Hard blocked: yes** → **物理开关或 BIOS 关的**,软件无解。→ 找机身侧面的无线开关/`Fn+F2` 之类的快捷键,或进 BIOS 开 WLAN。
+
+---
+
+## Step 5 — 接口出来没?
+
+```bash
+iw dev            # 看有没有 Interface wlan0/wlp2s0
+iw phy | head -5  # 看有没有 phy0
+ip link
+ls /sys/class/net/
+```
+
+**关键分辨:**
+- **有 `phy0` 但 `iw dev` 里没有 Interface** → 射频层在、网络接口没建 → 典型就是 **op-mode 模块缺失**(回 Step 2 补 `iwlmvm`)。
+- **`iw dev` 有接口**(比如 wlp2s0)→ 驱动层 OK,拉起来:
+  ```bash
+  ip link set wlp2s0 up
+  ```
+
+---
+
+## Step 6 — NetworkManager 层
+
+```bash
+nmcli radio wifi          # 应为 enabled
+nmcli device status       # 看 wifi 设备是 unmanaged 还是 disconnected
+systemctl status NetworkManager
+```
+- `nmcli radio wifi` 是 **disabled** → `nmcli radio wifi on`
+- 设备显示 **unmanaged** → NM 没接管:
+  ```bash
+  nmcli device set wlp2s0 managed yes
+  systemctl restart NetworkManager
+  ```
+
+---
+
+## Step 7 — 强制重置(前面都正常但还是不出来)
+
+按强度递增:
+
+```bash
+# 7a. sysfs 重绑(重新 probe + 重载固件,不用重启)
+SLOT=$(lspci -Dn | awk '$2 ~ /^0280/ {print $1; exit}'); echo "$SLOT"
+DRV=$(basename $(readlink -f /sys/bus/pci/devices/$SLOT/driver)); echo "$DRV"
+echo -n "$SLOT" > /sys/bus/pci/drivers/$DRV/unbind
+sleep 2
+echo -n "$SLOT" > /sys/bus/pci/drivers/$DRV/bind
+sleep 5; iw dev
+
+# 7b. 完整卸载重载(注意顺序:先卸 op-mode,否则 iwlwifi 被占用卸不掉)
+modprobe -r iwlmvm iwldvm
+modprobe -r iwlwifi
+sleep 2
+modprobe iwlwifi
+sleep 5
+lsmod | grep iwl        # 确认 iwlmvm 被自动带起来了
+iw dev
+```
+
+---
+
+## Step 8 — 验证网卡真的能工作(不只是"接口存在")
+
+```bash
+ip link set wlp2s0 up
+iw dev wlp2s0 scan | grep -c SSID     # 能扫到几个热点
+nmcli device wifi list                # 更直观
+```
+能扫到 SSID → 网卡**功能正常**,之前只是没起来。扫不到但接口在 → 天线没接/射频有问题。
+
+---
+
+## 排查决策速查表
+
+| 现象 | 结论 | 下一步 |
+|---|---|---|
+| `lspci` 无无线设备 | BIOS 关了 / 卡松了 | 进 BIOS 开 WLAN |
+| 无 `Kernel driver in use` | 驱动没绑 | `modprobe iwlwifi` |
+| 有 iwlwifi 无 iwlmvm | **op-mode 缺失** | `modprobe iwlmvm` |
+| dmesg `firmware ... failed` | Live USB 缺固件 | 非卡坏,换固件/进系统验证 |
+| `Hard blocked: yes` | 物理/BIOS 阻断 | 开无线开关 |
+| `Soft blocked: yes` | 软阻断 | `rfkill unblock all` |
+| 有 phy0 无 Interface | op-mode 缺失 | 回 Step 2 |
+| 接口在但扫不到 SSID | 天线/射频问题 | 查天线接头 |
+
+---
+
+最实用的建议:**碰到复现时,先把 Step 0 那一坨输出整个存下来**:
+```bash
+{ lspci -nnk | grep -iA3 -E "network|wireless"; echo ---; lsmod | grep -E "iwl|ath|rtw|mt76"; echo ---; rfkill list; echo ---; iw dev; echo ---; dmesg | grep -iE "iwlwifi|firmware" | tail -30; } > /tmp/wifi_debug.txt
+```
+把 `/tmp/wifi_debug.txt` 发我,我能直接定位卡在哪一层,不用猜。
+
+要我把这份排查手册存成 `laptop_client/WIFI_TROUBLESHOOTING.md` 吗?(你们 `gpu_client/` 下已经有 TROUBLESHOOTING.md 的先例)
+
+
+
+
+# ① 决定性证据 —— 告诉我们卡在哪一层
+dmesg | grep -i iwlwifi
+
+# ② op-mode 模块和射频层有没有起来
+lsmod | grep -E "iwlwifi|iwlmvm|cfg80211|mac80211"
+iw phy
+
+# ③ 固件文件在不在(CNVi AC 用 9000 系列固件)
+ls /lib/firmware/ | grep -i "iwlwifi-9000"
+rfkill list

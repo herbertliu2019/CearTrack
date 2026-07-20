@@ -1,0 +1,62 @@
+{
+  "module": "gpu",
+  "sn": "NVIDIA-SMI has failed because it",
+  "timestamp": "2026-05-20 13:52:09",
+  "overall_result": "INFO_ONLY",
+  "summary": "GPU:Quadro K2000 VRAM:2048MB MODE:INFO_ONLY",
+  "hostname": "test",
+  "payload": {
+    "test_info": {
+      "test_time": "2026-05-20 13:52:09",
+      "test_station": "test",
+      "test_tier": "INFO_ONLY",
+      "script_version": "1.1.0",
+      "burn_duration_seconds": 120,
+      "glmark2_duration_seconds": 0,
+      "total_duration_seconds": 19
+    },
+    "gpu": {
+      "vendor": "NVIDIA",
+      "name": "Quadro K2000",
+      "chip": "GK107GL",
+      "vram_mb": 2048,
+      "vram_type": "GDDR5",
+      "vram_bus_width": 128,
+      "vram_bandwidth_gbps": 0,
+      "driver_version": "Unsupported by driver 535 — needs 470.xx legacy",
+      "legacy_driver_needed": "470xx",
+      "bios_version": "N/A",
+      "pcie_gen": 1,
+      "pcie_gen_current": 1,
+      "pcie_width_current": 4,
+      "pcie_width_max": 16,
+      "clock_gpu_mhz": 0,
+      "clock_mem_mhz": 0,
+      "power_limit_w": "N/A",
+      "subvendor": "Hewlett-Packard Company GK107GL [Quadro K2000]",
+      "device_id": "10DE:0FFE",
+      "gpu_sn": "NVIDIA-SMI has failed because it"
+    },
+    "thermal": {
+      "temp_max_c": 0,
+      "temp_avg_c": 0,
+      "util_avg_pct": 0,
+      "power_max_w": 0,
+      "thermal_log_path": "/tmp/gpu_logs/thermal_20260520_135150.log"
+    },
+    "vram_test": {
+      "tool": "skipped",
+      "duration_seconds": 120,
+      "errors": 0,
+      "status": "SKIPPED"
+    },
+    "vulkan_benchmark": {
+      "tool": "glmark2",
+      "resolution": "1920x1080",
+      "score": 0,
+      "status": "SKIPPED"
+    },
+    "dmesg_gpu_errors": [],
+    "overall_result": "INFO_ONLY"
+  }
+}

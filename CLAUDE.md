@@ -1,4 +1,7 @@
 # CearTrack — Monitorcenter Project
+## General Guidelines
+- Speak as concisely as possible. Skip all pleasantries and greetings.
+- Never run automated test suites, build scripts, or formatters unless explicitly commanded.
 
 ## Project Overview
 回收公司（Cear）硬件检测日志聚合平台，两个关联子项目：

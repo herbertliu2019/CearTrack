@@ -166,6 +166,28 @@ class LaptopModule(TestModule):
         return sns
 
 
+def _compute_by_grade(records):
+    """Grade distribution in fixed order A, B, C. Records without a grade
+    field are skipped entirely (not counted in numerator or denominator).
+
+    Raw value is like "Grade B" — take the trailing letter.
+    """
+    counts = {"A": 0, "B": 0, "C": 0}
+    for r in records:
+        raw = r.get("payload", {}).get("manual_input", {}).get("grade", "")
+        grade = (raw or "").strip().split()[-1] if raw else ""
+        if grade in counts:
+            counts[grade] += 1
+
+    total_graded = sum(counts.values())
+    result = []
+    for g in ["A", "B", "C"]:
+        count = counts[g]
+        pct = round(count / total_graded * 100) if total_graded else 0
+        result.append({"grade": g, "count": count, "pct": pct})
+    return result
+
+
 _module = LaptopModule()
 blueprint = Blueprint(
     "laptop",
@@ -258,6 +280,7 @@ def api_stats():
         "warning": warn_count,
         "fail": fail_count,
         "pass_rate": round(pass_count / total * 100, 1) if total else 0,
+        "by_grade": _compute_by_grade(records),
     })
 
 
@@ -382,6 +405,7 @@ def api_stats_range():
 
     brands_sorted = sorted(brands.items(), key=lambda x: x[1], reverse=True)
     fail_reasons_sorted = sorted(fail_reasons.items(), key=lambda x: x[1], reverse=True)
+    by_grade = _compute_by_grade(records)
 
     record_list = [
         {
@@ -405,6 +429,7 @@ def api_stats_range():
         "failed":       failed,
         "pass_rate":    round(passed / total * 100, 1) if total else 0,
         "brands":       brands_sorted,
+        "by_grade":     by_grade,
         "fail_reasons": fail_reasons_sorted,
         "daily":        daily,
         "records":      record_list,

@@ -8,7 +8,7 @@
 UPLOAD_URL="http://192.168.30.18:80/laptop/api/upload"
 # Single source of truth for the script version. Bump this on every release and
 # keep server-side version.txt in sync (deploy_script.sh extracts it from here).
-SCRIPT_VERSION="2.0.0"
+SCRIPT_VERSION="2.3.0"
 REPORT_FILE=""  # set after SYS_SERIAL is collected
 PASS="PASS"
 FAIL="FAIL"
@@ -541,23 +541,45 @@ sys.stdout.buffer.write(buf.getvalue())
   fi
 
   REC_FILE="/tmp/mic_test_$$.wav"
-  echo "  Recording 3 seconds... Please speak now."
+  echo "  Recording 3 seconds... Please speak into the microphone now."
   AREC_DEV=()
   [[ -n "$MIC_DEV" ]] && AREC_DEV=(-D "plughw:${MIC_DEV}")
 
   if arecord "${AREC_DEV[@]}" -f cd -d 3 -q "$REC_FILE" 2>/dev/null; then
     if [[ -f "$REC_FILE" && -s "$REC_FILE" ]]; then
-      echo "  Playing back the recording..."
-      APLAY_DEV=()
-      [[ -n "$AUDIO_CARD_USED" ]] && APLAY_DEV=(-D "plughw:${AUDIO_CARD_USED},0")
-      aplay -q "${APLAY_DEV[@]}" "$REC_FILE" 2>/dev/null
+      # Analyze amplitude to auto-detect voice — no playback needed.
+      # 16-bit PCM scale: -32768..32767. Normal speech peak >> 1500; background << 500.
+      MIC_ANALYSIS=$(python3 -c "
+import sys, wave, struct, math
+try:
+    with wave.open('$REC_FILE', 'rb') as wf:
+        frames = wf.readframes(wf.getnframes())
+        nchan = wf.getnchannels()
+        n = len(frames) // 2
+        if n == 0:
+            print('0,0'); sys.exit()
+        samples = struct.unpack('<' + 'h' * n, frames)
+        if nchan == 2:
+            samples = samples[::2]
+        peak = max(abs(s) for s in samples)
+        rms = int(math.sqrt(sum(s*s for s in samples) / len(samples)))
+        print(str(peak) + ',' + str(rms))
+except:
+    print('0,0')
+" 2>/dev/null)
       rm -f "$REC_FILE"
-      read -rp "  Did you hear your voice clearly? [p=pass / f=fail / s=skip]: " ans </dev/tty
-      case "$ans" in
-        p|P) MIC_RECORD_RESULT="PASS" ;;
-        f|F) MIC_RECORD_RESULT="FAIL" ;;
-        *)   MIC_RECORD_RESULT="SKIPPED" ;;
-      esac
+      MIC_PEAK="${MIC_ANALYSIS%%,*}"
+      MIC_RMS="${MIC_ANALYSIS##*,}"
+      MIC_THRESHOLD=1500   # conservatively above background noise
+
+      if [[ "${MIC_PEAK:-0}" -gt "$MIC_THRESHOLD" ]]; then
+        ok "Voice detected — Peak: ${MIC_PEAK}  RMS: ${MIC_RMS}  (threshold: ${MIC_THRESHOLD})"
+        MIC_RECORD_RESULT="PASS"
+      else
+        err "No voice detected — Peak: ${MIC_PEAK:-0}  RMS: ${MIC_RMS:-0}  (threshold: ${MIC_THRESHOLD})"
+        echo "  Tip: speak louder or move closer to the microphone."
+        MIC_RECORD_RESULT="FAIL"
+      fi
     else
       err "Recording file empty — microphone may not be working."
       MIC_RECORD_RESULT="FAIL"
@@ -638,13 +660,45 @@ ok "$CPU_MODEL | ${CPU_CORES} cores / ${CPU_THREADS} threads | Max ${CPU_MAX_MHZ
 # 3. MEMORY
 # ============================================================
 banner "3. Memory"
-MEM_TOTAL_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+MEM_TOTAL_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')       # OS-visible RAM
 MEM_TOTAL_GB=$(echo "scale=1; $MEM_TOTAL_KB/1024/1024" | bc)
 MEM_TYPE=$(dmidecode -t memory 2>/dev/null | grep -E "^\s+Type:" | grep -v "Unknown\|Error" | head -1 | awk '{print $2}')
 MEM_SPEED=$(dmidecode -t memory 2>/dev/null | grep -E "^\s+Speed:" | grep -v "Unknown" | head -1 | awk '{print $2, $3}')
 MEM_SLOTS=$(dmidecode -t memory 2>/dev/null | grep -c "Memory Device$")
 MEM_USED_SLOTS=$(dmidecode -t memory 2>/dev/null | grep -A5 "Memory Device$" | grep -cE "Size:.*GB|Size:.*MB")
-ok "${MEM_TOTAL_GB} GB | Type: ${MEM_TYPE:-unknown} | Speed: ${MEM_SPEED:-unknown} | Slots used: ${MEM_USED_SLOTS}/${MEM_SLOTS}"
+
+# Physically installed RAM from SPD/DMI (sum of all DIMM Size: lines). Unlike
+# /proc/meminfo this reflects the modules that are actually plugged in, even when
+# a bad boot / memory-training failure leaves the OS seeing only part of the RAM.
+MEM_PHYS_GB=$(dmidecode -t memory 2>/dev/null | awk '
+  $1 == "Size:" {          # only "Memory Device" size lines; leading spaces stripped
+    if ($2 ~ /^[0-9]+$/) {
+      if      ($3 == "GB") total += $2 * 1024
+      else if ($3 == "MB") total += $2
+    }
+  }
+  END { printf "%.1f", total/1024 }')
+
+# Cross-check: the OS should see most of the installed RAM (minus firmware/iGPU
+# reserve, normally <5%). A large shortfall means a DIMM was not trained/detected
+# this boot — a reseat/hardware fault, not a script miscalculation.
+# Flag on EITHER condition (whichever trips first):
+#   - OS sees < 75% of installed RAM  → catches small-RAM machines (e.g. 2.5/4 GB)
+#   - absolute shortfall  > 4 GB      → catches large-RAM machines (e.g. missing DIMM)
+MEM_STATUS="PASS"
+if [[ -n "$MEM_PHYS_GB" ]] && (( $(echo "$MEM_PHYS_GB > 0" | bc -l) )); then
+  if (( $(echo "$MEM_TOTAL_GB < $MEM_PHYS_GB * 0.75 || ($MEM_PHYS_GB - $MEM_TOTAL_GB) > 4" | bc -l) )); then
+    MEM_STATUS="FAIL"
+  fi
+fi
+
+if [[ "$MEM_STATUS" == "FAIL" ]]; then
+  err "RAM anomaly: OS sees ${MEM_TOTAL_GB} GB but installed DIMMs total ${MEM_PHYS_GB} GB."
+  warn "  Likely memory training/seating fault — reseat RAM and reboot, then re-test."
+  warn "  Type: ${MEM_TYPE:-unknown} | Speed: ${MEM_SPEED:-unknown} | Slots used: ${MEM_USED_SLOTS}/${MEM_SLOTS}"
+else
+  ok "${MEM_TOTAL_GB} GB (installed ${MEM_PHYS_GB} GB) | Type: ${MEM_TYPE:-unknown} | Speed: ${MEM_SPEED:-unknown} | Slots used: ${MEM_USED_SLOTS}/${MEM_SLOTS}"
+fi
 
 # ============================================================
 # 4. STORAGE (original logic kept)
@@ -912,6 +966,15 @@ run_touchpad_test() {
   banner "TOUCHPAD — Auto Detection Test"
   TOUCHPAD_RESULT="NOT_FOUND"
 
+  # On Dell laptops the I2C touchpad driver may not load automatically on Live USB.
+  # Full driver chain: i2c_designware_pci → i2c_hid_acpi → hid_multitouch → evdev.
+  # XPS 9570 / Precision (Coffee Lake/Cannon Lake) need the I2C bus controller first.
+  modprobe i2c_designware_pci      2>/dev/null || true
+  modprobe i2c_designware_platform 2>/dev/null || true
+  modprobe i2c_hid_acpi            2>/dev/null || modprobe i2c_hid 2>/dev/null
+  modprobe hid_multitouch          2>/dev/null || true
+  sleep 2   # give udev time to re-enumerate after driver chain loads
+
   # Use udevadm to find the best touchpad by kernel property ID_INPUT_TOUCHPAD=1.
   # Priority: I2C/HID (HP ELAN/Synaptics) > RMI > PS/2 (Dell).
   # Result exported so Python opens it directly instead of guessing.
@@ -920,7 +983,11 @@ run_touchpad_test() {
     [[ -e "$_tp_dev" ]] || continue
     _tp_info=$(udevadm info -q property -n "$_tp_dev" 2>/dev/null)
     echo "$_tp_info" | grep -q "ID_INPUT_TOUCHPAD=1" || continue
-    if echo "$_tp_info" | grep -qE "ID_BUS=(i2c|hid)"; then
+    # Highest priority: the real I2C/HID touchpad. On Dell XPS 9570 the I2C
+    # hid-multitouch node has NO ID_BUS property, so also match the "i2c-" path
+    # in DEVPATH. This must beat the duplicate PS/2 (i8042) node, which exposes
+    # the same physical pad but often reports no events when I2C is active.
+    if echo "$_tp_info" | grep -qE "ID_BUS=(i2c|hid)" || echo "$_tp_info" | grep -qi "i2c-"; then
       _tp_best="$_tp_dev"; break          # highest priority — take immediately
     elif echo "$_tp_info" | grep -q "RMI"; then
       [[ $_tp_pri -lt 2 ]] && { _tp_best="$_tp_dev"; _tp_pri=2; }
@@ -1264,11 +1331,245 @@ TOUCHPAD=$TOUCHPAD_RESULT
 # 10. NETWORK
 # ============================================================
 banner "10. Network"
-WIFI_DEV=$(iw dev 2>/dev/null | awk '/Interface/{print $2}' | head -1)
-ETH_DEV=$(ip -o addr show 2>/dev/null | awk '$3=="inet" && $2!~/^lo$|^wl/{print $2; exit}')
+# WiFi is often slow/flaky to appear on a Live USB: rfkill soft-block, asynchronous
+# firmware load, or a failed first driver probe (fixed by a reboot / re-probe).
+# Since every laptop has WiFi, if no interface shows up we actively repair through
+# an escalating ladder — clear blocks, rebind, full driver reload — polling after
+# each step (firmware can take several seconds to load).
 
-[[ -n "$WIFI_DEV" ]] && ok "WiFi: $WIFI_DEV" || err "No WiFi device found."
-[[ -n "$ETH_DEV" ]] && ok "Ethernet: $ETH_DEV" || warn "No Ethernet device found."
+# Return the wifi interface name, or empty if none is up yet.
+detect_wifi_dev() {
+  local d
+  d=$(nmcli -t -f DEVICE,TYPE device 2>/dev/null | awk -F: '$2=="wifi"{print $1; exit}')
+  [[ -z "$d" ]] && d=$(iw dev 2>/dev/null | awk '/Interface/{print $2; exit}')
+  [[ -z "$d" ]] && d=$(ip -o link 2>/dev/null | awk -F': ' '$2~/^wl/{print $2; exit}')
+  echo "$d"
+}
+
+# Poll detect_wifi_dev once per second up to <timeout> s; echo dev as soon as found.
+wait_for_wifi() {
+  local timeout="$1" d
+  for ((_w=0; _w<timeout; _w++)); do
+    d=$(detect_wifi_dev)
+    [[ -n "$d" ]] && { echo "$d"; return 0; }
+    sleep 1
+  done
+  return 1
+}
+
+# True if a WiFi radio is HARD-blocked (physical switch / BIOS) — unfixable in software.
+wifi_hard_blocked() {
+  rfkill list 2>/dev/null | awk '
+    /[Ww]ireless LAN|[Ww]i[Ff]i|wlan/ {inwifi=1}
+    /^[0-9]+:/ && !/[Ww]ireless LAN|[Ww]i[Ff]i|wlan/ {inwifi=0}
+    inwifi && /Hard blocked: yes/ {found=1}
+    END{exit found?0:1}'
+}
+
+# True if the kernel logged a WiFi firmware load failure — unfixable without the blob.
+wifi_fw_failed() {
+  dmesg 2>/dev/null | grep -iE "iwlwifi|ath1?0?k|ath11k|rtw|mt7[69]" \
+    | grep -iqE "firmware.*(failed|not found|error)|failed to load firmware|Direct firmware load.*failed"
+}
+
+# True if the RF failed its firmware INIT / secure-boot handshake. Seen on Intel
+# CNVi cards (e.g. Wireless-AC 9560): the firmware loads and the card IS detected,
+# but the RF's CPU2 hangs in secure boot and INIT ucode times out (-110):
+#   SecBoot CPU1 Status: 0x3, CPU2 Status: 0x2365
+#   0x00002365 | IML/ROM error/state
+#   Failed to run INIT ucode: -110
+# NO software repair can clear this — rebind/reload never power-cycle the RF, so
+# the chip stays wedged. Only a real cold power-cycle gives it another chance.
+wifi_rf_init_failed() {
+  dmesg 2>/dev/null | grep -qE "Failed to (run|start) INIT ucode|IML/ROM error/state|SecBoot CPU2 Status"
+}
+
+# The WiFi PCI slot (class 0280 = network controller / wireless), empty if none.
+wifi_pci_slot() { lspci -Dn 2>/dev/null | awk '$2 ~ /^0280/ {print $1; exit}'; }
+
+# Soft repair: reset rfkill (toggle to clear a stuck soft-block), radio on, kick NM.
+wifi_soft_repair() {
+  rfkill unblock all  2>/dev/null || true
+  rfkill block wifi   2>/dev/null || true   # toggle resets a stuck soft-block state
+  sleep 1
+  rfkill unblock wifi 2>/dev/null || true
+  rfkill unblock all  2>/dev/null || true
+  nmcli radio wifi on 2>/dev/null || true
+  systemctl restart NetworkManager 2>/dev/null || true
+}
+
+# Rebind the WiFi PCI device via sysfs — re-probes and reloads firmware, no reboot.
+wifi_rebind_pci() {
+  local slot drv; slot=$(wifi_pci_slot)
+  [[ -z "$slot" ]] && return 1
+  drv=$(basename "$(readlink -f "/sys/bus/pci/devices/$slot/driver" 2>/dev/null)" 2>/dev/null)
+  [[ -n "$drv" && -d "/sys/bus/pci/drivers/$drv" ]] || return 1
+  echo "  Rebinding WiFi PCI device $slot (driver $drv)..."
+  echo -n "$slot" > "/sys/bus/pci/drivers/$drv/unbind" 2>/dev/null || true
+  sleep 1
+  echo -n "$slot" > "/sys/bus/pci/drivers/$drv/bind"   2>/dev/null || true
+}
+
+# Full driver reload — the strongest reset short of a reboot; clears a wedged
+# firmware state that a plain rebind can't. Removes the bound driver + reloads.
+wifi_reload_driver() {
+  local slot drv; slot=$(wifi_pci_slot)
+  drv=$(basename "$(readlink -f "/sys/bus/pci/devices/$slot/driver" 2>/dev/null)" 2>/dev/null)
+  if [[ -n "$drv" ]]; then
+    echo "  Reloading WiFi driver module: $drv ..."
+    # Remove Intel op-mode holders first — iwlwifi can't be unloaded while
+    # iwlmvm/iwldvm are bound to it — then remove the driver itself.
+    modprobe -r iwlmvm iwldvm 2>/dev/null || true
+    modprobe -r "$drv"        2>/dev/null || true
+    sleep 1
+  fi
+  # (Re)load common PCI + USB wifi modules. iwlmvm/iwldvm are REQUIRED for Intel:
+  # iwlwifi alone does NOT create a wlanX netdev without its op-mode module.
+  for _m in iwlwifi iwlmvm iwldvm ath10k_pci ath11k_pci rtw88_pci rtw89_pci mt7921e mt76x2u ath9k rtl8xxxu; do
+    modprobe "$_m" 2>/dev/null || true
+  done
+}
+
+echo "  Detecting WiFi (auto-repair if missing)..."
+WIFI_FAIL_REASON=""
+wifi_soft_repair
+WIFI_DEV=$(wait_for_wifi 4)
+
+if [[ -z "$WIFI_DEV" ]] && wifi_hard_blocked; then
+  # Physical WLAN switch or BIOS block — no software repair can bring it up.
+  WIFI_FAIL_REASON="HARD_BLOCKED"
+  err "WiFi is HARD-blocked (physical WLAN switch or BIOS setting)."
+  warn "  Enable the wireless switch / BIOS WLAN, then re-test. Skipping software repair."
+elif [[ -z "$WIFI_DEV" ]] && wifi_rf_init_failed; then
+  # RF wedged in secure boot (INIT ucode -110). Rebind/reload never power-cycle the
+  # RF, so retrying is guaranteed to fail — fail fast instead of burning ~35s.
+  WIFI_FAIL_REASON="RF_INIT_FAILED"
+  err "WiFi RF init failed — firmware loaded but the RF hung in secure boot (INIT ucode timeout)."
+  warn "  Software repair CANNOT fix this — skipping repair attempts."
+  warn "  Fix: full COLD power cycle — shut down, unplug AC + battery, hold power 30s, reboot, re-test."
+  warn "  If it repeats across cold boots, the M.2 WiFi card is faulty — replace it."
+else
+  # Escalating repair ladder, polling after each step. Laptops always have WiFi.
+  _wifi_try=0
+  while [[ -z "$WIFI_DEV" && $_wifi_try -lt 4 ]]; do
+    _wifi_try=$((_wifi_try + 1))
+    warn "  WiFi not detected — repair attempt ${_wifi_try}/4..."
+    case $_wifi_try in
+      1) wifi_soft_repair;   WIFI_DEV=$(wait_for_wifi 5)  ;;
+      2) wifi_rebind_pci;    WIFI_DEV=$(wait_for_wifi 8)  ;;
+      3) wifi_reload_driver; WIFI_DEV=$(wait_for_wifi 12) ;;   # firmware load can be slow
+      4) wifi_soft_repair; wifi_reload_driver; WIFI_DEV=$(wait_for_wifi 12) ;;
+    esac
+    # A repair can wedge the RF mid-ladder — stop early, further retries can't help.
+    if [[ -z "$WIFI_DEV" ]] && wifi_rf_init_failed; then
+      WIFI_FAIL_REASON="RF_INIT_FAILED"
+      err "  WiFi RF hung in secure boot (INIT ucode timeout) — aborting further repair."
+      warn "  Fix: full COLD power cycle (unplug AC + battery, hold power 30s), then re-test."
+      break
+    fi
+  done
+fi
+
+if [[ -n "$WIFI_DEV" ]]; then
+  ip link set "$WIFI_DEV" up 2>/dev/null || true
+  WIFI_FAIL_REASON=""
+  ok "WiFi: $WIFI_DEV${_wifi_try:+ (recovered after ${_wifi_try} repair attempt(s))}"
+else
+  err "No WiFi device found."
+  # Classify the failure so the operator knows the next step.
+  if [[ "$WIFI_FAIL_REASON" == "RF_INIT_FAILED" ]]; then
+    :   # already reported above with the cold-power-cycle instructions
+  elif wifi_hard_blocked; then
+    WIFI_FAIL_REASON="HARD_BLOCKED"
+    warn "  Cause: HARD-blocked — enable the physical WLAN switch / BIOS WLAN."
+  elif wifi_fw_failed; then
+    WIFI_FAIL_REASON="FIRMWARE_MISSING"
+    warn "  Cause: driver firmware failed to load (missing/incompatible firmware on this USB)."
+    warn "  This is a Live-USB firmware gap, not necessarily a bad card — verify on the OS."
+  else
+    _wifi_hw=$(lspci 2>/dev/null | grep -iE "network|wireless|wi-?fi" | head -1)
+    if [[ -n "$_wifi_hw" ]]; then
+      WIFI_FAIL_REASON="DRIVER_NOT_UP"
+      warn "  HW present but driver not up: $_wifi_hw"
+    else
+      _wifi_usb=$(lsusb 2>/dev/null | grep -iE "wlan|wireless|802\.11|wi-?fi" | head -1)
+      if [[ -n "$_wifi_usb" ]]; then
+        WIFI_FAIL_REASON="DRIVER_NOT_UP"
+        warn "  USB wireless present but driver not up: $_wifi_usb"
+      else
+        WIFI_FAIL_REASON="NO_DEVICE"
+        warn "  No wireless device seen in lspci/lsusb — check BIOS WLAN enable."
+      fi
+    fi
+  fi
+fi
+# --- Ethernet: the test bench is ALWAYS wired to the CearTrack server (built-in
+# RJ45, or a USB-RJ45 adapter when the laptop has no port). So a wired NIC is
+# always expected — a missing link means a cable/adapter problem, not "no NIC".
+# Detect the DEVICE separately from the LINK/carrier so we don't mislabel an
+# unplugged cable or pending DHCP as "no ethernet device".
+
+# Find a wired NIC (built-in or USB dongle). Prefer one that currently has link.
+detect_eth_dev() {
+  local ifc name best=""
+  for ifc in /sys/class/net/*; do
+    name=$(basename "$ifc")
+    [[ "$name" == "lo" ]] && continue
+    [[ -e "$ifc/wireless" || -e "$ifc/phy80211" ]] && continue   # skip WiFi
+    [[ -e "$ifc/device" ]] || continue                            # real HW (covers USB-RJ45)
+    case "$name" in docker*|veth*|virbr*|br-*|tun*|tap*|bond*|dummy*) continue ;; esac
+    if [[ "$(cat "$ifc/carrier" 2>/dev/null)" == "1" ]]; then echo "$name"; return 0; fi
+    [[ -z "$best" ]] && best="$name"
+  done
+  [[ -n "$best" ]] && { echo "$best"; return 0; }
+  return 1
+}
+
+# carrier == 1 means cable connected + link up (port LED on). Bring the iface up
+# first — an admin-down interface reports no carrier even with the cable plugged.
+eth_has_link() {
+  local dev="$1"
+  [[ -n "$dev" ]] || return 1
+  ip link set "$dev" up 2>/dev/null || true
+  [[ "$(cat "/sys/class/net/$dev/carrier" 2>/dev/null)" == "1" ]]
+}
+
+# Auto-settle: bring the NIC up and give link/DHCP a few seconds before prompting.
+ETH_DEV=$(detect_eth_dev)
+[[ -n "$ETH_DEV" ]] && ip link set "$ETH_DEV" up 2>/dev/null || true
+for ((_e=0; _e<5; _e++)); do
+  ETH_DEV=$(detect_eth_dev)
+  eth_has_link "$ETH_DEV" && break
+  sleep 1
+done
+
+# Interactive wait — a wired link is MANDATORY: the report is uploaded to CearTrack
+# over this wire, so without link the test is INVALID (nothing can be uploaded).
+# The operator must either restore the link (fix cable / USB-RJ45 adapter) or mark
+# the machine as bad — there is no "skip and continue" that produces a valid test.
+ETH_STATUS="FAIL"
+while true; do
+  ETH_DEV=$(detect_eth_dev)                 # re-detect (a USB-RJ45 may be plugged mid-wait)
+  if eth_has_link "$ETH_DEV"; then
+    ok "Ethernet: $ETH_DEV (link up)"
+    ETH_STATUS="PASS"
+    break
+  fi
+  if [[ -n "$ETH_DEV" ]]; then
+    warn "Ethernet $ETH_DEV present but NO LINK — cable unplugged, port LED off, or bad port."
+  else
+    warn "No wired NIC detected — plug the network cable / USB-RJ45 adapter."
+  fi
+  echo -e "  ${RED}${BOLD}A wired link is REQUIRED — results cannot upload to CearTrack without it.${NC}"
+  echo -e "  Fix the cable / USB-RJ45 adapter, wait for the port LED, then press ${BOLD}Enter${NC} to re-check."
+  echo -e "  Or type ${BOLD}b${NC}+Enter to mark this laptop as BAD ethernet (cannot be tested)."
+  read -r _ans < /dev/tty
+  if [[ "${_ans,,}" == "b" ]]; then
+    ETH_STATUS="FAIL"
+    err "Marked BAD ethernet — no wired link; report cannot be uploaded. Set machine aside."
+    break
+  fi
+done
 
 # ============================================================
 # 10b. INTERNET CONNECTIVITY
@@ -1372,10 +1673,12 @@ else
 fi
 
 if [[ $KH_FAIL_COUNT -gt 0 ]]; then
-  KERNEL_HEALTH="FAIL"
-  err "$KH_FAIL_COUNT hardware error signal(s) detected:"
-  echo "$KH_FAIL_LINES" | while read -r l; do err "  $l"; done
-  warn "This laptop has hardware errors — DO NOT refurbish without investigation."
+  # Kernel hardware-error signals are advisory only — flag as WARN, never FAIL,
+  # so they don't fail the overall result (many are transient driver/HW hiccups).
+  KERNEL_HEALTH="WARN"
+  warn "$KH_FAIL_COUNT hardware error signal(s) detected (review recommended, not an auto-fail):"
+  echo "$KH_FAIL_LINES" | while read -r l; do warn "  $l"; done
+  warn "This laptop reported kernel hardware errors — investigate before refurbish."
 elif [[ $KH_WARN_COUNT -gt 0 ]]; then
   KERNEL_HEALTH="WARN"
   warn "$KH_WARN_COUNT warning signal(s) detected (may indicate marginal hardware):"
@@ -1398,12 +1701,278 @@ done < <(printf "%s\n%s\n" "$KH_FAIL_LINES" "$KH_WARN_LINES" | grep -v '^$')
 KH_SIGNALS_JSON+="]"
 
 # ============================================================
+# 14. BIOS LOCK CHECK
+# ============================================================
+banner "14. BIOS Lock Check"
+# The kernel firmware-attributes class reports whether a BIOS password is set
+# WITHOUT needing the password. Match on the `role` field, NOT the directory
+# name: role is the kernel-standard key and is identical across vendors, while
+# the directory differs ("Setup Password" on HP hp-bioscfg vs "Admin" on Dell
+# dell-wmi-sysman / Lenovo think-lmi). One loop covers all three.
+#   role=bios-admin -> admin/setup password (unit can't be reconfigured = blocked)
+#   role=power-on   -> boot password
+# Vendors without a driver expose nothing -> stays "unsupported". Never collapse
+# unsupported into "no", or an undetectable model would silently look clean.
+BIOS_ADMIN_LOCKED="unknown"       # yes | no | unknown
+BIOS_LOCK_SOURCE="unsupported"    # auto | manual | unsupported
+BIOS_POWERON_LOCKED="unknown"
+BIOS_MARK_AUTO="no"               # yes -> "Bios Blocked" is auto-added to Mark
+
+for _d in /sys/class/firmware-attributes/*/authentication/*/; do
+  [[ -r "$_d/role" ]] || continue
+  _role=$(cat "$_d/role" 2>/dev/null)
+  _en=$(cat "$_d/is_enabled" 2>/dev/null)
+  case "$_role" in
+    bios-admin)
+      BIOS_LOCK_SOURCE="auto"
+      [[ "$BIOS_ADMIN_LOCKED" == "unknown" ]] && BIOS_ADMIN_LOCKED="no"
+      [[ "$_en" == "1" ]] && BIOS_ADMIN_LOCKED="yes" ;;
+    power-on)
+      [[ "$BIOS_POWERON_LOCKED" == "unknown" ]] && BIOS_POWERON_LOCKED="no"
+      [[ "$_en" == "1" ]] && BIOS_POWERON_LOCKED="yes" ;;
+  esac
+done
+
+if [[ "$BIOS_LOCK_SOURCE" == "auto" ]]; then
+  if [[ "$BIOS_ADMIN_LOCKED" == "yes" ]]; then
+    echo -e "  ${RED}${BOLD}*** BIOS IS LOCKED — admin/setup password is set ***${NC}"
+    echo -e "  ${RED}${BOLD}This unit cannot be reconfigured in BIOS.${NC}"
+    echo -e "  ${RED}'Bios Blocked' will be added to Mark automatically.${NC}"
+    BIOS_MARK_AUTO="yes"
+  else
+    ok "BIOS not locked (no admin password set)."
+  fi
+  [[ "$BIOS_POWERON_LOCKED" == "yes" ]] && warn "Power-on (boot) password is also set."
+else
+  # No vendor driver for this model — the operator must judge it.
+  warn "Cannot auto-detect BIOS lock on this model (no vendor firmware-attributes driver)."
+  while :; do
+    read -rp "$(echo -e "  ${BOLD}Is the BIOS locked? [y=yes / n=no / u=unknown]: ${NC}")" _bl </dev/tty
+    _bl=$(echo "$_bl" | xargs | tr '[:upper:]' '[:lower:]')
+    case "$_bl" in
+      y) BIOS_ADMIN_LOCKED="yes"; BIOS_LOCK_SOURCE="manual"; BIOS_MARK_AUTO="yes"
+         warn "  Operator marked BIOS as LOCKED — 'Bios Blocked' will be added to Mark."
+         break ;;
+      n) BIOS_ADMIN_LOCKED="no";      BIOS_LOCK_SOURCE="manual"; break ;;
+      u) BIOS_ADMIN_LOCKED="unknown"; BIOS_LOCK_SOURCE="manual"; break ;;
+      *) warn "  Enter y, n, or u." ;;
+    esac
+  done
+fi
+
+# ============================================================
+# 15. MANUAL INPUT — Appearance & Grading
+# ============================================================
+# Operator-entered fields for CearTrack↔Cyclelution integration. These require
+# looking at the physical machine, so they must be captured here (not after the
+# fact on the web). Field names/format are a fixed contract with CearTrack.
+banner "15. Manual Input — Appearance & Grading"
+
+# (1) Weight — required positive number (lbs)
+WEIGHT_LBS=""
+while :; do
+  read -rp "$(echo -e "  ${BOLD}Enter weight in lbs (e.g. 4.5): ${NC}")" WEIGHT_LBS </dev/tty
+  WEIGHT_LBS=$(echo "$WEIGHT_LBS" | xargs)
+  [[ "$WEIGHT_LBS" =~ ^[0-9]+(\.[0-9]+)?$ ]] && (( $(echo "$WEIGHT_LBS > 0" | bc -l) )) && break
+  warn "  Weight must be a positive number (integer or decimal)."
+done
+
+# (2) Grade — required A/B/C/D
+GRADE=""
+while :; do
+  read -rp "$(echo -e "  ${BOLD}Enter Grade [A/B/C/D]: ${NC}")" GRADE </dev/tty
+  GRADE=$(echo "$GRADE" | xargs | tr '[:lower:]' '[:upper:]')
+  [[ "$GRADE" =~ ^[ABCD]$ ]] && break
+  warn "  Grade must be one of A, B, C, D."
+done
+
+# (3) Condition — 0-9 (maps to CycleLution C0-C9), default 4
+CONDITION_LABELS=("Not categorized" "Damaged" "Used Poor" "Used Fair" "Used Good" \
+                  "Used Very Good" "Used Excellent" "Certified Pre-Owned" "Unused" "New Open box")
+echo -e "  ${BOLD}Condition codes:${NC}"
+for _i in 0 1 2 3 4 5 6 7 8 9; do
+  printf "    %d) C%d - %s\n" "$_i" "$_i" "${CONDITION_LABELS[$_i]}"
+done
+CONDITION=""
+while :; do
+  read -rp "$(echo -e "  ${BOLD}Enter Condition [0-9, Enter=4 (C4-Used Good)]: ${NC}")" CONDITION </dev/tty
+  CONDITION=$(echo "$CONDITION" | xargs)
+  [[ -z "$CONDITION" ]] && { CONDITION="4"; break; }
+  [[ "$CONDITION" =~ ^[0-9]$ ]] && break
+  warn "  Condition must be a single digit 0-9 (or Enter for 4)."
+done
+
+# (4) Color — numbered pick from the CycleLution color list (avoids typos), s=skip
+COLOR_OPTIONS=(Black Blue Gold Gray Green Purple Red Silver White Yellow)
+echo -e "  ${BOLD}Color options:${NC}"
+_i=1
+for _opt in "${COLOR_OPTIONS[@]}"; do
+  printf "    %2d) %s\n" "$_i" "$_opt"
+  _i=$((_i + 1))
+done
+COLOR=""
+while :; do
+  read -rp "$(echo -e "  ${BOLD}Select color number [1-${#COLOR_OPTIONS[@]}, s=skip]: ${NC}")" _c </dev/tty
+  _c=$(echo "$_c" | xargs)
+  [[ -z "$_c" || "$_c" =~ ^[sS]$ ]] && { COLOR=""; break; }
+  if [[ "$_c" =~ ^[0-9]+$ ]] && (( _c >= 1 && _c <= ${#COLOR_OPTIONS[@]} )); then
+    COLOR="${COLOR_OPTIONS[$((_c - 1))]}"; break
+  fi
+  warn "  Enter a list number 1-${#COLOR_OPTIONS[@]}, or s to skip."
+done
+
+# (5) Size — screen diagonal (inch). Must be a value from the CycleLution list
+# (laptop range 10-17.3 inch). EDID max-image-size (bytes 0x15/0x16, in cm) is an
+# advisory auto-detect — only moderately reliable on laptop panels — so it is
+# offered as the Enter-default only when it exactly matches a list value.
+SIZE_OPTIONS=(10 10.2 10.5 10.9 11 11.6 12 12.3 12.5 13 13.3 13.5 14 15 15.6 16 16.4 17 17.1 17.3)
+_edid_size=""
+for _edid in /sys/class/drm/*eDP*/edid /sys/class/drm/*LVDS*/edid; do
+  [[ -s "$_edid" ]] || continue
+  _edid_size=$(python3 - "$_edid" <<'EDID_EOF' 2>/dev/null
+import sys, math
+try:
+    data = open(sys.argv[1], 'rb').read()
+    w_cm = data[0x15]; h_cm = data[0x16]     # horizontal/vertical image size in cm
+    if w_cm > 0 and h_cm > 0:
+        print(round(math.hypot(w_cm, h_cm) / 2.54, 1))
+except Exception:
+    pass
+EDID_EOF
+)
+  [[ -n "$_edid_size" ]] && break
+done
+# Only use EDID as the Enter-default if it exactly matches an allowed list value.
+_size_default=""
+if [[ -n "$_edid_size" ]]; then
+  for _opt in "${SIZE_OPTIONS[@]}"; do
+    [[ "$_opt" == "$_edid_size" ]] && { _size_default="$_edid_size"; break; }
+  done
+fi
+echo -e "  ${BOLD}Screen size options (inch):${NC}"
+_i=1
+for _opt in "${SIZE_OPTIONS[@]}"; do
+  printf "    %2d) %s inch\n" "$_i" "$_opt"
+  _i=$((_i + 1))
+done
+if [[ -n "$_edid_size" ]]; then
+  if [[ -n "$_size_default" ]]; then
+    ok "  EDID detected ${_edid_size} inch — press Enter to accept, or pick a number."
+  else
+    warn "  EDID detected ~${_edid_size} inch (not in list) — pick the closest number."
+  fi
+fi
+SCREEN_SIZE_INCH=""
+while :; do
+  _prompt="  Select size number [1-${#SIZE_OPTIONS[@]}"
+  [[ -n "$_size_default" ]] && _prompt+=", Enter=${_size_default}"
+  _prompt+=", s=skip]: "
+  read -rp "$(echo -e "  ${BOLD}${_prompt}${NC}")" _sz </dev/tty
+  _sz=$(echo "$_sz" | xargs)
+  if [[ -z "$_sz" ]]; then
+    [[ -n "$_size_default" ]] && { SCREEN_SIZE_INCH="$_size_default"; break; }
+    warn "  Pick a number 1-${#SIZE_OPTIONS[@]}, or s to skip."
+    continue
+  fi
+  [[ "$_sz" =~ ^[sS]$ ]] && { SCREEN_SIZE_INCH=""; break; }
+  if [[ "$_sz" =~ ^[0-9]+$ ]] && (( _sz >= 1 && _sz <= ${#SIZE_OPTIONS[@]} )); then
+    SCREEN_SIZE_INCH="${SIZE_OPTIONS[$((_sz - 1))]}"; break
+  fi
+  warn "  Enter a list number 1-${#SIZE_OPTIONS[@]}, or s to skip."
+done
+
+# (6) Mark — numbered menu + custom text + multi-select + skip
+MARK_OPTIONS=(
+  "Minor scratches/blemishes"
+  "Scratches on lid"
+  "Dent on corner"
+  "Worn keyboard/palmrest"
+  "Screen blemish"
+  "Bios Blocked"
+)
+
+echo -e "  ${BOLD}Mark [Enter=none]:${NC}"
+_i=1
+for _opt in "${MARK_OPTIONS[@]}"; do
+  printf "    %d) %s\n" "$_i" "$_opt"
+  _i=$((_i + 1))
+done
+echo "    0) Type custom text"
+
+MARK=""
+while :; do
+  read -rp "$(echo -e "  ${BOLD}Select (multiple with comma, e.g. 1,3,5 or 0) [Enter=none]: ${NC}")" _input </dev/tty
+  _input=$(echo "$_input" | xargs)
+
+  if [[ -z "$_input" ]]; then
+    MARK=""
+    break
+  fi
+
+  # 处理输入
+  IFS=',' read -ra selections <<< "$_input"
+  temp_marks=()
+
+  for sel in "${selections[@]}"; do
+    sel=$(echo "$sel" | xargs)  # 清理空格
+    if [[ "$sel" == "0" ]]; then
+      read -rp "$(echo -e "  ${BOLD}Enter custom mark text: ${NC}")" custom </dev/tty
+      custom=$(echo "$custom" | xargs)
+      if [[ -n "$custom" ]]; then
+        temp_marks+=("$custom")
+      fi
+    elif [[ "$sel" =~ ^[0-9]+$ ]] && (( sel >= 1 && sel <= ${#MARK_OPTIONS[@]} )); then
+      temp_marks+=("${MARK_OPTIONS[$((sel - 1))]}")
+    else
+      warn "  Invalid choice: $sel (ignored)"
+    fi
+  done
+
+  if [[ ${#temp_marks[@]} -gt 0 ]]; then
+    # 用 ; 连接多个描述
+    MARK=$(IFS=';'; echo "${temp_marks[*]}")
+    break
+  else
+    warn "  No valid selection. Please try again or press Enter to skip."
+  fi
+done
+
+# A locked BIOS (auto-detected or operator-confirmed) always gets marked, on top
+# of whatever the operator picked — don't rely on them remembering it.
+if [[ "$BIOS_MARK_AUTO" == "yes" && "$MARK" != *"Bios Blocked"* ]]; then
+  MARK="Bios Blocked${MARK:+;$MARK}"
+  warn "  Auto-added 'Bios Blocked' to Mark (BIOS admin password detected)."
+fi
+
+echo -e "  Selected Mark: ${MARK:-<none>}"
+
+# (7) CD/DVD Drive — fully automatic, no operator input
+if lsblk -dno TYPE 2>/dev/null | grep -qi "rom" || ls /dev/sr* >/dev/null 2>&1; then
+  CDDVD_PRESENT="Yes"
+else
+  CDDVD_PRESENT="No"
+fi
+ok "CD/DVD drive: $CDDVD_PRESENT (auto-detected)"
+
+# Derived full-label strings for the JSON report (match CycleLution dropdowns):
+#   grade "B"          -> "Grade B"
+#   condition "4"      -> "C4 - Used Good"
+#   screen_size "14"   -> "14 inch"   (empty stays empty when skipped)
+GRADE_FULL="Grade $GRADE"
+CONDITION_FULL="C${CONDITION} - ${CONDITION_LABELS[$CONDITION]}"
+if [[ -n "$SCREEN_SIZE_INCH" ]]; then
+  SCREEN_SIZE_FULL="${SCREEN_SIZE_INCH} inch"
+else
+  SCREEN_SIZE_FULL=""
+fi
+
+# ============================================================
 # BUILD JSON REPORT
 # ============================================================
 banner "Generating Report"
 
 WIFI_STATUS=$([[ -n "$WIFI_DEV" ]] && echo "PASS" || echo "FAIL")
-ETH_STATUS=$([[ -n "$ETH_DEV" ]] && echo "PASS" || echo "FAIL")
+# ETH_STATUS is set during the ethernet link check (PASS = link up, FAIL = marked bad).
 
 
 JSON=$(cat <<EOF
@@ -1421,6 +1990,11 @@ JSON=$(cat <<EOF
     "serial_number": "$(esc "$SYS_SERIAL")",
     "bios_version": "$(esc "$BIOS_VER")"
   },
+  "bios": {
+    "admin_password_locked": "$(esc "$BIOS_ADMIN_LOCKED")",
+    "poweron_password_locked": "$(esc "$BIOS_POWERON_LOCKED")",
+    "lock_detection": "$(esc "$BIOS_LOCK_SOURCE")"
+  },
   "cpu": {
     "model": "$(esc "$CPU_MODEL")",
     "cores": ${CPU_CORES:-0},
@@ -1430,6 +2004,8 @@ JSON=$(cat <<EOF
   },
   "memory": {
     "total_gb": "$(esc "$MEM_TOTAL_GB")",
+    "physical_gb": "$(esc "${MEM_PHYS_GB:-0}")",
+    "status": "$(esc "$MEM_STATUS")",
     "type": "$(esc "${MEM_TYPE:-unknown}")",
     "speed": "$(esc "${MEM_SPEED:-unknown}")",
     "slots_total": ${MEM_SLOTS:-0},
@@ -1468,6 +2044,7 @@ JSON=$(cat <<EOF
   "network": {
     "wifi_status": "$(esc "$WIFI_STATUS")",
     "wifi_device": "$(esc "${WIFI_DEV:-none}")",
+    "wifi_fail_reason": "$(esc "${WIFI_FAIL_REASON:-}")",
     "ethernet_status": "$(esc "$ETH_STATUS")",
     "ethernet_device": "$(esc "${ETH_DEV:-none}")",
     "internet_test": "__INTERNET_TEST__",
@@ -1488,6 +2065,15 @@ JSON=$(cat <<EOF
     "warn_count": ${KH_WARN_COUNT:-0},
     "matched_signals": ${KH_SIGNALS_JSON}
   },
+  "manual_input": {
+    "weight_lbs": "$(esc "$WEIGHT_LBS")",
+    "grade": "$(esc "$GRADE_FULL")",
+    "condition": "$(esc "$CONDITION_FULL")",
+    "color": "$(esc "$COLOR")",
+    "screen_size_inch": "$(esc "$SCREEN_SIZE_FULL")",
+    "mark": "$(esc "$MARK")",
+    "cddvd_present": "$(esc "$CDDVD_PRESENT")"
+  },
   "overall_result": "PENDING"
 }
 EOF
@@ -1495,18 +2081,34 @@ EOF
 
 # Determine overall result directly from status variables — more reliable
 # than grepping the JSON string (avoids encoding / quoting edge cases).
+#
+# FAIL policy: ONLY the four critical sub-tests below can fail the whole device
+# (screen, keyboard, touchpad, internet). A FAIL anywhere else (storage, battery,
+# camera, audio, ports, appearance, kernel health, …) is NOT a device failure —
+# it only downgrades the result to WARN for operator review.
 OVERALL="PASS"
-for _s in "$DISK_STATUS" "$BAT_STATUS" "$SCREEN_CHECK" "$CAM_STATUS" \
-          "$SPEAKER_QUALITY_RESULT" "$MIC_RECORD_RESULT" \
-          "$KB_KEYS_CHECK" "$TOUCHPAD_RESULT" \
-          "$INTERNET_STATUS" "$PORTS_PHYSICAL" \
-          "$HINGE" "$APPEARANCE" "$KERNEL_HEALTH"; do
+
+# --- Critical sub-tests: a FAIL here fails the whole device ---
+# ETH_STATUS is critical: no wired link = invalid test (report can't upload).
+for _s in "$SCREEN_CHECK" "$KB_KEYS_CHECK" "$TOUCHPAD_RESULT" "$INTERNET_STATUS" "$ETH_STATUS"; do
   if [[ "$_s" == "FAIL" ]]; then
     OVERALL="FAIL"
     break
   fi
-  [[ "$_s" == "WARN" ]] && OVERALL="WARN"
 done
+
+# --- Everything else: a FAIL/WARN here only downgrades to WARN, never FAIL ---
+if [[ "$OVERALL" != "FAIL" ]]; then
+  for _s in "$SCREEN_CHECK" "$KB_KEYS_CHECK" "$TOUCHPAD_RESULT" "$INTERNET_STATUS" \
+            "$DISK_STATUS" "$BAT_STATUS" "$CAM_STATUS" "$MEM_STATUS" \
+            "$SPEAKER_QUALITY_RESULT" "$MIC_RECORD_RESULT" \
+            "$PORTS_PHYSICAL" "$HINGE" "$APPEARANCE" "$KERNEL_HEALTH"; do
+    if [[ "$_s" == "FAIL" || "$_s" == "WARN" || "$_s" == "WARNING" ]]; then
+      OVERALL="WARN"
+      break
+    fi
+  done
+fi
 JSON=$(echo "$JSON" | sed 's/"PENDING"/"'"$OVERALL"'"/')
 # Replace internet placeholders after OVERALL is computed so internet FAIL doesn't affect overall_result
 JSON=$(echo "$JSON" | sed "s/__INTERNET_TEST__/$INTERNET_STATUS/; s/__INTERNET_VIA__/$INTERNET_VIA/")
@@ -1557,7 +2159,18 @@ printf "  %-20s %s\n" "Test Duration:"    "$TEST_DURATION_STR"
 printf "  %-20s %s\n" "Vendor/Model:"     "$SYS_VENDOR $SYS_MODEL"
 printf "  %-20s %s\n" "Serial:"           "$SYS_SERIAL"
 printf "  %-20s %s\n" "CPU:"              "$CPU_MODEL"
-printf "  %-20s %s\n" "Memory:"           "${MEM_TOTAL_GB} GB"
+if [[ "$BIOS_ADMIN_LOCKED" == "yes" ]]; then
+  printf "  ${RED}%-20s %s${NC}\n" "BIOS:" "LOCKED — admin password set (${BIOS_LOCK_SOURCE}) → Bios Blocked"
+elif [[ "$BIOS_ADMIN_LOCKED" == "unknown" ]]; then
+  printf "  ${YELLOW}%-20s %s${NC}\n" "BIOS:" "UNKNOWN — not auto-detectable on this model"
+else
+  printf "  %-20s %s\n" "BIOS:" "Not locked (${BIOS_LOCK_SOURCE})"
+fi
+if [[ "$MEM_STATUS" == "FAIL" ]]; then
+  printf "  ${RED}%-20s %s${NC}\n" "Memory:" "⚠ OS ${MEM_TOTAL_GB} GB vs installed ${MEM_PHYS_GB} GB — reseat RAM & re-test"
+else
+  printf "  %-20s %s\n" "Memory:"           "${MEM_TOTAL_GB} GB"
+fi
 if [[ -n "$DISK_FAIL_REASON" ]]; then
   case "$DISK_FAIL_REASON" in
     DISK_PRESENT_BUT_HIDDEN)
@@ -1586,17 +2199,23 @@ fi
 printf "  %-20s %s\n" "Speaker:"          "Quality: $SPEAKER_QUALITY_CHECK"
 printf "  %-20s %s\n" "Microphone:"       "Record: $MIC_RECORD_CHECK"
 printf "  %-20s %s\n" "Keyboard:"         "Keys: $KB_KEYS_CHECK | Touchpad: $TOUCHPAD"
-printf "  %-20s %s\n" "WiFi:"             "${WIFI_DEV:+PASS}"
+if [[ -n "$WIFI_DEV" ]]; then
+  printf "  %-20s %s\n" "WiFi:"           "PASS ($WIFI_DEV)"
+elif [[ "$WIFI_FAIL_REASON" == "RF_INIT_FAILED" ]]; then
+  printf "  ${RED}%-20s %s${NC}\n" "WiFi:" "FAIL — RF init hang; COLD power cycle & re-test (replace card if it repeats)"
+else
+  printf "  ${YELLOW}%-20s %s${NC}\n" "WiFi:" "FAIL — ${WIFI_FAIL_REASON:-unknown}"
+fi
 printf "  %-20s %s\n" "Internet:"         "$INTERNET_STATUS (via $INTERNET_VIA)"
 printf "  %-20s %s\n" "Ports:"            "$PORTS_PHYSICAL"
 printf "  %-20s %s\n" "Appearance:"       "Hinge: $HINGE | Scratches: $APPEARANCE"
-if [[ "$KERNEL_HEALTH" == "FAIL" ]]; then
-  printf "  %-20s %s\n" "Kernel Health:"  "FAIL ($KH_FAIL_COUNT hardware errors — see report)"
-elif [[ "$KERNEL_HEALTH" == "WARN" ]]; then
-  printf "  %-20s %s\n" "Kernel Health:"  "WARN ($KH_WARN_COUNT signals — see report)"
+if [[ "$KERNEL_HEALTH" == "WARN" ]]; then
+  printf "  %-20s %s\n" "Kernel Health:"  "WARN ($((KH_FAIL_COUNT + KH_WARN_COUNT)) signals — see report)"
 else
   printf "  %-20s %s\n" "Kernel Health:"  "PASS"
 fi
+printf "  %-20s %s\n" "Grading:"          "Grade $GRADE | Cond $CONDITION | ${WEIGHT_LBS} lbs${COLOR:+ | $COLOR}${SCREEN_SIZE_INCH:+ | ${SCREEN_SIZE_INCH}\"}"
+printf "  %-20s %s\n" "CD/DVD:"           "$CDDVD_PRESENT${MARK:+  | Mark: $MARK}"
 echo ""
 
 if [[ "$OVERALL" == "PASS" ]]; then

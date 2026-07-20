@@ -1,0 +1,115 @@
+{
+  "module": "laptop",
+  "sn": "029068371153",
+  "timestamp": "2026-05-04T10:42:06Z",
+  "overall_result": "PASS",
+  "summary": "PASS with 1 warning(s)",
+  "hostname": "test",
+  "payload": {
+    "test_info": {
+      "test_time": "2026-05-04T10:42:06Z",
+      "hostname": "test",
+      "script_version": "2.0.0"
+    },
+    "system": {
+      "vendor": "Microsoft Corporation",
+      "model": "Surface Pro 4",
+      "serial_number": "029068371153",
+      "bios_version": "109.3748.768"
+    },
+    "cpu": {
+      "model": "Intel(R) Core(TM) i7-6650U CPU @ 2.20GHz",
+      "cores": 4,
+      "threads": 4,
+      "max_mhz": "3400",
+      "architecture": "x86_64"
+    },
+    "memory": {
+      "total_gb": "15.5",
+      "type": "LPDDR3",
+      "speed": "1867 MT/s",
+      "slots_total": 2,
+      "slots_used": 2
+    },
+    "storage": [
+      {
+        "device": "nvme0n1",
+        "model": "SAMSUNG MZFLW256HEHP-000MV",
+        "serial": "S345NX0J170412",
+        "size": "238.5G",
+        "type": "SSD NVMe",
+        "smart": "PASSED",
+        "power_on_hours": "703",
+        "ssd_health_percent": "98",
+        "ssd_grade": "A",
+        "ssd_available_spare": "100%",
+        "ssd_data_written": "4.52 TB"
+      }
+    ],
+    "battery": {
+      "manufacturer": "SMP",
+      "model": "X910527",
+      "health_percent": "102.7",
+      "current_percent": "100",
+      "cycle_count": "79",
+      "voltage_v": "8.50",
+      "battery_condition": "OK",
+      "status": "PASS"
+    },
+    "screen": {
+      "resolution": "2736x1824",
+      "interface": "unknown",
+      "dead_pixel_check": "PASS",
+      "backlight_check": "PASS"
+    },
+    "camera": {
+      "device_status": "HARDWARE_DETECTED",
+      "device_count": 4,
+      "driver_type": "ipu3",
+      "capture_method": "none",
+      "capture_result": "SKIPPED",
+      "driver_note": "driver_init_failed",
+      "image_base64": ""
+    },
+    "audio": {
+      "speaker_device_status": "4",
+      "mic_device_status": "1",
+      "speaker_quality_check": "PASS",
+      "mic_record_check": "PASS",
+      "speaker_card_used": "0",
+      "mic_card_used": "0"
+    },
+    "keyboard": {
+      "device_status": "2",
+      "keys_check": "PASS",
+      "touchpad_check": "PASS"
+    },
+    "network": {
+      "wifi_status": "PASS",
+      "wifi_device": "wlp2s0",
+      "ethernet_status": "PASS",
+      "ethernet_device": "enxd8eb97b7794b",
+      "internet_test": "PASS",
+      "internet_test_via": "enxd8eb97b7794b"
+    },
+    "ports": {
+      "usb_device_count": 12,
+      "usb3_count": 4,
+      "physical_check": "PASS"
+    },
+    "appearance": {
+      "hinge_check": "PASS",
+      "scratch_check": "PASS"
+    },
+    "kernel_health": {
+      "status": "PASS",
+      "fail_count": 0,
+      "warn_count": 0,
+      "matched_signals": []
+    },
+    "overall_result": "PASS"
+  },
+  "warnings": [
+    "Camera driver init failed — verify in OEM OS"
+  ]
+}

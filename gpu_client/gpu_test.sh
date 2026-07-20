@@ -13,7 +13,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 UPLOAD_URL="http://192.168.30.18:80/gpu/api/upload"
 # Single source of truth for the script version. Bump on every release;
 # deploy_script.sh extracts it from here to generate server-side version.txt.
-SCRIPT_VERSION="1.1.1"
+SCRIPT_VERSION="1.5.0"
 LOG_DIR="/tmp/gpu_logs"
 BURN_DURATION=120           # gpu-burn stress test duration (seconds)
 AUTO_MODE=1                 # 1=unattended, 0=interactive
@@ -171,6 +171,134 @@ show_verdict_screen() {
     echo ""
 }
 
+# ── 3b. GPU Fault Warning Screen ──────────────────────────────
+# Big, prominent RED screen telling the operator the card is faulty and
+# should be replaced. Display-only: the caller decides whether to continue
+# or abort. $1 = matched kernel error lines (already truncated) to show.
+show_gpu_fault_screen() {
+    local err_lines="$1"
+    local COLS
+    COLS=$(tput cols 2>/dev/null || echo 80)
+
+    clear
+    echo ""
+    echo ""
+    local BIG_TEXT='\
+ ██████╗ ██████╗ ██╗   ██╗    ███████╗ █████╗ ██╗   ██╗██╗  ████████╗
+██╔════╝ ██╔══██╗██║   ██║    ██╔════╝██╔══██╗██║   ██║██║  ╚══██╔══╝
+██║  ███╗██████╔╝██║   ██║    █████╗  ███████║██║   ██║██║     ██║
+██║   ██║██╔═══╝ ██║   ██║    ██╔══╝  ██╔══██║██║   ██║██║     ██║
+╚██████╔╝██║     ╚██████╔╝    ██║     ██║  ██║╚██████╔╝███████╗██║
+ ╚═════╝ ╚═╝      ╚═════╝     ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝'
+
+    # Center each line horizontally
+    while IFS= read -r line; do
+        local vis_len lpad
+        vis_len=$(echo "$line" | sed 's/\x1b\[[0-9;]*m//g' | wc -m)
+        lpad=$(( (COLS - vis_len) / 2 ))
+        [[ "$lpad" -lt 0 ]] && lpad=0
+        printf "%*s" "$lpad" ""
+        echo -e "${RED}${BOLD}${line}${NC}"
+    done <<< "$BIG_TEXT"
+
+    echo ""
+    printf '%*s\n' "$COLS" '' | tr ' ' '─'
+    echo ""
+    echo -e "  ${RED}${BOLD}⚠  GPU HARDWARE ERROR DETECTED AT BOOT — REPLACE THIS CARD${NC}"
+    echo ""
+    echo -e "  ${YELLOW}The graphics card reported fatal errors in the kernel log.${NC}"
+    echo -e "  ${YELLOW}This usually means the card is defective. Recommend replacing it.${NC}"
+    echo ""
+    if [[ -n "$err_lines" ]]; then
+        echo -e "  ${BOLD}Kernel error signals:${NC}"
+        echo "$err_lines" | while IFS= read -r _l; do
+            [[ -n "$_l" ]] && echo -e "    ${RED}${_l}${NC}"
+        done
+        echo ""
+    fi
+    printf '%*s\n' "$COLS" '' | tr ' ' '─'
+}
+
+# ── 3c. Fatal GPU Kernel-Error Detection ──────────────────────
+# Narrow, high-confidence scan of dmesg for signals that indicate a
+# defective GPU (distinct from the broad Step 6 report scan). Prints the
+# matched lines (truncated to 8) to stdout; returns 0 if any found, else 1.
+detect_gpu_fatal_dmesg() {
+    # SAFETY GUARD — never flag a card as defective when the real issue is a
+    # DRIVER mismatch (too-new card, legacy card, or "not supported by ...
+    # driver release"). Those are software/version problems, NOT bad hardware.
+    # This prevents false "REPLACE GPU" prompts on perfectly good cards.
+    if dmesg 2>/dev/null | grep -qi \
+        'not supported by the\|supported through the NVIDIA\|NVRM.*legacy\|NVRM.*will ignore'; then
+        return 1
+    fi
+
+    # High-confidence hardware-death signals only (kept deliberately narrow).
+    local fatal_re
+    fatal_re='GPU has fallen off the bus|fell off the bus|RmInitAdapter failed|rm_init_adapter failed|'\
+'GPU board failed to initialize|amdgpu.*GPU reset|ring gfx.*timeout|amdgpu.*[Ff]atal error|'\
+'PCIe Bus Error:[[:space:]]*severity=Fatal'
+
+    local lines
+    lines=$(dmesg 2>/dev/null | grep -iE "$fatal_re" \
+        | grep -v 'nvidia-gpu.*i2c timeout' \
+        | grep -v 'nvidia-gpu.*e0000000' \
+        | head -8 || true)
+
+    if [[ -n "$lines" ]]; then
+        printf '%s\n' "$lines"
+        return 0
+    fi
+    return 1
+}
+
+# ── 3d. NVIDIA Driver Selection (supports new cards) ──────────
+# dmesg shows this when the GPU is NEWER than the installed driver:
+#   "is not supported by the NVIDIA <ver> driver release"
+# This is NOT a hardware fault — the card just needs a newer driver.
+nvidia_driver_too_old() {
+    dmesg 2>/dev/null | grep -qi 'not supported by the NVIDIA.*driver\|is not supported by the'
+}
+
+# Echo the recommended NVIDIA driver branch number for the installed card
+# (e.g. "570"), or nothing if ubuntu-drivers can't determine one.
+# Used to tell modern cards (>=535) apart from old cards (Kepler/Fermi
+# needing 470/390), which we only collect info on — never stress-test.
+nvidia_recommended_version() {
+    apt-get install -y -qq ubuntu-drivers-common 2>/dev/null
+    ubuntu-drivers devices 2>/dev/null \
+        | awk '/recommended/{for(i=1;i<=NF;i++) if($i ~ /^nvidia-driver-[0-9]+/) print $i}' \
+        | grep -oE '[0-9]+' | head -1
+}
+
+# Install the driver that MATCHES this card instead of a hardcoded version.
+# ubuntu-drivers picks the correct version AND variant (e.g. -open for
+# Blackwell/RTX-50). Falls back to autoinstall, then to nvidia-driver-535.
+install_best_nvidia_driver() {
+    apt-get install -y -qq ubuntu-drivers-common 2>/dev/null
+
+    local rec
+    rec=$(ubuntu-drivers devices 2>/dev/null \
+        | awk '/recommended/{for(i=1;i<=NF;i++) if($i ~ /^nvidia-driver-/) print $i}' \
+        | head -1)
+
+    if [[ -n "$rec" ]]; then
+        ok "Recommended driver for this GPU: $rec"
+        if apt-get install -y -qq "$rec" 2>/dev/null; then
+            return 0
+        fi
+        warn "Install of $rec failed — trying ubuntu-drivers autoinstall."
+    fi
+
+    if command -v ubuntu-drivers &>/dev/null; then
+        ok "Installing best-match driver via ubuntu-drivers autoinstall..."
+        ubuntu-drivers autoinstall 2>/dev/null && return 0
+    fi
+
+    warn "ubuntu-drivers unavailable — falling back to nvidia-driver-535."
+    apt-get install -y -qq nvidia-driver-535 2>/dev/null
+}
+
 # ── 3. Safe Exit ──────────────────────────────────────────────
 safe_exit() {
     local code=${1:-0}
@@ -178,11 +306,114 @@ safe_exit() {
     exit "$code"
 }
 
+# ── 3e. Reboot-and-Resume (operator-friendly driver-install reboot) ──
+# After a fresh driver install the kernel module often can't load live and a
+# reboot is required. Instead of a cryptic message, show a clear bilingual
+# screen and — on ENTER — auto-reboot AND auto-resume the test afterwards via
+# a one-shot systemd unit (self-removing, so it only ever runs once).
+RESUME_UNIT="/etc/systemd/system/gpu-resume.service"
+
+# Remove any leftover one-shot resume unit (called at startup so a normal run,
+# or the resumed run itself, never leaves it lingering / double-firing).
+clear_resume_unit() {
+    if [[ -f "$RESUME_UNIT" ]]; then
+        systemctl disable gpu-resume.service 2>/dev/null || true
+        rm -f "$RESUME_UNIT"
+        systemctl daemon-reload 2>/dev/null || true
+    fi
+}
+
+# Install the one-shot unit that re-runs THIS script on tty1 after reboot.
+schedule_resume_after_reboot() {
+    local target="$SCRIPT_DIR/gpu_test.sh"
+    [[ -f "$target" ]] || target="$0"
+
+    cat > "$RESUME_UNIT" <<EOF
+[Unit]
+Description=Resume GPU test after NVIDIA driver install (one-shot)
+After=multi-user.target
+
+[Service]
+Type=idle
+# Self-remove first so this can never run twice, then resume the test on tty1.
+ExecStart=/bin/bash -c 'systemctl disable gpu-resume.service; rm -f $RESUME_UNIT; systemctl daemon-reload; chvt 1; exec bash "$target"'
+StandardInput=tty
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload 2>/dev/null || true
+    systemctl enable gpu-resume.service 2>/dev/null || true
+}
+
+# Friendly, NON-alarming (cyan/green) full-screen "restart needed" notice.
+show_reboot_screen() {
+    local COLS
+    COLS=$(tput cols 2>/dev/null || echo 80)
+    clear
+    echo ""
+    echo ""
+    local BIG='\
+██████╗ ███████╗███████╗████████╗ █████╗ ██████╗ ████████╗
+██╔══██╗██╔════╝██╔════╝╚══██╔══╝██╔══██╗██╔══██╗╚══██╔══╝
+██████╔╝█████╗  ███████╗   ██║   ███████║██████╔╝   ██║
+██╔══██╗██╔══╝  ╚════██║   ██║   ██╔══██║██╔══██╗   ██║
+██║  ██║███████╗███████║   ██║   ██║  ██║██║  ██║   ██║
+╚═╝  ╚═╝╚══════╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝'
+    while IFS= read -r line; do
+        local vis_len lpad
+        vis_len=$(echo "$line" | sed 's/\x1b\[[0-9;]*m//g' | wc -m)
+        lpad=$(( (COLS - vis_len) / 2 )); [[ "$lpad" -lt 0 ]] && lpad=0
+        printf "%*s" "$lpad" ""
+        echo -e "${CYAN}${BOLD}${line}${NC}"
+    done <<< "$BIG"
+    echo ""
+    printf '%*s\n' "$COLS" '' | tr ' ' '─'
+    echo ""
+    echo -e "  ${GREEN}${BOLD}✓ GPU driver installed successfully.${NC}"
+    echo ""
+    echo -e "  ${BOLD}A reboot is required to activate the driver.${NC}"
+    echo -e "  ${BOLD}The test will resume AUTOMATICALLY after restart — no action needed.${NC}"
+    echo ""
+    echo -e "  ${GREEN}${BOLD}>>> Press ENTER to reboot and continue${NC}"
+    echo -e "  ${YELLOW}    (Press Ctrl+C to cancel)${NC}"
+    echo ""
+    printf '%*s\n' "$COLS" '' | tr ' ' '─'
+}
+
+# Show the screen, wait for ENTER → schedule resume + reboot; Ctrl+C cancels.
+reboot_and_resume() {
+    show_reboot_screen
+    trap '
+        echo ""
+        echo -e "  ${YELLOW}Reboot cancelled. Reboot manually, then re-run the test.${NC}"
+        trap - INT
+        safe_exit 2
+    ' INT
+    read -r -s
+    trap - INT
+    schedule_resume_after_reboot
+    echo ""
+    echo -e "  ${BOLD}Rebooting...${NC}"
+    sleep 2
+    reboot
+    safe_exit 2   # in case reboot is deferred
+}
+
 # ── 4. Root Check ─────────────────────────────────────────────
 if [[ $EUID -ne 0 ]]; then
     err "Please run with sudo: sudo bash gpu_test.sh"
     exit 1
 fi
+
+# Clean up any one-shot resume unit from a previous driver-install reboot.
+# (If we got here, the resume already fired or this is a fresh manual run.)
+clear_resume_unit
 
 # ── 5. Log Dir + Timestamp + File Paths ──────────────────────
 mkdir -p "$LOG_DIR"
@@ -207,6 +438,123 @@ trap cleanup EXIT INT TERM
 clear
 echo -e "${BOLD}>>> GPU Test Pipeline v1.1 Starting...${NC}"
 echo "Kernel: $(uname -r) | Timestamp: $TIMESTAMP"
+echo ""
+
+# ============================================================
+# Manual Input — Operator ID + Appearance & Grading (Cyclelution export)
+# ============================================================
+# Collected UP FRONT (before the SN scan / any test) so the operator enters all
+# data in one pass, then the long automated test + driver install can run
+# unattended. Field names/format are a fixed contract shared with laptop_test.sh
+# — the same CearTrack normalization engine consumes both, so grade/condition
+# are stored here as full Cyclelution labels (not raw codes), and multi-select
+# marks are joined with ';' to match laptop exactly.
+# NOTE: this only collects data; it does NOT touch the existing test pipeline.
+banner "Operator & Manual Input"
+
+# (0) Operator ID — required, non-empty. Preserve leading zeros (store string).
+#     Barcode badge scanner = keyboard input + Enter, no special handling needed.
+OPERATOR_ID=""
+while [[ -z "$OPERATOR_ID" ]]; do
+    read -rp "$(echo -e "  ${BOLD}Enter Operator ID (e.g. 0216): ${NC}")" OPERATOR_ID </dev/tty
+    OPERATOR_ID=$(echo "$OPERATOR_ID" | xargs)
+    [[ -z "$OPERATOR_ID" ]] && err "Operator ID cannot be empty."
+done
+ok "Operator: $OPERATOR_ID"
+echo ""
+
+# (1) Weight — required positive number (lbs). Use awk for >0 test because bc is
+#     not installed at this early stage (Phase 0 installs tools later).
+WEIGHT_LBS=""
+while :; do
+    read -rp "$(echo -e "  ${BOLD}Enter weight in lbs (e.g. 1.0): ${NC}")" WEIGHT_LBS </dev/tty
+    WEIGHT_LBS=$(echo "$WEIGHT_LBS" | xargs)
+    if [[ "$WEIGHT_LBS" =~ ^[0-9]+(\.[0-9]+)?$ ]] && awk "BEGIN{exit !(${WEIGHT_LBS}>0)}"; then
+        break
+    fi
+    warn "Weight must be a positive number (integer or decimal)."
+done
+
+# (2) Grade — required A/B/C/D → stored as full "Grade X"
+GRADE=""
+while :; do
+    read -rp "$(echo -e "  ${BOLD}Enter Grade [A/B/C/D]: ${NC}")" GRADE </dev/tty
+    GRADE=$(echo "$GRADE" | xargs | tr '[:lower:]' '[:upper:]')
+    [[ "$GRADE" =~ ^[ABCD]$ ]] && break
+    warn "Grade must be one of A, B, C, D."
+done
+
+# (3) Condition — 0-9 (maps to Cyclelution C0-C9), default 4 → stored as full label
+CONDITION_LABELS=("Not categorized" "Damaged" "Used Poor" "Used Fair" "Used Good" \
+                  "Used Very Good" "Used Excellent" "Certified Pre-Owned" "Unused" "New Open box")
+echo -e "  ${BOLD}Condition codes:${NC}"
+for _i in 0 1 2 3 4 5 6 7 8 9; do
+    printf "    %d) C%d - %s\n" "$_i" "$_i" "${CONDITION_LABELS[$_i]}"
+done
+CONDITION=""
+while :; do
+    read -rp "$(echo -e "  ${BOLD}Enter Condition [0-9, Enter=4 (C4-Used Good)]: ${NC}")" CONDITION </dev/tty
+    CONDITION=$(echo "$CONDITION" | xargs)
+    [[ -z "$CONDITION" ]] && { CONDITION="4"; break; }
+    [[ "$CONDITION" =~ ^[0-9]$ ]] && break
+    warn "Condition must be a single digit 0-9 (or Enter for 4)."
+done
+
+# (4) Color — free text, optional (Enter to skip)
+read -rp "$(echo -e "  ${BOLD}Enter Color (e.g. Black, Enter to skip): ${NC}")" COLOR </dev/tty
+COLOR=$(echo "$COLOR" | xargs)
+
+# (5) Mark — numbered menu + custom text + multi-select + skip. GPU-specific items
+#     (NOT laptop's keyboard/screen items). Multi-select joined with ';' to match
+#     laptop_test.sh so the shared normalization engine handles one format.
+MARK_OPTIONS=(
+    "Minor scratches/blemishes"
+    "Bent bracket"
+    "Missing screws"
+    "Fan noise"
+    "Dusty"
+    "Bent PCIe connector"
+)
+echo -e "  ${BOLD}Mark [Enter=none]:${NC}"
+_i=1
+for _opt in "${MARK_OPTIONS[@]}"; do
+    printf "    %d) %s\n" "$_i" "$_opt"
+    _i=$((_i + 1))
+done
+echo "    0) Type custom text"
+MARK=""
+while :; do
+    read -rp "$(echo -e "  ${BOLD}Select (multiple with comma, e.g. 1,3 or 0) [Enter=none]: ${NC}")" _mk_input </dev/tty
+    _mk_input=$(echo "$_mk_input" | xargs)
+    if [[ -z "$_mk_input" ]]; then MARK=""; break; fi
+    IFS=',' read -ra _mk_sel <<< "$_mk_input"
+    _mk_marks=()
+    for _sel in "${_mk_sel[@]}"; do
+        _sel=$(echo "$_sel" | xargs)
+        if [[ "$_sel" == "0" ]]; then
+            read -rp "$(echo -e "  ${BOLD}Enter custom mark text: ${NC}")" _custom </dev/tty
+            _custom=$(echo "$_custom" | xargs)
+            [[ -n "$_custom" ]] && _mk_marks+=("$_custom")
+        elif [[ "$_sel" =~ ^[0-9]+$ ]] && (( _sel >= 1 && _sel <= ${#MARK_OPTIONS[@]} )); then
+            _mk_marks+=("${MARK_OPTIONS[$((_sel - 1))]}")
+        else
+            warn "Invalid choice: $_sel (ignored)"
+        fi
+    done
+    if [[ ${#_mk_marks[@]} -gt 0 ]]; then
+        MARK=$(IFS=';'; echo "${_mk_marks[*]}")
+        break
+    else
+        warn "No valid selection. Try again or press Enter to skip."
+    fi
+done
+echo -e "  Selected Mark: ${MARK:-<none>}"
+
+# Derived full-label strings for the JSON (match Cyclelution dropdowns):
+#   grade "B"      -> "Grade B"
+#   condition "4"  -> "C4 - Used Good"
+GRADE_FULL="Grade $GRADE"
+CONDITION_FULL="C${CONDITION} - ${CONDITION_LABELS[$CONDITION]}"
 echo ""
 
 # ── Card Label SN (barcode scanner input) ─────────────────────
@@ -287,22 +635,64 @@ if [[ "$VENDOR" == "NVIDIA" ]]; then
             sleep 1
         fi
 
-        # Install driver from Ubuntu's own repo (compatible with libc6 2.35)
-        apt-get install -y -qq nvidia-driver-535 2>/dev/null
+        # Old-card policy: if the only driver that supports this GPU is a
+        # legacy branch (< 535, i.e. Kepler→470 / Fermi→390), we do NOT install
+        # it. Per policy, old cards are INFO_ONLY — collect info, never test.
+        _rec_ver=$(nvidia_recommended_version)
+        if [[ -n "$_rec_ver" && "$_rec_ver" -lt 535 ]] 2>/dev/null; then
+            warn "Older GPU (only legacy driver ${_rec_ver}.x supports it) — INFO_ONLY mode."
+            warn "Collecting L1 hardware info via lspci only; no stress test."
+            LEGACY_CARD=1
+        else
+            # Install the driver MATCHED to this card (not hardcoded — supports new cards)
+            install_best_nvidia_driver
+        fi
 
-        # Try loading without reboot
-        modprobe nvidia 2>/dev/null
-        if nvidia-smi &>/dev/null; then
+        # Try loading without reboot (skip when we deliberately stayed legacy)
+        if [[ "${LEGACY_CARD:-0}" -eq 1 ]]; then
+            : # old card — handled above, fall through to legacy/INFO_ONLY
+        elif modprobe nvidia 2>/dev/null && nvidia-smi &>/dev/null; then
             ok "NVIDIA driver loaded."
+        elif nvidia_driver_too_old; then
+            # GPU is NEWER than the driver in the distro repo. Add the
+            # graphics-drivers PPA (newer releases) and retry once.
+            warn "This GPU is newer than the distro driver — adding graphics-drivers PPA..."
+            apt-get install -y -qq software-properties-common 2>/dev/null
+            add-apt-repository -y ppa:graphics-drivers/ppa 2>/dev/null
+            apt-get update -qq 2>/dev/null
+            install_best_nvidia_driver
+            modprobe nvidia 2>/dev/null
+            if nvidia-smi &>/dev/null; then
+                ok "NVIDIA driver loaded (from graphics-drivers PPA)."
+            elif nvidia_driver_too_old; then
+                err "This GPU is too new for any available NVIDIA driver."
+                err "GPU PCI ID: $(lspci -nn | grep -iE 'vga|3d' | grep -i nvidia | head -1)"
+                err "This is NOT a bad card — it needs a newer driver / newer Ubuntu."
+                err "On a networked machine run: sudo ubuntu-drivers autoinstall"
+                safe_exit 2
+            else
+                # Driver installed OK, just needs a reboot — friendly auto-resume.
+                reboot_and_resume
+            fi
         elif dmesg 2>/dev/null | grep -qi 'NVRM.*legacy\|NVRM.*will ignore\|supported through the NVIDIA'; then
             # Driver probed but explicitly rejected this GPU (legacy card — e.g. K2000 needs 470.xx)
-            warn "NVIDIA 535 driver does not support this GPU (legacy card detected via dmesg)."
+            warn "Driver does not support this GPU (legacy card detected via dmesg)."
             warn "Continuing in INFO_ONLY mode — L1 hardware info via lspci only."
             LEGACY_CARD=1
         else
-            err "NVIDIA driver installed but requires a reboot to activate."
-            err "Run: sudo reboot  — then re-run this script."
-            safe_exit 2
+            # nvidia-smi still failing. Distinguish a defective card (fatal
+            # kernel errors at boot) from a genuine reboot-needed situation.
+            _fatal_lines=$(detect_gpu_fatal_dmesg) && _fatal_hit=1 || _fatal_hit=0
+            if [[ "$_fatal_hit" -eq 1 ]]; then
+                show_gpu_fault_screen "$_fatal_lines"
+                echo ""
+                echo -e "  ${BOLD}This card cannot be tested. Power off and REPLACE it.${NC}"
+                echo ""
+                safe_exit 2
+            else
+                # Driver installed OK, just needs a reboot — friendly auto-resume.
+                reboot_and_resume
+            fi
         fi
     else
         ok "NVIDIA driver already loaded."
@@ -895,8 +1285,8 @@ ok "L1 identification complete."
 # ── Test Tier Determination ───────────────────────────────────
 TEST_TIER="FULL"
 if [[ "${LEGACY_CARD:-0}" -eq 1 ]]; then
-    # Kepler / Fermi: nvidia-smi 完全失效，535 驱动下 CUDA / gpu-burn 无法运行
-    # 无论 conf 查到多少 VRAM，都必须强制 INFO_ONLY
+    # Kepler / Fermi: nvidia-smi is non-functional under driver 535; CUDA / gpu-burn cannot run.
+    # Force INFO_ONLY regardless of VRAM reported by the legacy DB.
     TEST_TIER="INFO_ONLY"
     warn "Legacy card (unsupported by driver 535) — forced INFO_ONLY mode"
 elif [[ "$GPU_VRAM_MB" -lt 4096 ]] 2>/dev/null; then
@@ -906,6 +1296,48 @@ fi
 
 if [[ "$TEST_TIER" == "FULL" ]]; then
     ok "Test tier: FULL (VRAM ${GPU_VRAM_MB}MB ≥ 4096MB)"
+fi
+
+# ============================================================
+# Phase 2b — Pre-Test GPU Health Gate
+# ============================================================
+# Scan the kernel log for FATAL GPU errors before running any test. A
+# defective card often spews driver-init / Xid / fell-off-the-bus errors at
+# boot — errors the operator cannot interpret. Surface them in a big, clear
+# warning so the operator knows to replace the card.
+banner "Step 1b: Pre-Test GPU Health Check"
+
+_fatal_lines=$(detect_gpu_fatal_dmesg) && _fatal_hit=1 || _fatal_hit=0
+if [[ "$_fatal_hit" -eq 1 ]]; then
+    show_gpu_fault_screen "$_fatal_lines"
+    echo ""
+    echo -e "  ${BOLD}Press  ENTER  →  test anyway (card may be unstable)${NC}"
+    echo -e "  ${BOLD}Press  Ctrl+C →  abort and REPLACE the card${NC}"
+    echo ""
+
+    trap '
+        echo ""
+        echo -e "  ${YELLOW}Aborted — power off and replace the GPU.${NC}"
+        echo ""
+        trap - INT
+        safe_exit 2
+    ' INT
+
+    read -r -s
+    trap - INT
+    warn "Operator chose to continue testing despite kernel errors."
+else
+    ok "No fatal GPU errors in kernel log."
+fi
+
+# ── Reset kernel ring buffer before stress testing ────────────
+# Step 1b above already scanned the FULL boot-time log for fatal faults. Clear
+# the buffer now so the post-test Step 6 scan judges ONLY errors generated
+# DURING the test — stale boot-time driver chatter (e.g. "NVRM: probe routine
+# failed" from before the driver was installed) must not cause a false FAIL.
+if [[ "$TEST_TIER" == "FULL" ]]; then
+    dmesg -C 2>/dev/null && ok "Kernel log cleared — Step 6 will only see test-time errors." \
+        || warn "Could not clear kernel log (dmesg -C) — Step 6 may include stale boot messages."
 fi
 
 # ============================================================
@@ -1191,32 +1623,78 @@ fi   # end TEST_TIER FULL gate (thermal)
 # ============================================================
 banner "Step 6: Checking dmesg for GPU Errors"
 
-# T30 — require error indicator alongside GPU keyword to avoid false positives
-# (e.g. "pp1-gpu" in RAPL PMU, "vgaarb" VGA arbitration are benign and excluded)
-DMESG_GPU_LINES=$(dmesg 2>/dev/null | grep -iE \
-    '(nvrm|amdgpu).*(error|warn|fail|reset|hang|xid|fault)|'\
+# Three-tier dmesg classification — not every GPU-related kernel line is a
+# hardware fault. We split signals into FATAL (hardware death → FAIL) vs
+# non-fatal events (recoverable/transient → WARN). Benign noise and plain
+# warnings are excluded entirely so they never affect the verdict.
+#
+# NOTE: the kernel ring buffer was cleared right before stress testing (after
+# the Step 1b health gate), so everything scanned here was produced DURING the
+# test — stale boot-time chatter cannot reach this point.
+
+# ── FATAL signals (hardware death — high confidence) ──────────
+# Same narrow set used by detect_gpu_fatal_dmesg(), plus fatal NVIDIA Xid codes:
+#   48/92/94/95 = double-bit / uncorrectable ECC,  63/64 = ECC page retirement,
+#   79 = GPU fell off the bus. Other Xids (13/31/43/45 etc.) are app/driver
+#   level and are deliberately NOT treated as failures.
+DMESG_FATAL_RE='GPU has fallen off the bus|fell off the bus|RmInitAdapter failed|rm_init_adapter failed|'\
+'GPU board failed to initialize|amdgpu.*GPU reset|ring gfx.*timeout|amdgpu.*[Ff]atal error|'\
+'PCIe Bus Error:[[:space:]]*severity=Fatal'
+
+DMESG_FATAL_LINES=$(dmesg 2>/dev/null | grep -iE "$DMESG_FATAL_RE" \
+    | grep -v 'nvidia-gpu.*i2c timeout' \
+    | grep -v 'nvidia-gpu.*e0000000' \
+    || true)
+# Fatal Xid codes — match the code that follows "Xid ... :" (modern 535+ format
+# "NVRM: Xid (PCI:0000:01:00): 79, ...")
+DMESG_FATAL_XID=$(dmesg 2>/dev/null | grep -iE 'xid' \
+    | grep -E ': ?(48|63|64|79|92|94|95)([,. ]|$)' || true)
+DMESG_FATAL_LINES=$(printf '%s\n%s\n' "$DMESG_FATAL_LINES" "$DMESG_FATAL_XID" \
+    | grep -v '^$' | sort -u || true)
+
+# ── Non-fatal GPU events (recoverable / transient → WARN) ─────
+# Broad GPU error/reset/hang/fault/xid scan, but: no plain "warn" keyword, and
+# benign noise excluded (probe-attach, firmware-load notices, Corrected PCIe).
+DMESG_WARN_LINES=$(dmesg 2>/dev/null | grep -iE \
+    '(nvrm|amdgpu).*(error|fail|reset|hang|xid|fault)|'\
 '(error|fail|hang|reset|xid|fault).*(nvrm|amdgpu|drm)|'\
 'gpu.*(error|fail|hang|reset|xid|fault)|'\
 'drm[[:space:]].*:(error|fault|hang|reset)' \
     | grep -v 'nvidia-gpu.*i2c timeout' \
     | grep -v 'nvidia-gpu.*e0000000' \
+    | grep -viE 'probe routine failed|Direct firmware load|severity=Corrected' \
     || true)
-DMESG_ERROR_COUNT=0
-if [[ -n "$DMESG_GPU_LINES" ]]; then
-    DMESG_ERROR_COUNT=$(echo "$DMESG_GPU_LINES" | grep -c '.' 2>/dev/null || echo "0")
+# Drop any line already classified as FATAL so it is not double-counted.
+if [[ -n "$DMESG_FATAL_LINES" && -n "$DMESG_WARN_LINES" ]]; then
+    DMESG_WARN_LINES=$(comm -23 \
+        <(sort -u <<< "$DMESG_WARN_LINES") \
+        <(sort -u <<< "$DMESG_FATAL_LINES") || true)
 fi
-DMESG_STATUS="PASS"
 
-# T31
-if [[ "$DMESG_ERROR_COUNT" -gt 0 ]]; then
-    err "dmesg GPU errors found ($DMESG_ERROR_COUNT lines):"
-    echo "$DMESG_GPU_LINES" | head -20
+DMESG_FATAL_COUNT=0
+[[ -n "$DMESG_FATAL_LINES" ]] && DMESG_FATAL_COUNT=$(grep -c '.' <<< "$DMESG_FATAL_LINES" 2>/dev/null || echo 0)
+DMESG_WARN_COUNT=0
+[[ -n "$DMESG_WARN_LINES" ]] && DMESG_WARN_COUNT=$(grep -c '.' <<< "$DMESG_WARN_LINES" 2>/dev/null || echo 0)
+
+# Combined list + total (used for the JSON report and the summary count).
+DMESG_GPU_LINES=$(printf '%s\n%s\n' "$DMESG_FATAL_LINES" "$DMESG_WARN_LINES" | grep -v '^$' || true)
+DMESG_ERROR_COUNT=$(( DMESG_FATAL_COUNT + DMESG_WARN_COUNT ))
+
+# ── Status ────────────────────────────────────────────────────
+DMESG_STATUS="PASS"
+if [[ "$DMESG_FATAL_COUNT" -gt 0 ]]; then
     DMESG_STATUS="FAIL"
+    err "dmesg FATAL GPU errors ($DMESG_FATAL_COUNT) — hardware-fault signals:"
+    echo "$DMESG_FATAL_LINES" | head -20
+elif [[ "$DMESG_WARN_COUNT" -gt 0 ]]; then
+    DMESG_STATUS="WARN"
+    warn "dmesg non-fatal GPU events ($DMESG_WARN_COUNT) — recoverable/transient, not failing:"
+    echo "$DMESG_WARN_LINES" | head -10
 else
     ok "No GPU errors in dmesg"
 fi
 
-# T32 — Build JSON array
+# T32 — Build JSON array (fatal + non-fatal lines combined)
 DMESG_ERRORS_JSON=$(echo "$DMESG_GPU_LINES" \
     | grep -v '^$' \
     | jq -Rn '[inputs | select(length > 0)]' 2>/dev/null \
@@ -1252,6 +1730,10 @@ if [[ "$OVERALL_RESULT" != "FAIL" ]]; then
         OVERALL_RESULT="WARN"
         warn "→ WARN: glmark2 benchmark issue (score: $VKMARK_SCORE)"
     fi
+    if [[ "$DMESG_STATUS" == "WARN" ]]; then
+        OVERALL_RESULT="WARN"
+        warn "→ WARN: non-fatal dmesg GPU events ($DMESG_WARN_COUNT)"
+    fi
 fi
 
 # INFO_ONLY tier overrides all — no stress tests were run
@@ -1281,7 +1763,7 @@ else
     printf "  %-22s %s°C / Avg %s°C\n" "Temp Max/Avg:" "$TEMP_MAX" "$TEMP_AVG"
     printf "  %-22s %s W\n" "Power Max:"     "$POWER_MAX"
     printf "  %-22s %s\n" "glmark2 Score:"   "$VKMARK_SCORE"
-    printf "  %-22s %s\n" "dmesg Errors:"    "$DMESG_ERROR_COUNT"
+    printf "  %-22s %s (fatal:%s warn:%s)\n" "dmesg Events:" "$DMESG_ERROR_COUNT" "$DMESG_FATAL_COUNT" "$DMESG_WARN_COUNT"
 fi
 echo "############################################################"
 
@@ -1359,6 +1841,12 @@ jq -n \
     --argjson vkmark_score    "${VKMARK_SCORE}" \
     --arg  vkmark_status      "$VKMARK_STATUS" \
     --argjson dmesg_errors    "$DMESG_ERRORS_JSON" \
+    --arg  operator_id        "$OPERATOR_ID" \
+    --arg  manual_weight      "$WEIGHT_LBS" \
+    --arg  manual_grade       "$GRADE_FULL" \
+    --arg  manual_condition   "$CONDITION_FULL" \
+    --arg  manual_color       "$COLOR" \
+    --arg  manual_mark        "$MARK" \
     '{
         "module":        $module,
         sn:             $sn,
@@ -1369,6 +1857,7 @@ jq -n \
             test_info: {
                 test_time:             $timestamp,
                 test_station:          $test_hostname,
+                operator_id:           $operator_id,
                 test_tier:             $test_tier,
                 script_version:        $script_version,
                 burn_duration_seconds:   $burn_duration,
@@ -1418,6 +1907,13 @@ jq -n \
                 resolution:  "1920x1080",
                 score:       $vkmark_score,
                 status:      $vkmark_status
+            },
+            manual_input: {
+                weight_lbs: $manual_weight,
+                grade:      $manual_grade,
+                condition:  $manual_condition,
+                color:      $manual_color,
+                mark:       $manual_mark
             },
             dmesg_gpu_errors: $dmesg_errors,
             overall_result:   $overall_result
