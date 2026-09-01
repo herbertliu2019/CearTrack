@@ -21,6 +21,29 @@ production: "T-Laptop"
 environment: production          # production -> ProductName "T - Laptop"
                                  # test       -> ProductName "T - Laptops"
 
+# Rolling candidate window (days) — the Ready tab only shows records tested
+# within this many days of today (see cyclelution/recency.py); a record
+# just stops appearing once it ages out, no status change involved. Same
+# concept/value shared with the GPU and wipe productions unless a
+# production-specific reason to diverge shows up.
+ready_window_days: 30
+
+# Scan-to-batch export workflow (tasks/Cyclelution/TASK_export_batch0901.md).
+# Enabled alongside wipe and GPU per explicit user request 2026-09-01 —
+# the task doc's own default was a staged rollout (wipe only, laptop/gpu
+# after a 2-3 week pilot); this skips that staging on direct instruction.
+#
+# operator here is test_info.operator_id (NOT manual_input.operator_id —
+# see web.py::_row_display's laptop branch).
+# pool_third_column: model — laptops don't share wipe's single "capacity"
+# concept, vendor+model is what an operator actually cross-checks here.
+batch:
+  enabled: true
+  large_batch_warn: 100
+  slot_numbers: false
+  filters: [test_date, operator]
+  pool_third_column: model
+
 # ---------------------------------------------------------------------
 # Column rules. Key = exact Adjust-template header. Columns not listed
 # are exported empty. Order here is documentation; exporter uses the

@@ -230,7 +230,21 @@ def _c_parse(cfg, ctx, cfgroot):
         vendor = str(_get_path(ctx, cfg.get("vendor_source", "")) or "").strip()
         out = s
         if vendor and out.upper().startswith(vendor.upper()):
-            out = out[len(vendor):].strip()
+            rest = out[len(vendor):]
+            # Only strip at a real word boundary (non-alnum char, or
+            # end-of-string) — a short/garbled vendor field (e.g.
+            # wipe.manufacturer="MT" or "CT") can coincidentally prefix-match
+            # the middle of an unrelated model code (e.g. "MTFDDAV256..." or
+            # "CT500MX500SSD4"); cutting there would eat into the model's own
+            # identity, not the vendor name.
+            if rest == "" or not rest[0].isalnum():
+                if rest[:1] in (" ", "-", "_"):
+                    rest = rest[1:]
+                rest = rest.strip()
+                # Stripping down to nothing (manufacturer == model, e.g. a
+                # generic "KingFast"/"KingFast" pair) is worse than keeping
+                # the original value — an empty Model loses all information.
+                out = rest if rest else out
         return out.upper()
 
     if not s:
@@ -309,9 +323,14 @@ _DISPATCH = {
 
 
 # --- entrypoint ---------------------------------------------------------
-def normalize(envelope: dict, config=None, wipe_fn=None) -> NormResult:
+def normalize(envelope: dict, config=None, wipe_fn=None, context_builder=None) -> NormResult:
+    """context_builder defaults to build_context (T-Laptop). Other
+    productions (e.g. GPU/T-Video Card) pass their own builder — the
+    converters above are production-agnostic and just walk whatever ctx
+    dict + column rules they're given."""
     cfg = config or load_config()
-    ctx = build_context(envelope, wipe_fn=wipe_fn)
+    ctx_builder = context_builder or build_context
+    ctx = ctx_builder(envelope, wipe_fn=wipe_fn)
     res = NormResult(context=ctx)
 
     for col, rule in cfg["columns"].items():

@@ -1,0 +1,125 @@
+# =====================================================================
+# CearTrack -> Cyclelution field mapping — T-Video Card (GPU)
+# Drives cyclelution/normalizer.py via context_gpu.build_context. Same
+# generic engine as mapping_t_laptop.yaml (see SKILL_cyclelution.md
+# section 4) — ALL field rules live here, zero hardcoding in code.
+#
+# Column assignments below are reverse-engineered from a real, already
+# -imported export (adjust_GPU.xlsx, user-supplied 2026-07-22) — NOT
+# guessed. Columns absent from that golden row (Technology, Size,
+# BusID, Storage Size/Type, Processor Type/Speed, OS, CD/DVD Drive,
+# ddlProperty007/008/010-012/016-031, all TxtProperty except what's
+# listed) are intentionally left unmapped: a GPU has no CPU/OS/optical
+# drive/screen, so those slots stay blank on export, same as the
+# golden row.
+#
+# Sources are dotted paths into the per-record CONTEXT context_gpu.py
+# builds:  sn  gpu.*  test_info.*  manual_input.*  overall_result
+# =====================================================================
+
+production: "T-Video Card"
+environment: production          # production -> ProductName "T - Video Card"
+                                 # test       -> ProductName "T - Video Cards" (guess, mirrors laptop's convention; unused today)
+
+# Rolling candidate window (days) — see mapping_t_laptop.yaml's comment;
+# same shared concept (cyclelution/recency.py).
+ready_window_days: 60
+
+# Scan-to-batch export workflow (tasks/Cyclelution/TASK_export_batch0901.md).
+# Enabled alongside wipe and laptop per explicit user request 2026-09-01 —
+# see mapping_t_laptop.yaml's batch comment for context on the task doc's
+# original staged-rollout default.
+#
+# test_station, NOT operator — GPU has no operator concept in Cyclelution
+# terms, and test_info.operator_id is slated for removal in the next
+# test-script version (see web.py::_row_display's gpu branch, which never
+# reads it). test_station comes from payload.test_info.test_station.
+batch:
+  enabled: true
+  large_batch_warn: 100
+  slot_numbers: false
+  filters: [test_date, test_station]
+  pool_third_column: model
+
+columns:
+  # ---- Fixed field area ----
+  ProductName:   { type: const,  from_env: product_name }
+  Office:        { type: const,  value: "05 Testing/Resale" }
+  Qty:           { type: const,  value: "1" }
+  QtyBase:       { type: const,  value: "Unit" }
+  Weight:        { type: direct,  source: "manual_input.weight_lbs", required: true, numeric: true }
+  RTS:           { type: const,  value: "N" }
+  TDM:           { type: const,  value: "N" }
+  SerialNumber:  { type: direct,  source: "sn", required: true }   # envelope sn: scanned card-label barcode, else GPU HW SN, else name+timestamp
+  BusID:         { type: const,  value: "IT23041900028" }   # same fixed constant as T-Laptop, user-confirmed 2026-07-23
+  Condition:     { type: direct,  source: "manual_input.condition", required: true }
+  Manufacturer:  { type: direct,  source: "gpu.subvendor", optional: true }   # already normalized to canonical brand by context_gpu.py (same table the dashboard's "By Vendor" widget uses) — do not re-run through the `manufacturer` ruleset below, it strips "PARTNER" as a corporate suffix and mangles "PC Partner" to "PC", plus re-uppercases Dell/Intel/Lenovo
+  Model:         { type: direct,  source: "gpu.name" }                               # passthrough, e.g. "AMD RADEON RX 580" (golden row keeps vendor prefix, unlike laptop)
+  Color:         { type: direct,  source: "manual_input.color", optional: true }
+  Grade:         { type: direct,  source: "manual_input.grade", required: true }
+  # Size / Technology / Notes -> unused, left empty
+
+  # ---- ddlProperty slots (same numbering as T-Laptop where the concept overlaps) ----
+  ddlProperty001: { type: bucket, source: "gpu.vram_gb", domain: memory, unit: "GB", over_max_exception: true }   # VRAM, bucketed like laptop's RAM
+  ddlProperty002: { type: const,  value: "Testing Area" }        # Inventory Location
+  ddlProperty005: { type: const,  value: "ND-No Data" }          # Data Sanitization — GPU never holds user data
+  ddlProperty006: { type: const,  value: "03 Tested" }           # Disposition
+  ddlProperty009: { type: const,  value: "F3 - Key Functions Working" }   # Functionality
+  ddlProperty013: { type: const,  value: "C-R2 Controlled Streams" }      # R2 Applicability
+  ddlProperty014: { type: const,  value: "Commodity Storage" }            # matches laptop's const; meaning not shown in UI, kept identical to the other known-good production
+  ddlProperty015: { type: const,  value: "Pass" }                # Key Functions Test
+  ddlProperty032: { type: const,  value: "Harvested/removed components of electronics" }   # R2 Category
+
+  # ---- TxtProperty slots ----
+  TxtProperty001: { type: direct, source: "manual_input.mark", optional: true }   # Notes / Marks (same slot as laptop)
+
+env_values:
+  product_name:
+    production: "T - Video Card"
+    test: "T - Video Cards"
+
+# ---------------------------------------------------------------------
+# Domains — memory reused verbatim from mapping_t_laptop.yaml (same
+# valid values on both sides of the Cyclelution ddl dropdown).
+# ---------------------------------------------------------------------
+domains:
+  memory: [1, 1.5, 2, 2.5, 3, 4, 6, 8, 12, 16, 24, 32, 64, 96, 128]
+
+# ---------------------------------------------------------------------
+# Rulesets — manufacturer cleanup reused from mapping_t_laptop.yaml,
+# extended with GPU board-partner brands (subvendor values).
+# ---------------------------------------------------------------------
+rulesets:
+  manufacturer:
+    kind: clean_alias
+    strip_suffixes: [INC, CORP, CO, LTD, COMPUTER, TECHNOLOGY, ELECTRONICS, INTERNATIONAL, PARTNER]
+    aliases:
+      "MSI": "MSI"
+      "MICRO-STAR": "MSI"
+      "ASUS": "ASUS"
+      "ASUSTEK": "ASUS"
+      "GIGABYTE": "Gigabyte"
+      "GIGA-BYTE": "Gigabyte"
+      "SAPPHIRE": "Sapphire"
+      "EVGA": "EVGA"
+      "PNY": "PNY"
+      "ZOTAC": "ZOTAC"
+      "PALIT": "Palit"
+      "GAINWARD": "Gainward"
+      "INNO3D": "Inno3D"
+      "COLORFUL": "Colorful"
+      "LEADTEK": "Leadtek"
+      "ASROCK": "ASRock"
+      "XFX": "XFX"
+      "POWERCOLOR": "PowerColor"
+      "HIS": "HIS"
+      "CLUB 3D": "Club 3D"
+      "PC PARTNER": "PC Partner"
+      "BITLAND": "Bitland"
+      "DELL": "DELL"
+      "HP": "HP"
+      "HEWLETT-PACKARD": "HP"
+      "LENOVO": "LENOVO"
+      "NVIDIA": "NVIDIA"
+      "AMD": "AMD"
+      "INTEL": "INTEL"

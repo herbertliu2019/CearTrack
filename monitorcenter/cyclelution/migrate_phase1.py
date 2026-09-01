@@ -1,5 +1,6 @@
-"""Phase 1 migration: create the laptop_sync table and backfill every
-existing laptop record as 'pending'. Idempotent — safe to run repeatedly.
+"""Phase 1 migration: create each production's `<module>_sync` table and
+backfill every existing record of that module as 'pending'. Idempotent —
+safe to run repeatedly, including after adding a new production.
 
 Run from the monitorcenter/ directory:
 
@@ -8,12 +9,15 @@ Run from the monitorcenter/ directory:
 
 from . import sync_state
 
+_MODULES = ("laptop", "gpu", "wipe")
+
 
 def main() -> None:
-    sync_state.init_schema()
-    created = sync_state.backfill_pending()
-    print(f"[OK] laptop_sync backfill: +{created} new pending row(s)")
-    print(f"[OK] laptop_sync status counts: {sync_state.counts()}")
+    for module in _MODULES:
+        sync_state.init_schema(module=module)
+        created = sync_state.backfill_pending(module=module)
+        print(f"[OK] {module}_sync backfill: +{created} new pending row(s)")
+        print(f"[OK] {module}_sync status counts: {sync_state.counts(module=module)}")
 
 
 if __name__ == "__main__":

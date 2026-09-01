@@ -76,7 +76,9 @@ def search():
             except Exception as e:
                 print(f"Search error for {m}: {e}")
     results.sort(key=lambda r: r.get("timestamp", ""), reverse=True)
-    return jsonify({"sn": sn, "count": len(results), "results": results})
+    resp = jsonify({"sn": sn, "count": len(results), "results": results})
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 def _search_wipe_sqlite(sn: str) -> list[dict]:
@@ -200,7 +202,9 @@ def api_search():
     results.extend(_search_cpu_sqlite(sn))
 
     results.sort(key=lambda r: r.get("timestamp", ""), reverse=True)
-    return jsonify(results)
+    resp = jsonify(results)
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 @app.route("/api/summary")

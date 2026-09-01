@@ -1,0 +1,209 @@
+# =====================================================================
+# CearTrack -> Cyclelution field mapping — T-Hard Drive (wipe)
+# Drives cyclelution/normalizer.py via context_wipe.build_context. Same
+# generic engine as mapping_t_laptop.yaml / mapping_t_video_card.yaml
+# (see SKILL_cyclelution.md section 4 / TASK_wipe_export.md section 4) —
+# ALL field rules live here, zero hardcoding in code.
+#
+# Grade is this production's one documented exception to "grade is always
+# operator-entered": it's auto-measured by the erasure software and read
+# straight from wipe_records.grade. An EMPTY grade is handled upstream in
+# gate_wipe.py (routed to a NO_GRADE view, never an exception) — the Grade
+# rule below only has to handle "non-empty but not in A-D" (e.g. the real
+# "GRADE F" values seen in wipe_records), which correctly falls to the
+# normal exception list.
+#
+# Sources are dotted paths into the per-record CONTEXT context_wipe.py
+# builds: sn  wipe.*  (wipe.storage_type is pre-computed by the context
+# builder so Weight/Color can look it up, see section 4.5 below)
+# =====================================================================
+
+production: "T-Hard Drive"
+environment: production
+
+# Absolute cutoff — wipe_sync.py only scans/(re-)evaluates drive_sns whose
+# LATEST wipe_datetime is on/after this date; anything older is permanently
+# out of scope for this pipeline (handled by the old manual Cyclelution
+# process before this automation existed). Deliberately an absolute date,
+# not a rolling "last N days" window: a rolling window would silently drop
+# a drive forever if it ever aged out before a scan happened to run. Move
+# this forward later by editing this one value — no redeploy needed, the
+# config is reloaded from disk on every scan/rescan.
+scan_since: "2026-07-17"
+
+# Rolling candidate window — how many days back a record counts as an
+# active Ready candidate (see cyclelution/recency.py). Unlike scan_since
+# above, this ALWAYS trails "today": a record just stops appearing in Ready
+# once it's older than this, no status change involved. wipe_sync.py also
+# uses this (layered on top of scan_since) to skip evaluating drive_sns
+# that are old enough they'd never show in Ready anyway, purely so a
+# Rescan doesn't waste time re-processing decades of history every run.
+ready_window_days: 30
+
+# How often the background poller (cyclelution/wipe_sync.py's
+# start_poll_scheduler) re-runs sync_all() automatically, in addition to
+# Flask boot and manual Rescan clicks. Read once at scheduler start (a
+# running server needs a restart to pick up a changed value, same as
+# modules/wipe/scheduler.py's own poll_interval).
+sync_poll_interval_seconds: 600
+
+# Scan-to-batch export workflow (tasks/Cyclelution/TASK_export_batch0901.md).
+# enabled -> the Ready tab shows the left/right scan panel instead of the
+# checkbox list. No hard per-batch row cap (a batch can grow arbitrarily —
+# see batch_store.add_item()); large_batch_warn is purely a UI banner
+# threshold, validated at Flask startup (see cyclelution/integration.py) —
+# a negative or non-integer value refuses to start the app. 0 or omitted
+# means "never show the warning". Config is re-read fresh on every batch
+# creation (not process-cached), so changing it takes effect on the NEXT
+# batch without a restart.
+#
+# filters: left-pool filter dropdowns, rendered in this order. wipe's
+# erasure log has no operator field, so date is the only dimension.
+# pool_third_column: which field the pool/queue rows show in their third
+# column — capacity is what an operator visually cross-checks a drive
+# against (see mapping_t_laptop.yaml's comment for why the other
+# productions use `model` instead).
+batch:
+  enabled: true
+  large_batch_warn: 100
+  slot_numbers: true
+  filters: [wipe_date]
+  pool_third_column: capacity
+
+columns:
+  # ---- Fixed field area ----
+  ProductName:   { type: const,  value: "T - Hard Drive" }
+  Office:        { type: const,  value: "05 Testing/Resale" }
+  Qty:           { type: const,  value: "1" }
+  QtyBase:       { type: const,  value: "Unit" }
+  RTS:           { type: const,  value: "N" }
+  TDM:           { type: const,  value: "N" }
+  SerialNumber:  { type: direct, source: "wipe.drive_sn", required: true }
+  BusID:         { type: const,  value: "IT23041900028" }   # same fixed constant as T-Laptop/T-Video Card
+  Condition:     { type: const,  value: "C4 - Used Good" }   # fixed — no operator grading for a wiped drive
+  Manufacturer:  { type: table,  source: "wipe.manufacturer", ruleset: manufacturer }   # Txt channel, no domain gate
+  Model:         { type: parse,  source: "wipe.drive_model", parser: model_clean, vendor_source: "wipe.manufacturer" }   # Txt
+  Grade:         { type: table,  source: "wipe.grade", ruleset: grade }
+  Weight:        { type: table,  source: "wipe.storage_type", ruleset: weight_by_type }
+  Color:         { type: table,  source: "wipe.storage_type", ruleset: color_by_type }
+  # Size / Technology / Notes -> unused, left empty
+
+  # ---- ddlProperty slots (same numbering as T-Laptop where the concept overlaps) ----
+  ddlProperty002: { type: const,  value: "Testing Area" }        # Inventory Location
+  ddlProperty003: { type: parse,  source: "wipe.capacity", parser: storage_size, domain: storage_size }   # Storage Size
+  ddlProperty004: { type: direct, source: "wipe.storage_type", required: true }   # Storage Type — pre-computed by context_wipe.py
+  ddlProperty005: { type: const,  value: "Pass" }                 # Data Sanitization — only PASSED wipes ever reach here (gate_wipe.py)
+  ddlProperty006: { type: const,  value: "03 Tested" }            # Disposition
+  ddlProperty009: { type: const,  value: "F3 - Key Functions Working" }   # Functionality
+  ddlProperty013: { type: const,  value: "C-R2 Controlled Streams" }      # R2 Applicability
+  ddlProperty014: { type: const,  value: "Commodity Storage" }            # Next Process
+  ddlProperty015: { type: const,  value: "Pass" }                 # Key Functions Test
+  ddlProperty032: { type: const,  value: "Harvested/removed components of electronics" }   # R2 Category — same as T-Video Card, a drive is a harvested component too
+
+# ---------------------------------------------------------------------
+# Domains — storage_size reused verbatim from mapping_t_laptop.yaml (same
+# valid Cyclelution dropdown values on both sides).
+# ---------------------------------------------------------------------
+domains:
+  storage_size: [16, 20, 30, 32, 40, 60, 64, 80, 120, 128, 146, 160, 180, 200,
+    240, 250, 256, 275, 300, 320, 400, 480, 500, 512, 600, 640, 750, 800, 900, 960,
+    1000, 1024, 1200, 1500, 1600, 1800, 1920, 2000, 3000, 3840, 6000, 7680, 10000,
+    12000, 14000]
+
+# ---------------------------------------------------------------------
+# Rulesets consumed by the `table` converter.
+# ---------------------------------------------------------------------
+rulesets:
+  # Manufacturer: clean generic suffixes, trim, uppercase, then alias-fix.
+  # Built from the real wipe_records.manufacturer distribution (top values
+  # in the local wipe_index.db mirror, 30k+ rows) rather than guessed.
+  # Txt channel -> never an exception on domain mismatch; unrecognized raw
+  # values just pass through cleaned+uppercased.
+  manufacturer:
+    kind: clean_alias
+    strip_suffixes: [INC, CORP, CO, LTD, COMPUTER, TECHNOLOGY, ELECTRONICS, INTERNATIONAL]
+    aliases:
+      "SAMSUNG":     "SAMSUNG"
+      "SANDISK":     "SANDISK"
+      "WDC":         "WD"
+      "WD":          "WD"
+      "WESTERN DIGITAL": "WD"
+      "SEAGATE":     "SEAGATE"
+      "TOSHIBA":     "TOSHIBA"
+      "KIOXIA":      "KIOXIA"
+      "INTEL":       "INTEL"
+      "HITACHI":     "HITACHI"
+      "MICRON":      "MICRON"
+      "CRUCIAL":     "CRUCIAL"
+      "SK HYNIX":    "SK HYNIX"
+      "HYNIX":       "SK HYNIX"
+      "SK":          "SK HYNIX"
+      "LITEON":      "LITE-ON"
+      "LITEONIT":    "LITE-ON"
+      "LITE-ON":     "LITE-ON"
+      "ADATA":       "ADATA"
+      "KINGSTON":    "KINGSTON"
+      "APPLE":       "APPLE"
+      "PNY":         "PNY"
+      "IBM":         "IBM"
+      "PHISON":      "PHISON"
+      "LENOVO":      "LENOVO"
+      "SSSTC":       "SSSTC"
+      "FUJITSU":     "FUJITSU"
+      "PATRIOT":     "PATRIOT"
+      "KINGFAST":    "KINGFAST"
+      "TRANSCEND":   "TRANSCEND"
+      "PLEXTOR":     "PLEXTOR"
+      "NETAPP":      "NETAPP"
+      "DELL":        "DELL"
+      "HP":          "HP"
+
+  # Grade: wipe_records stores "GRADE A" (all caps); Cyclelution needs
+  # "Grade A". Explicit map, not a generic case transform (avoids "Grade a"
+  # for garbage values). Empty is handled upstream (gate_wipe.py NO_GRADE);
+  # anything not in this map (e.g. real "GRADE F" records) -> exception,
+  # per TASK_wipe_export.md section 4.4 ("表外值 -> 硬校验不过, 不猜").
+  grade:
+    kind: map
+    map:
+      "GRADE A": "Grade A"
+      "GRADE B": "Grade B"
+      "GRADE C": "Grade C"
+      "GRADE D": "Grade D"
+
+  # Weight/Color: looked up by the pre-computed Storage Type (see
+  # context_wipe.py), per TASK_wipe_export.md section 4.5. HDD weights are
+  # estimates pending real scale calibration (user-confirmed).
+  weight_by_type:
+    kind: map
+    map:
+      "M.2 SSD":      "0.1"
+      "M.2 SSD NVME": "0.1"
+      "2.5\" SSD":    "0.2"
+      "2.5\" HDD":    "0.8"
+      "3.5\" HDD":    "1.4"
+
+  color_by_type:
+    kind: map
+    map:
+      "M.2 SSD":      "Green"
+      "M.2 SSD NVME": "Green"
+      "2.5\" SSD":    "Silver"
+      "2.5\" HDD":    "Silver"
+      "3.5\" HDD":    "Silver"
+
+# ---------------------------------------------------------------------
+# Parse rules consumed by the `parse` converter (named parsers).
+# ---------------------------------------------------------------------
+parsers:
+  # Model: strip a leading vendor token (word-boundary-safe, see
+  # normalizer.py's strip_vendor_upper), trim, uppercase.
+  model_clean:
+    kind: strip_vendor_upper
+
+  # Storage size: pull nominal number+unit from wipe.capacity ("512GB"),
+  # convert to GB, bucket up, format back to label ("512 GB", "1 TB").
+  # Same parser as T-Laptop's ddlProperty003.
+  storage_size:
+    kind: capacity_bucket
+    min_gb: 16                     # below this -> exception (collection guard)

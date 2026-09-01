@@ -19,40 +19,49 @@ from . import sync_state, gate, wipe_lookup
 from . import normalizer as _normalizer
 
 
-def evaluate_one(history_path, envelope=None, config=None, wipe_fn=None, db_path=None) -> str:
+def evaluate_one(history_path, envelope=None, config=None, wipe_fn=None, db_path=None,
+                  module="laptop", context_builder=None, gate_fn=None) -> str:
     """Normalize + gate one record and persist its status. Returns the new
     status ('ready' or 'pending'). Pass `envelope` to skip re-reading the
-    file (upload path already has it in memory)."""
+    file (upload path already has it in memory).
+
+    `module`/`context_builder`/`gate_fn` select the production (defaults =
+    T-Laptop, unchanged behavior). Other productions (e.g. GPU/T-Video Card)
+    pass module="gpu", context_builder=context_gpu.build_context,
+    gate_fn=gate_gpu.evaluate — the normalizer engine itself is shared."""
     cfg = config or _normalizer.load_config()
     wipe_fn = wipe_fn or wipe_lookup.lookup
+    gate_fn = gate_fn or gate.evaluate
     if envelope is None:
         envelope = json.loads(Path(history_path).read_text(encoding="utf-8"))
     sn = envelope.get("sn")
     record_ts = envelope.get("timestamp")
-    norm = _normalizer.normalize(envelope, config=cfg, wipe_fn=wipe_fn)
-    result = gate.evaluate(norm, wipe_fn=wipe_fn)
+    norm = _normalizer.normalize(envelope, config=cfg, wipe_fn=wipe_fn, context_builder=context_builder)
+    result = gate_fn(norm, wipe_fn=wipe_fn)
     sync_state.set_status(history_path, result.status, note=result.note,
-                          sn=sn, record_ts=record_ts, db_path=db_path)
+                          sn=sn, record_ts=record_ts, module=module, db_path=db_path)
     # One live record per SN: newest test wins, older ready/pending -> excluded.
-    sync_state.reconcile_sn(sn, db_path=db_path)
+    sync_state.reconcile_sn(sn, module=module, db_path=db_path)
     return result.status
 
 
-def scan_pending(config=None, wipe_fn=None, db_path=None) -> dict:
-    """Re-evaluate every pending record. Returns a summary dict."""
+def scan_pending(config=None, wipe_fn=None, db_path=None,
+                  module="laptop", context_builder=None, gate_fn=None) -> dict:
+    """Re-evaluate every pending record of this module. Returns a summary dict."""
     cfg = config or _normalizer.load_config()
     wipe_fn = wipe_fn or wipe_lookup.lookup
 
     summary = {"scanned": 0, "ready": 0, "pending": 0, "missing_file": 0,
                "errors": 0, "superseded": 0}
-    for row in sync_state.list_by_status("pending", db_path=db_path):
+    for row in sync_state.list_by_status("pending", module=module, db_path=db_path):
         hp = row["history_path"]
         summary["scanned"] += 1
         if not Path(hp).exists():
             summary["missing_file"] += 1
             continue
         try:
-            status = evaluate_one(hp, config=cfg, wipe_fn=wipe_fn, db_path=db_path)
+            status = evaluate_one(hp, config=cfg, wipe_fn=wipe_fn, db_path=db_path,
+                                   module=module, context_builder=context_builder, gate_fn=gate_fn)
             summary[status] += 1
         except Exception as e:
             summary["errors"] += 1
@@ -60,7 +69,7 @@ def scan_pending(config=None, wipe_fn=None, db_path=None) -> dict:
 
     # Also collapse any pre-existing duplicates already sitting as ready/pending
     # (evaluate_one above only reconciles the SNs it touched).
-    summary["superseded"] = sync_state.reconcile_all(db_path=db_path)
+    summary["superseded"] = sync_state.reconcile_all(module=module, db_path=db_path)
     return summary
 
 

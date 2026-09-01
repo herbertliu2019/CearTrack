@@ -7,8 +7,10 @@ Covers the Phase 2 acceptance criteria:
     values verbatim, gate = ready
   * SKILL section 7 golden shape (5CG0101FDR-like): 8 GB / 66.2% /
     PHHP945005MJ512C, overall FAIL -> gate ready with TEST_FAIL soft flag
-  * reverse examples all rejected with the stuck field named:
-    wipe FAILED, Grade empty, memory 130 GB, device_type garbage
+  * reverse examples: normalizer still names the stuck field for Grade
+    empty / memory 130 GB / device_type garbage, but per the relaxed gate
+    (gate.py's _BLOCKING_FIELDS) only wipe FAILED actually blocks Ready —
+    the others go ready with an INCOMPLETE flag and a blank column
   * no-disk branch: storage columns blank, ddl005 = ND-No Data, NO_DISK flag
   * config-driven: change one memory domain value -> output changes
 """
@@ -104,12 +106,14 @@ def _checks():
     g3 = gate.evaluate(r3, wipe_fn=wipe_failed)
     assert g3.status == "pending" and "wipe" in g3.note.lower(), g3
 
-    # 3b. Grade empty -> exception naming Grade, gate pending
+    # 3b. Grade empty -> normalizer still names Grade, but Grade isn't a
+    #     blocking field -> gate ready with an INCOMPLETE flag, blank Grade
     env_ng = _mini_env()
     env_ng["payload"]["manual_input"]["grade"] = ""
     r4 = normalizer.normalize(env_ng, wipe_fn=_wipe_pass)
     assert any(e["field"] == "Grade" for e in r4.exceptions), r4.exceptions
-    assert gate.evaluate(r4, wipe_fn=_wipe_pass).status == "pending"
+    g4 = gate.evaluate(r4, wipe_fn=_wipe_pass)
+    assert g4.status == "ready" and "INCOMPLETE" in g4.soft_flags, g4
 
     # 3c. memory 130 GB -> over-max exception on ddlProperty001
     r5 = normalizer.normalize(_mini_env(memory={"total_gb": "130"}), wipe_fn=_wipe_pass)

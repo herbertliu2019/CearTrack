@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ batch.batch_id }} — Slot List</title>
+<style>
+  /* Standalone page (task section 'slot list printing'): deliberately does NOT
+     extend base.html — that template's dark theme / nav / max-width
+     wrapper are wrong for a page meant to be printed on paper and read
+     under shop-floor lighting. Plain light print stylesheet only. */
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    font-family: -apple-system, Segoe UI, Arial, sans-serif;
+    color: #111; background: #fff;
+  }
+  .no-print { }
+  .header {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    border-bottom: 3px solid #111; padding-bottom: 10px; margin-bottom: 16px;
+  }
+  .header h1 { font-size: 22px; margin: 0 0 4px; }
+  .header .meta { font-size: 13px; color: #444; line-height: 1.6; }
+  .header .total { text-align: right; font-size: 13px; color: #444; }
+  .header .total b { font-size: 28px; color: #111; display: block; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td {
+    border: 1px solid #999; padding: 10px 12px;
+    font-size: 15px; text-align: left;
+  }
+  th { background: #eee; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+  td.slot { font-weight: 800; font-size: 20px; font-family: 'Courier New', monospace; width: 70px; }
+  td.sn { font-family: 'Courier New', monospace; font-size: 16px; }
+  td.sn b { font-weight: 800; }
+  .print-btn {
+    position: fixed; top: 16px; right: 16px;
+    padding: 10px 18px; font-size: 14px; cursor: pointer;
+    background: #111; color: #fff; border: none; border-radius: 4px;
+  }
+  @media print {
+    body { padding: 8mm; }
+    .print-btn { display: none; }
+    @page { size: A4 portrait; margin: 12mm; }
+  }
+</style>
+</head>
+<body>
+  <button class="print-btn no-print" onclick="window.print()">🖨 Print</button>
+
+  <div class="header">
+    <div>
+      <h1>{{ batch.batch_id }}</h1>
+      <div class="meta">
+        Exported: {{ (batch.exported_at or '')[:16] | replace('T', ' ') or '—' }}<br>
+        Operator: {{ batch.operator_id or '—' }}
+      </div>
+    </div>
+    <div class="total">
+      Total drives
+      <b>{{ rows | length }}</b>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Slot</th>
+        <th>Serial Number</th>
+        <th>Capacity</th>
+        <th>Model</th>
+        <th>Grade</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td class="slot">{{ '%02d' % r.slot_no if r.slot_no else '—' }}</td>
+        <td class="sn">{{ r.record_sn[:-6] }}<b>{{ r.record_sn[-6:] }}</b></td>
+        <td>{{ r.capacity }}</td>
+        <td>{{ r.model }}</td>
+        <td>{{ r.grade }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

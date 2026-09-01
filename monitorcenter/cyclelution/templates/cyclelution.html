@@ -1,6 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Cyclelution Export · CEARTrack{% endblock %}
 {% block content %}
+<style>
+  /* Scan-panel failure feedback (TASK_export_batch.md: "input area flashes red"). */
+  @keyframes batchShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+  }
+</style>
 <div x-data="cyclelutionApp()" x-init="init()" style="max-width:1100px;margin:0 auto;">
 
   <!-- Header -->
@@ -9,7 +17,7 @@
     <div>
       <h1 style="font-size:1.5em;margin:0;">Cyclelution Export</h1>
       <p style="color:var(--text-secondary);margin:6px 0 0;font-size:0.9em;">
-        Select ready laptops, generate the Adjust import file, upload to Cyclelution.
+        Select ready records, generate the Adjust import file, upload to Cyclelution.
       </p>
     </div>
     <div style="display:flex;align-items:center;gap:12px;">
@@ -19,9 +27,9 @@
                 style="background:var(--bg-card);border:1px solid var(--border);
                        color:var(--text-primary);padding:8px 12px;border-radius:4px;
                        font-size:0.9em;">
-          <template x-for="p in productions" :key="p.id">
-            <option :value="p.id" x-text="p.active ? p.label : p.label + '  (soon)'"></option>
-          </template>
+          {% for p in productions %}
+          <option value="{{ p.id }}">{{ p.label }}{{ '' if p.active else '  (soon)' }}</option>
+          {% endfor %}
         </select>
       </div>
       <button x-show="isActive()" @click="rescan()" :disabled="busy"
@@ -37,14 +45,18 @@
     <button class="tab-btn" :class="{active: tab==='ready'}" @click="tab='ready'">
       Ready <span x-text="counts.ready"></span>
     </button>
-    <button class="tab-btn" :class="{active: tab==='exceptions'}" @click="tab='exceptions'">
-      Exceptions <span x-text="counts.exceptions"></span>
-    </button>
     <button class="tab-btn" :class="{active: tab==='exported'}" @click="tab='exported'">
       Exported <span x-text="counts.exported"></span>
     </button>
+    <button class="tab-btn" :class="{active: tab==='exceptions'}" @click="tab='exceptions'">
+      Exceptions <span x-text="counts.exceptions"></span>
+    </button>
     <button class="tab-btn" :class="{active: tab==='excluded'}" @click="tab='excluded'">
       Excluded <span x-text="counts.excluded"></span>
+    </button>
+    <button x-show="production==='T-Hard Drive'" class="tab-btn"
+            :class="{active: tab==='no_grade'}" @click="tab='no_grade'">
+      NO_GRADE <span x-text="counts.no_grade"></span>
     </button>
   </div>
 
@@ -75,6 +87,8 @@
 
   <!-- ============ READY ============ -->
   <div x-show="tab==='ready' && isActive()">
+  <template x-if="!batchEnabled()">
+  <div>
 
     <!-- Filters -->
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
@@ -110,7 +124,7 @@
         </div>
         <!-- Rows -->
         <template x-for="r in g.records" :key="r.history_path">
-          <div style="display:grid;grid-template-columns:32px 1.1fr 1.7fr 0.8fr 1fr 90px;
+          <div style="display:grid;grid-template-columns:32px 1.1fr 1.7fr 0.8fr 1fr 90px 90px;
                       gap:8px;align-items:center;padding:9px 14px;font-size:0.88em;
                       border-bottom:1px solid rgba(255,255,255,0.04);">
             <input type="checkbox" :value="r.history_path" x-model="selected">
@@ -121,10 +135,11 @@
             <span>
               <template x-for="f in r.flags" :key="f">
                 <span class="badge"
-                      :class="(f==='TEST_FAIL' || f==='NO_DISK_UNCONFIRMED') ? 'warn' : 'pass'"
+                      :class="(f==='TEST_FAIL' || f==='NO_DISK_UNCONFIRMED' || f==='INCOMPLETE') ? 'warn' : 'pass'"
                       style="margin-right:4px;font-size:0.72em;" x-text="f"></span>
               </template>
             </span>
+            <span style="color:var(--text-secondary);font-size:0.85em;" x-text="r.date"></span>
             <button @click="exclude(r)"
                     style="background:transparent;border:1px solid var(--border);
                            color:var(--text-secondary);padding:3px 8px;border-radius:4px;
@@ -155,28 +170,187 @@
       </button>
     </div>
   </div>
+  </template>
 
-  <!-- ============ EXCEPTIONS ============ -->
-  <div x-show="tab==='exceptions' && isActive()">
-    <template x-for="r in exceptions.records" :key="r.history_path">
-      <div class="detail-panel" style="padding:12px 16px;margin-bottom:8px;">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-          <span style="font-family:monospace;font-weight:600;" x-text="r.sn"></span>
-          <span style="color:var(--text-secondary);font-size:0.85em;"
-                x-text="(r.vendor + ' ' + r.model).trim()"></span>
-          <span style="color:var(--text-secondary);font-size:0.8em;margin-left:auto;"
-                x-text="r.date"></span>
-        </div>
-        <div style="color:var(--fail);font-size:0.85em;" x-text="r.note"></div>
-      </div>
-    </template>
-    <div x-show="exceptions.total === 0" style="color:var(--text-secondary);text-align:center;padding:40px;">
-      No exceptions — every pending record either passed the gate or has no blocking reason yet.
+  <!-- ============ SCAN-TO-BATCH PANEL (batch.enabled productions only) ============ -->
+  <template x-if="batchEnabled()">
+  <div>
+
+    <!-- Scan/filter input — the single input for both: live-filters the
+         left pool as you type, and on Enter either adds (unique match) or
+         narrows the left list for a click (multiple matches). -->
+    <input x-ref="poolInput" x-model="poolQuery" @input.debounce.250ms="refreshPool()"
+           @keydown.enter="handleEnter()" autofocus
+           x-init="$nextTick(() => $refs.poolInput && $refs.poolInput.focus())"
+           placeholder="Scan or type part of a serial"
+           :style="scanState && scanState.kind==='error' ? 'border-color:var(--fail);animation:batchShake .2s;' : ''"
+           style="width:100%;box-sizing:border-box;background:var(--bg-card);
+                  border:2px solid var(--border);color:var(--text-primary);
+                  padding:16px 18px;border-radius:6px;font-size:1.3em;
+                  font-family:monospace;letter-spacing:0.02em;">
+
+    <!-- Status line -->
+    <div style="margin-top:8px;padding:8px 4px;font-size:0.9em;min-height:1.4em;"
+         :style="{
+           success: 'color:var(--pass);',
+           warn: 'color:var(--warn);',
+           error: 'color:var(--fail);',
+         }[scanState && scanState.kind] || 'color:var(--text-secondary);'">
+      <template x-if="scanState">
+        <span>
+          <span x-show="scanState.kind==='success'">✓</span><span
+                x-show="scanState.kind==='error'">✕</span>
+          <span x-text="scanState.message"></span>
+        </span>
+      </template>
+      <span x-show="!scanState && poolQuery" x-text="poolTotal + ' match' + (poolTotal===1?'':'es')"></span>
     </div>
+
+    <!-- Two columns: Ready pool (left) / Export queue (right) -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;margin-top:6px;">
+
+      <!-- Left: Ready pool -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+          <span style="font-weight:700;">Ready pool · <span x-text="poolTotal"></span></span>
+          <div style="display:flex;gap:8px;">
+            <template x-for="kind in batchFilters()" :key="kind">
+              <select x-model="activeFilters[kind]" @change="refreshPool()"
+                      style="background:var(--bg-card);border:1px solid var(--border);
+                             color:var(--text-primary);padding:5px 8px;border-radius:4px;font-size:0.82em;">
+                <option value="" x-text="filterAllLabel(kind)"></option>
+                <template x-for="v in (facets.options[kind] || [])" :key="v">
+                  <option :value="v" x-text="v"></option>
+                </template>
+              </select>
+            </template>
+          </div>
+        </div>
+        <div style="max-height:520px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;">
+          <template x-for="r in poolResults" :key="r.history_path">
+            <div @click="addToBatch(r.sn, 'manual')"
+                 style="display:grid;grid-template-columns:12px 1fr 90px 20px;gap:10px;
+                        align-items:center;min-height:44px;padding:6px 12px;cursor:pointer;
+                        border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.88em;">
+              <span :style="'width:10px;height:10px;border-radius:50%;background:' + gradeColor(r.grade)"></span>
+              <span style="font-family:monospace;display:flex;overflow:hidden;min-width:0;">
+                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-secondary);"
+                      x-text="snHead(r.sn)"></span><span
+                      style="flex-shrink:0;font-weight:800;" x-text="snTail(r.sn)"></span>
+              </span>
+              <span style="color:var(--text-secondary);font-size:0.85em;" x-text="thirdColumnValue(r)"></span>
+              <span style="color:var(--text-secondary);">→</span>
+            </div>
+          </template>
+          <div x-show="poolResults.length===0 && !poolLoading"
+               style="color:var(--text-secondary);text-align:center;padding:30px;">
+            No matches.
+          </div>
+          <div x-show="poolHasMore" style="padding:10px;text-align:center;">
+            <button @click="loadMorePool()"
+                    style="background:transparent;border:1px solid var(--border);color:var(--text-secondary);
+                           padding:6px 14px;border-radius:4px;cursor:pointer;font-size:0.82em;">Load more</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Export queue -->
+      <div>
+        <div style="font-weight:700;margin-bottom:8px;">
+          Export queue · <span x-text="currentBatch ? currentBatch.batch_id : 'not started'"></span>
+        </div>
+        <div style="max-height:520px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;">
+          <template x-for="it in (currentBatch ? currentBatch.items : [])" :key="it.record_sn">
+            <div :style="'display:grid;grid-template-columns:' +
+                         ((currentBatch && currentBatch.slot_numbers) ? '32px 12px 1fr 40px' : '12px 1fr 40px') +
+                         ';gap:10px;align-items:center;min-height:44px;padding:6px 12px;
+                         border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.88em;'">
+              <span x-show="currentBatch && currentBatch.slot_numbers"
+                    style="font-family:monospace;color:var(--text-secondary);"
+                    x-text="it.slot_no ? String(it.slot_no).padStart(2,'0') : '—'"></span>
+              <span :style="'width:10px;height:10px;border-radius:50%;background:' + gradeColor(it.grade)"></span>
+              <span style="font-family:monospace;display:flex;overflow:hidden;min-width:0;">
+                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-secondary);"
+                      x-text="snHead(it.record_sn)"></span><span
+                      style="flex-shrink:0;font-weight:800;" x-text="snTail(it.record_sn)"></span>
+                <span style="color:var(--text-secondary);margin-left:6px;flex-shrink:0;" x-text="thirdColumnValue(it)"></span>
+              </span>
+              <button @click="removeFromBatch(it.record_sn)"
+                      style="background:transparent;border:1px solid var(--border);
+                             color:var(--text-secondary);border-radius:4px;cursor:pointer;
+                             font-size:0.78em;padding:4px 6px;">✕</button>
+            </div>
+          </template>
+          <div x-show="!currentBatch || currentBatch.items.length===0"
+               style="color:var(--text-secondary);text-align:center;padding:30px;"
+               x-text="'Pick from the left, or scan a ' + unitWord(false) + '.'">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Large-batch warning (purely advisory — never disables anything) -->
+    <div x-show="showLargeBatchWarn()"
+         style="margin-top:14px;padding:10px 16px;background:rgba(241,196,15,0.10);
+                border:1px solid var(--warn);border-radius:6px;color:var(--warn);font-size:0.85em;">
+      Large batch — consider splitting the upload for easier verification on the Cyclelution side.
+    </div>
+
+    <!-- Bottom bar -->
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;
+                margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span style="color:var(--text-secondary);font-size:0.9em;"
+              x-text="(currentBatch ? currentBatch.count : 0) + ' ' +
+                      unitWord((currentBatch ? currentBatch.count : 0) !== 1) + ' selected'"></span>
+        <button x-show="lastExportedBatchId" @click="redownloadBatch(lastExportedBatchId)"
+                style="background:transparent;border:none;color:var(--accent);
+                       cursor:pointer;font-size:0.8em;text-decoration:underline;"
+                x-text="'↺ Redownload ' + lastExportedBatchId"></button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button @click="toggleSound()"
+                style="background:transparent;border:1px solid var(--border);color:var(--text-secondary);
+                       padding:8px 10px;border-radius:4px;cursor:pointer;font-size:0.85em;"
+                x-text="soundEnabled ? '🔊' : '🔇'"></button>
+        <a x-show="currentBatch && currentBatch.slot_numbers"
+           :href="currentBatch && printBatchUrl(currentBatch.batch_id)" target="_blank"
+           style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary);
+                  padding:8px 16px;border-radius:4px;cursor:pointer;font-size:0.85em;
+                  text-decoration:none;display:inline-flex;align-items:center;">🖨 Slot sheet</a>
+        <button @click="cancelBatch()" :disabled="!currentBatch || currentBatch.count===0"
+                style="background:transparent;border:1px solid var(--border);color:var(--text-secondary);
+                       padding:8px 14px;border-radius:4px;cursor:pointer;font-size:0.85em;">✕ Clear queue</button>
+        <button @click="exportBatch()" :disabled="!currentBatch || currentBatch.count===0 || busy"
+                :style="(!currentBatch || currentBatch.count===0) ? 'opacity:0.4;cursor:not-allowed;' : ''"
+                style="background:var(--accent);color:var(--bg-primary);border:none;
+                       padding:9px 22px;border-radius:4px;cursor:pointer;font-weight:700;">
+          Export xlsx
+        </button>
+      </div>
+    </div>
+  </div>
+  </template>
   </div>
 
   <!-- ============ EXPORTED ============ -->
   <div x-show="tab==='exported' && isActive()">
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;">
+      <input type="text" x-model="exportedSearch" @keydown.enter="searchExported()"
+             placeholder="Search full history by SN"
+             style="flex:1;max-width:320px;background:var(--bg-card);border:1px solid var(--border);
+                    color:var(--text-primary);padding:7px 12px;border-radius:4px;font-size:0.85em;">
+      <button @click="searchExported()"
+              style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary);
+                     padding:7px 14px;border-radius:4px;cursor:pointer;font-size:0.82em;">Search</button>
+      <button x-show="exportedSearch" @click="clearExportedSearch()"
+              style="background:transparent;border:1px solid var(--border);color:var(--text-secondary);
+                     padding:7px 12px;border-radius:4px;cursor:pointer;font-size:0.82em;">✕ Clear</button>
+      <span style="margin-left:auto;color:var(--text-secondary);font-size:0.8em;"
+            x-text="exported.searched
+              ? (exported.total + ' match(es) found')
+              : ('showing ' + exported.total + ' of ' + exported.cumulative_total + ' total (most recent)')"></span>
+    </div>
     <template x-for="r in exported.records" :key="r.history_path">
       <div style="display:grid;grid-template-columns:1.1fr 1.7fr 0.8fr 1fr 1.2fr;
                   gap:8px;align-items:center;padding:9px 14px;font-size:0.88em;
@@ -196,8 +370,59 @@
     </div>
   </div>
 
+  <!-- ============ EXCEPTIONS ============ -->
+  <div x-show="tab==='exceptions' && isActive()">
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;">
+      <input type="text" x-model="exceptionsSearch" @keydown.enter="searchExceptions()"
+             placeholder="Search full history by SN"
+             style="flex:1;max-width:320px;background:var(--bg-card);border:1px solid var(--border);
+                    color:var(--text-primary);padding:7px 12px;border-radius:4px;font-size:0.85em;">
+      <button @click="searchExceptions()"
+              style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary);
+                     padding:7px 14px;border-radius:4px;cursor:pointer;font-size:0.82em;">Search</button>
+      <button x-show="exceptionsSearch" @click="clearExceptionsSearch()"
+              style="background:transparent;border:1px solid var(--border);color:var(--text-secondary);
+                     padding:7px 12px;border-radius:4px;cursor:pointer;font-size:0.82em;">✕ Clear</button>
+      <span style="margin-left:auto;color:var(--text-secondary);font-size:0.8em;"
+            x-text="exceptions.searched
+              ? (exceptions.total + ' match(es) found')
+              : ('showing ' + exceptions.total + ' of ' + exceptions.cumulative_total + ' total (most recent)')"></span>
+    </div>
+    <template x-for="r in exceptions.records" :key="r.history_path">
+      <div class="detail-panel" style="padding:12px 16px;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+          <span style="font-family:monospace;font-weight:600;" x-text="r.sn"></span>
+          <span style="color:var(--text-secondary);font-size:0.85em;"
+                x-text="(r.vendor + ' ' + r.model).trim()"></span>
+          <span style="color:var(--text-secondary);font-size:0.8em;margin-left:auto;"
+                x-text="r.date"></span>
+        </div>
+        <div style="color:var(--fail);font-size:0.85em;" x-text="r.note"></div>
+      </div>
+    </template>
+    <div x-show="exceptions.total === 0" style="color:var(--text-secondary);text-align:center;padding:40px;">
+      No exceptions — every pending record either passed the gate or has no blocking reason yet.
+    </div>
+  </div>
+
   <!-- ============ EXCLUDED ============ -->
   <div x-show="tab==='excluded' && isActive()">
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;">
+      <input type="text" x-model="excludedSearch" @keydown.enter="searchExcluded()"
+             placeholder="Search full history by SN"
+             style="flex:1;max-width:320px;background:var(--bg-card);border:1px solid var(--border);
+                    color:var(--text-primary);padding:7px 12px;border-radius:4px;font-size:0.85em;">
+      <button @click="searchExcluded()"
+              style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary);
+                     padding:7px 14px;border-radius:4px;cursor:pointer;font-size:0.82em;">Search</button>
+      <button x-show="excludedSearch" @click="clearExcludedSearch()"
+              style="background:transparent;border:1px solid var(--border);color:var(--text-secondary);
+                     padding:7px 12px;border-radius:4px;cursor:pointer;font-size:0.82em;">✕ Clear</button>
+      <span style="margin-left:auto;color:var(--text-secondary);font-size:0.8em;"
+            x-text="excluded.searched
+              ? (excluded.total + ' match(es) found')
+              : (excluded.cumulative_total + ' total — search by SN to look one up')"></span>
+    </div>
     <template x-for="r in excluded.records" :key="r.history_path">
       <div style="display:grid;grid-template-columns:1.1fr 1.7fr 0.8fr 1fr 1.2fr;
                   gap:8px;align-items:center;padding:9px 14px;font-size:0.88em;
@@ -210,38 +435,166 @@
               x-text="r.date"></span>
       </div>
     </template>
-    <div x-show="excluded.total === 0" style="color:var(--text-secondary);text-align:center;padding:40px;">
+    <div x-show="excluded.cumulative_total === 0" style="color:var(--text-secondary);text-align:center;padding:40px;">
       Nothing excluded.
+    </div>
+    <div x-show="excluded.cumulative_total > 0 && excluded.searched && excluded.total === 0"
+         style="color:var(--text-secondary);text-align:center;padding:40px;">
+      No match for that SN.
+    </div>
+  </div>
+
+  <!-- ============ NO_GRADE (T-Hard Drive only) ============ -->
+  <div x-show="tab==='no_grade' && isActive()">
+    <p style="color:var(--text-secondary);font-size:0.85em;margin:0 0 12px;">
+      Grade is auto-measured by the erasure software. These drives wiped without one —
+      not a fixable data problem, so they can never be exported and don't count as exceptions.
+    </p>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;">
+      <input type="text" x-model="noGradeSearch" @keydown.enter="searchNoGrade()"
+             placeholder="Search full history by SN"
+             style="flex:1;max-width:320px;background:var(--bg-card);border:1px solid var(--border);
+                    color:var(--text-primary);padding:7px 12px;border-radius:4px;font-size:0.85em;">
+      <button @click="searchNoGrade()"
+              style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary);
+                     padding:7px 14px;border-radius:4px;cursor:pointer;font-size:0.82em;">Search</button>
+      <button x-show="noGradeSearch" @click="clearNoGradeSearch()"
+              style="background:transparent;border:1px solid var(--border);color:var(--text-secondary);
+                     padding:7px 12px;border-radius:4px;cursor:pointer;font-size:0.82em;">✕ Clear</button>
+      <span style="margin-left:auto;color:var(--text-secondary);font-size:0.8em;"
+            x-text="noGrade.searched
+              ? (noGrade.total + ' match(es) found')
+              : (noGrade.cumulative_total + ' total — search by SN to look one up')"></span>
+    </div>
+    <template x-for="r in noGrade.records" :key="r.history_path">
+      <div style="display:grid;grid-template-columns:1.1fr 1.7fr 1.2fr;
+                  gap:8px;align-items:center;padding:9px 14px;font-size:0.88em;
+                  border-bottom:1px solid rgba(255,255,255,0.04);">
+        <span style="font-family:monospace;font-weight:600;" x-text="r.sn"></span>
+        <span style="color:var(--text-secondary);" x-text="(r.vendor + ' ' + r.model).trim()"></span>
+        <span style="color:var(--text-secondary);font-size:0.8em;" x-text="r.date"></span>
+      </div>
+    </template>
+    <div x-show="noGrade.cumulative_total === 0" style="color:var(--text-secondary);text-align:center;padding:40px;">
+      No NO_GRADE records.
+    </div>
+    <div x-show="noGrade.cumulative_total > 0 && noGrade.searched && noGrade.total === 0"
+         style="color:var(--text-secondary);text-align:center;padding:40px;">
+      No match for that SN.
     </div>
   </div>
 </div>
 
 <script>
+// Wraps fetch()+res.json() so a raw error page (a Flask/Werkzeug 500 HTML
+// page, or an nginx 502/504 in front of it) never reaches the UI as an
+// unreadable "SyntaxError: Unexpected token '<'..." — that's just JSON.parse
+// choking on HTML, not something an operator can act on. Any non-JSON body
+// (or a JSON parse failure) becomes one plain message instead. Successful
+// JSON bodies (whether HTTP 200 or a handled 400 with {error: "..."}) pass
+// through untouched via {ok, status, data} — callers still branch on `ok`
+// the same way they did on `res.ok` before.
+async function fetchJson(url, opts) {
+  let res;
+  try {
+    res = await fetch(url, opts);
+  } catch (e) {
+    throw new Error('Network error — please retry later.');
+  }
+  // A body that legitimately parses to JSON `null` (e.g. GET /api/batch/
+  // current with no open batch) must NOT be treated the same as "this
+  // wasn't JSON at all" — track parse failure with its own flag instead of
+  // reusing `data === null` as the sentinel for both cases.
+  let data, failed = true;
+  if ((res.headers.get('content-type') || '').includes('application/json')) {
+    try { data = await res.json(); failed = false; } catch (e) { failed = true; }
+  }
+  if (failed) {
+    throw new Error(`Internal Server Error (HTTP ${res.status}). Please retry later.`);
+  }
+  return { ok: res.ok, status: res.status, data };
+}
+
 function cyclelutionApp() {
   return {
     tab: 'ready',
-    production: 'T-Laptop',
-    productions: [{ id: 'T-Laptop', label: 'T-Laptop', active: true }],
-    counts: { ready: 0, exceptions: 0, exported: 0, excluded: 0 },
+    production: new URLSearchParams(window.location.search).get('production') || 'T-Laptop',
+    productions: {{ productions | tojson }},
+    counts: { ready: 0, exceptions: 0, exported: 0, excluded: 0, no_grade: 0 },
     ready: { groups: [], total: 0 },
-    exceptions: { records: [], total: 0 },
-    exported: { records: [], total: 0 },
-    excluded: { records: [], total: 0 },
+    exceptions: { records: [], total: 0, cumulative_total: 0, searched: false },
+    exported: { records: [], total: 0, cumulative_total: 0, searched: false },
+    excluded: { records: [], total: 0, cumulative_total: 0, searched: false },
+    noGrade: { records: [], total: 0, cumulative_total: 0, searched: false },
+    exceptionsSearch: '', exportedSearch: '', excludedSearch: '', noGradeSearch: '',
     selected: [],
     filterDate: '', filterText: '',
     busy: false,
     banner: '', downloadUrl: '', error: '',
 
-    async init() { await this.loadProductions(); await this.reload(); },
+    // --- scan-to-batch panel state (TASK_export_batch0901.md) ---
+    currentBatch: null,               // {batch_id, slot_numbers, count, items[]} | null ("not started")
+    scanState: null,                  // {kind: 'success'|'warn'|'error', message} — set on Enter/add, not while typing
+    poolQuery: '',
+    activeFilters: {},                // {kind: value} — keys drawn from this production's batch.filters
+    poolResults: [], poolTotal: 0, poolPage: 1, poolPageSize: 40, poolHasMore: false, poolLoading: false,
+    facets: { total: 0, options: {} }, // per-filter-kind option lists, from /api/batch/facets
+    lastExportedBatchId: '',
+    soundEnabled: (() => {
+      try { return JSON.parse(localStorage.getItem('cyclelutionSound') ?? 'true'); }
+      catch (e) { return true; }
+    })(),
+    _audioCtx: null,
+
+    async init() {
+      await this.loadProductions();
+      await this.reload();
+      setInterval(() => this.autoRefresh(), 30000);
+    },
 
     isActive() {
       const p = this.productions.find(x => x.id === this.production);
       return p ? p.active : false;
     },
+    batchEnabled() {
+      const p = this.productions.find(x => x.id === this.production);
+      return !!(p && p.batch && p.batch.enabled);
+    },
+    showLargeBatchWarn() {
+      const p = this.productions.find(x => x.id === this.production);
+      const warn = p && p.batch && p.batch.large_batch_warn;
+      return !!(warn && this.currentBatch && this.currentBatch.count >= warn);
+    },
+    batchFilters() {
+      const p = this.productions.find(x => x.id === this.production);
+      return (p && p.batch && p.batch.filters) || [];
+    },
+    batchThirdColumn() {
+      const p = this.productions.find(x => x.id === this.production);
+      return (p && p.batch && p.batch.pool_third_column) || '';
+    },
+    thirdColumnValue(r) {
+      const col = this.batchThirdColumn();
+      if (col === 'model') return (r.vendor + ' ' + r.model).trim();
+      if (col === 'capacity') return r.capacity || '';
+      return '';
+    },
+    filterAllLabel(kind) {
+      return ({
+        wipe_date: 'All dates', test_date: 'All dates',
+        operator: 'All operators', test_station: 'All stations',
+      })[kind] || 'All';
+    },
+    // wipe's units are literally drives; laptop/gpu use the generic term
+    // (task section 'Export queue': empty state says "unit"; bottom bar says "units").
+    unitWord(plural) {
+      const word = this.production === 'T-Hard Drive' ? 'drive' : 'unit';
+      return plural ? word + 's' : word;
+    },
     async loadProductions() {
       try {
-        const d = await (await fetch('/cyclelution/api/productions')).json();
-        this.productions = d.productions;
+        const { data } = await fetchJson('/cyclelution/api/productions');
+        this.productions = data.productions;
         if (!this.productions.some(p => p.id === this.production && p.active)) {
           const firstActive = this.productions.find(p => p.active);
           this.production = firstActive ? firstActive.id : this.productions[0].id;
@@ -272,21 +625,74 @@ function cyclelutionApp() {
         this.exceptions = { records: [], total: 0 };
         this.exported = { records: [], total: 0 };
         this.excluded = { records: [], total: 0 };
+        this.noGrade = { records: [], total: 0 };
         this.selected = [];
+        this.currentBatch = null;
         return;
       }
-      await Promise.all([this.loadReady(), this.loadExceptions(),
-                         this.loadExported(), this.loadExcluded()]);
+      const loads = [this.loadExceptions(), this.loadExported(), this.loadExcluded()];
+      if (this.production === 'T-Hard Drive') loads.push(this.loadNoGrade());
+      // Batch mode never preloads the plain Ready list (task: "Ready pool
+      // total, don't preload the list") — it loads the current queue + the
+      // filter-option facets + a first page of the pool instead. The two
+      // Ready-tab data sources are mutually exclusive per production,
+      // picked by batchEnabled(). Filters reset on every reload() (init or
+      // production switch) so a stale selection from a different
+      // production's filter kinds never lingers.
+      if (this.batchEnabled()) {
+        this.activeFilters = {};
+        loads.push(this.loadCurrentBatch(), this.loadFacets(), this.refreshPool());
+      } else {
+        loads.push(this.loadReady());
+      }
+      await Promise.all(loads);
     },
-    async loadCounts() { this.counts = await (await fetch('/cyclelution/api/counts?' + this.prodParam())).json(); },
+    async loadCounts() { this.counts = (await fetchJson('/cyclelution/api/counts?' + this.prodParam())).data; },
+    // Background poll (see init()) — deliberately narrower than reload():
+    // only refreshes counts + the Ready queue, so a device that finishes
+    // testing shows up without a manual Rescan. Skips the four archive tabs
+    // on purpose so an in-progress SN search there doesn't get silently
+    // clobbered by an un-parameterized reload every 30s. Also skips while
+    // a manual rescan() is in flight to avoid racing its own poll loop. In
+    // batch mode it only refreshes the queue (another device may have
+    // exported/cancelled it) + counts — NOT the pool, so it never resets
+    // an operator's in-progress typing, date filter, or "Load more" scroll
+    // position; the pool refreshes on its own triggers (typing, date
+    // change, add/remove) instead.
+    async autoRefresh() {
+      if (this.busy || !this.isActive()) return;
+      try {
+        if (this.batchEnabled()) await Promise.all([this.loadCounts(), this.loadCurrentBatch()]);
+        else await Promise.all([this.loadCounts(), this.loadReady()]);
+      } catch (e) { console.warn('autoRefresh tick failed, retrying next interval:', e); }
+    },
     async loadReady() {
-      this.ready = await (await fetch('/cyclelution/api/queue?status=ready&' + this.prodParam())).json();
+      this.ready = (await fetchJson('/cyclelution/api/queue?status=ready&' + this.prodParam())).data;
       this.selected = this.selected.filter(hp =>
         this.ready.groups.some(g => g.records.some(r => r.history_path === hp)));
     },
-    async loadExceptions() { this.exceptions = await (await fetch('/cyclelution/api/queue?status=exceptions&' + this.prodParam())).json(); },
-    async loadExported() { this.exported = await (await fetch('/cyclelution/api/queue?status=exported&' + this.prodParam())).json(); },
-    async loadExcluded() { this.excluded = await (await fetch('/cyclelution/api/queue?status=excluded&' + this.prodParam())).json(); },
+    // Shared loader for the four archive tabs (Exceptions/Exported/
+    // Excluded/NO_GRADE): by default the server returns a window-limited,
+    // capped slice with a cumulative_total alongside it; passing `sn`
+    // switches to a full-history search on that status (ignores the
+    // window/cap server-side — see web.py's _archive_slice()).
+    async loadArchive(statusName, stateKey, sn) {
+      let url = `/cyclelution/api/queue?status=${statusName}&${this.prodParam()}`;
+      if (sn) url += '&sn=' + encodeURIComponent(sn);
+      this[stateKey] = (await fetchJson(url)).data;
+    },
+    async loadExceptions(sn) { await this.loadArchive('exceptions', 'exceptions', sn); },
+    async loadExported(sn) { await this.loadArchive('exported', 'exported', sn); },
+    async loadExcluded(sn) { await this.loadArchive('excluded', 'excluded', sn); },
+    async loadNoGrade(sn) { await this.loadArchive('no_grade', 'noGrade', sn); },
+    async searchExceptions() { await this.loadExceptions(this.exceptionsSearch); },
+    async searchExported() { await this.loadExported(this.exportedSearch); },
+    async searchExcluded() { await this.loadExcluded(this.excludedSearch); },
+    async searchNoGrade() { await this.loadNoGrade(this.noGradeSearch); },
+    clearExceptionsSearch() { this.exceptionsSearch = ''; this.loadExceptions(); },
+    clearExportedSearch() { this.exportedSearch = ''; this.loadExported(); },
+    clearExcludedSearch() { this.excludedSearch = ''; this.loadExcluded(); },
+    clearNoGradeSearch() { this.noGradeSearch = ''; this.loadNoGrade(); },
 
     allSelected(g) { return g.records.every(r => this.selected.includes(r.history_path)); },
     toggleGroup(g) {
@@ -298,32 +704,63 @@ function cyclelutionApp() {
     async rescan() {
       this.busy = true; this.error = ''; this.banner = '';
       try {
-        const s = await (await fetch('/cyclelution/api/rescan', {
+        const { data: s } = await fetchJson('/cyclelution/api/rescan', {
           method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ production: this.production }),
-        })).json();
-        this.banner = `Rescan complete — ${s.ready} ready, ${s.pending} pending.`;
+        });
         this.downloadUrl = '';
-        await this.reload();
-      } catch (e) { this.error = 'Rescan failed: ' + e; }
+        if (s.started) {
+          // Background-only production (T-Hard Drive) — a full run can take
+          // ~20 minutes, so the server already returned without finishing.
+          // Poll for a couple of minutes so the queues fill in live instead
+          // of looking stuck; the background job itself keeps running even
+          // after polling stops (check again later with another Rescan).
+          this.banner = s.note || 'Rescan started in the background.';
+          for (let i = 0; i < 25; i++) {
+            if (i > 0) await new Promise(r => setTimeout(r, 5000));
+            try {
+              await this.reload();
+            } catch (e) {
+              // A single polling tick failing (e.g. a transient hiccup while
+              // the background job is under heavy write load) shouldn't kill
+              // the whole loop or show a scary error — the background job
+              // keeps running regardless; just try again next tick.
+              console.warn('rescan poll tick failed, retrying:', e);
+            }
+          }
+        } else {
+          this.banner = `Rescan complete — ${s.ready} ready, ${s.pending} pending.`;
+        }
+      } catch (e) { this.error = 'Rescan failed: ' + e; return; }
       finally { this.busy = false; }
+      await this.safeReload();
+    },
+
+    // Reload after a mutation succeeded — kept separate from the mutation's
+    // own try/catch on purpose. A reload() failure (e.g. a transient read
+    // hiccup while wipe_sync's background thread is under heavy write load)
+    // must never get mislabeled as "the export/exclude failed" when it
+    // actually succeeded; it just means the on-screen queues are stale
+    // until the next successful reload.
+    async safeReload() {
+      try { await this.reload(); }
+      catch (e) { console.warn('reload after mutation failed (mutation itself still succeeded):', e); }
     },
 
     async generate() {
       this.busy = true; this.error = ''; this.banner = '';
       try {
-        const res = await fetch('/cyclelution/api/export', {
+        const { ok, data: d } = await fetchJson('/cyclelution/api/export', {
           method: 'POST', headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ history_paths: this.selected }),
+          body: JSON.stringify({ history_paths: this.selected, production: this.production }),
         });
-        const d = await res.json();
-        if (!res.ok) { this.error = d.error || 'Export failed'; return; }
+        if (!ok) { this.error = d.error || 'Export failed'; return; }
         this.banner = `Generated ${d.count} record(s).`;
         this.downloadUrl = d.download_url;
         this.selected = [];
-        await this.reload();
-      } catch (e) { this.error = 'Export failed: ' + e; }
+      } catch (e) { this.error = 'Export failed: ' + e; return; }
       finally { this.busy = false; }
+      await this.safeReload();
     },
 
     async exclude(r) {
@@ -331,11 +768,221 @@ function cyclelutionApp() {
       if (reason === null) return;              // cancelled
       const trimmed = reason.trim();
       if (!trimmed) { alert('A reason is required to exclude a record.'); return; }
-      await fetch('/cyclelution/api/exclude', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ history_path: r.history_path, reason: trimmed }),
-      });
-      await this.reload();
+      try {
+        const { ok, data: d } = await fetchJson('/cyclelution/api/exclude', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ history_path: r.history_path, reason: trimmed, production: this.production }),
+        });
+        if (!ok) { this.error = d.error || 'Exclude failed'; return; }
+      } catch (e) { this.error = 'Exclude failed: ' + e; return; }
+      await this.safeReload();
+    },
+
+    // --- scan-to-batch panel ---
+    snHead(sn) { return (sn || '').slice(0, -6); },
+    snTail(sn) { return (sn || '').slice(-6); },
+    gradeColor(grade) {
+      const m = (grade || '').match(/[A-D]\s*$/i);
+      const letter = m ? m[0].toUpperCase() : '';
+      return { A: 'var(--pass)', B: 'var(--warn)', C: '#e07b3a', D: 'var(--fail)' }[letter] || 'var(--border)';
+    },
+    printBatchUrl(batchId) {
+      return `/cyclelution/api/batch/print/${encodeURIComponent(batchId)}?${this.prodParam()}`;
+    },
+    reasonMessage(reason) {
+      if (typeof reason === 'string' && reason.startsWith('already_in_batch:')) {
+        return `Already claimed by batch ${reason.split(':')[1]}`;
+      }
+      return ({
+        not_found: 'Not in the Ready pool',
+        exception: 'In Exceptions — needs a fix first',
+        no_grade: 'NO_GRADE — cannot be exported',
+        already_exported: 'Already exported',
+        excluded: 'Excluded',
+        already_in_batch: 'Already scanned into this batch',
+        inactive_production: 'This production is not active',
+      })[reason] || reason || 'Rejected';
+    },
+
+    playBeep(success) {
+      if (!this.soundEnabled) return;
+      try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        const ctx = this._audioCtx || (this._audioCtx = new Ctx());
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = success ? 880 : 220;
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.18);
+      } catch (e) { /* audio unavailable -- silently skip */ }
+    },
+    toggleSound() {
+      this.soundEnabled = !this.soundEnabled;
+      try { localStorage.setItem('cyclelutionSound', JSON.stringify(this.soundEnabled)); } catch (e) {}
+    },
+
+    async loadCurrentBatch() {
+      // No auto-create here (task hard rule #5): the queue shows "not
+      // started" until the first successful /add — the server itself
+      // creates the batch at that point, this just reflects whatever
+      // state the server is in.
+      this.currentBatch = (await fetchJson('/cyclelution/api/batch/current?' + this.prodParam())).data;
+    },
+    async loadFacets() {
+      this.facets = (await fetchJson('/cyclelution/api/batch/facets?' + this.prodParam())).data;
+    },
+
+    // The scan/filter input drives both a live-filtered left pool (every
+    // keystroke, debounced) and the Enter-to-add decision (its own
+    // un-debounced fetch, so a fast Enter right after typing never acts on
+    // a stale result — see handleEnter()). Both send the same
+    // {query, filters} pair — filters AND with the SN query and with each
+    // other (task: "filters AND together, and with the scan box's SN filter, all at once").
+    async refreshPool() {
+      this.scanState = null;
+      this.poolPage = 1;
+      this.poolLoading = true;
+      try {
+        const { data } = await fetchJson('/cyclelution/api/batch/lookup', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            production: this.production, query: this.poolQuery.trim(), filters: this.activeFilters,
+            page: 1, page_size: this.poolPageSize,
+          }),
+        });
+        this.poolResults = data.candidates;
+        this.poolTotal = data.total;
+        this.poolHasMore = this.poolResults.length < this.poolTotal;
+      } catch (e) {
+        this.error = 'Could not load the Ready pool: ' + e;
+      } finally {
+        this.poolLoading = false;
+      }
+    },
+    async loadMorePool() {
+      const nextPage = this.poolPage + 1;
+      try {
+        const { data } = await fetchJson('/cyclelution/api/batch/lookup', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            production: this.production, query: this.poolQuery.trim(), filters: this.activeFilters,
+            page: nextPage, page_size: this.poolPageSize,
+          }),
+        });
+        this.poolPage = nextPage;
+        this.poolResults = [...this.poolResults, ...data.candidates];
+        this.poolTotal = data.total;
+        this.poolHasMore = this.poolResults.length < this.poolTotal;
+      } catch (e) { this.error = 'Could not load more: ' + e; }
+    },
+
+    async handleEnter() {
+      const raw = this.poolQuery.trim();
+      if (!raw) return;
+      try {
+        const { data } = await fetchJson('/cyclelution/api/batch/lookup', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            production: this.production, query: raw, filters: this.activeFilters,
+            page: 1, page_size: this.poolPageSize,
+          }),
+        });
+        this.poolResults = data.candidates;
+        this.poolTotal = data.total;
+        this.poolHasMore = this.poolResults.length < this.poolTotal;
+        if (data.total === 1) {
+          await this.addToBatch(data.candidates[0].sn, 'scan');
+        } else if (data.total === 0) {
+          this.scanState = { kind: 'error', message: this.reasonMessage(data.reason) };
+          this.playBeep(false);
+        } else {
+          this.scanState = { kind: 'warn', message: `${data.total} matches — pick one below` };
+        }
+      } catch (e) {
+        this.scanState = { kind: 'error', message: 'Lookup failed: ' + e };
+        this.playBeep(false);
+      }
+    },
+    async addToBatch(sn, inputMode) {
+      try {
+        const { ok, data } = await fetchJson('/cyclelution/api/batch/add', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ production: this.production, record_sn: sn, input_mode: inputMode }),
+        });
+        if (!ok) {
+          this.scanState = { kind: 'error', message: this.reasonMessage(data.reason || data.error) };
+          this.playBeep(false);
+          return;
+        }
+        this.poolQuery = '';
+        this.playBeep(true);
+        await Promise.all([this.loadCurrentBatch(), this.refreshPool(), this.loadCounts()]);
+        this.scanState = { kind: 'success', message: `Added ${(data.vendor + ' ' + data.model).trim()}` };
+      } catch (e) {
+        this.scanState = { kind: 'error', message: 'Add failed: ' + e };
+        this.playBeep(false);
+      } finally {
+        this.$nextTick(() => this.$refs.poolInput && this.$refs.poolInput.focus());
+      }
+    },
+    async removeFromBatch(sn) {
+      try {
+        await fetchJson('/cyclelution/api/batch/remove', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ production: this.production, record_sn: sn }),
+        });
+        // Removed item returns to the pool (task: "click × on the right -> moves back to the left").
+        await Promise.all([this.loadCurrentBatch(), this.refreshPool(), this.loadCounts()]);
+      } catch (e) { this.error = 'Remove failed: ' + e; }
+    },
+    async cancelBatch() {
+      if (!this.currentBatch) return;
+      if (!confirm(`Cancel batch ${this.currentBatch.batch_id}? Its ${this.currentBatch.count} scanned record(s) will be released back to the Ready pool.`)) return;
+      try {
+        await fetchJson('/cyclelution/api/batch/cancel', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ production: this.production }),
+        });
+        // No auto-reopen (task hard rule #5) — queue goes back to "not
+        // started" until the next scan creates a fresh batch.
+        this.currentBatch = null;
+        await this.refreshPool();
+      } catch (e) { this.error = 'Cancel failed: ' + e; }
+    },
+    async exportBatch() {
+      if (!this.currentBatch || this.currentBatch.count === 0) return;
+      this.busy = true; this.error = ''; this.banner = '';
+      try {
+        const { ok, data } = await fetchJson('/cyclelution/api/batch/export', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ production: this.production }),
+        });
+        if (!ok) { this.error = data.error || 'Export failed'; return; }
+        this.banner = `Batch ${data.batch_id} exported — ${data.count} record(s).`;
+        this.downloadUrl = data.download_url;
+        this.lastExportedBatchId = data.batch_id;
+        // No auto-reopen (task "after export": next /add creates the next
+        // batch and resets slot numbers to 01 — this page just reflects
+        // "not started" until that happens).
+        this.currentBatch = null;
+      } catch (e) { this.error = 'Export failed: ' + e; }
+      finally { this.busy = false; }
+      await Promise.all([this.loadFacets(), this.refreshPool(), this.loadCounts()]);
+    },
+    async redownloadBatch(batchId) {
+      try {
+        const { ok, data } = await fetchJson('/cyclelution/api/batch/redownload', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ batch_id: batchId, production: this.production }),
+        });
+        if (ok) { this.downloadUrl = data.download_url; this.banner = 'File ready.'; }
+        else { this.error = data.error || 'Redownload failed'; }
+      } catch (e) { this.error = 'Redownload failed: ' + e; }
     },
   };
 }

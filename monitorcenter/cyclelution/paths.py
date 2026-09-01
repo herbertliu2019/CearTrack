@@ -30,3 +30,11 @@ def wipe_db_path() -> Path:
     except Exception:
         pass
     return Path(config.BASE_DIR) / "wipe" / "wipe_index.db"
+
+
+def batches_db_path() -> Path:
+    """The export-batch bookkeeping DB (TASK_export_batch.md). Deliberately
+    separate from index_db_path() and wipe_db_path() — batches are
+    CearTrack's own scan-session state, never written into either upstream
+    database (see the task's hard rule #2)."""
+    return Path(config.BASE_DIR) / "batches.db"

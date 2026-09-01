@@ -1,23 +1,33 @@
 """Pre-check gate (T-Laptop).
 
-Decides whether a normalized record may enter the `ready` queue. Two levels:
+Decides whether a normalized record may enter the `ready` queue.
 
-  HARD (must pass, else stays pending -> exception list):
-    * SerialNumber present (required-field check happens in normalizer)
-    * every ddl value in its domain / parseable  (normalizer exceptions)
-    * capacity >= 16 GB when a disk is present    (normalizer exception)
-    * Grade / Condition / Weight present + numeric (normalizer exceptions)
-    * wipe: each installed drive has a wipe_records row with result=PASSED
+  BLOCKING (must pass, else stays pending -> exception list):
+    * SerialNumber present               (normalizer required-field exception)
+    * Weight present                     (normalizer required-field exception)
+    * every installed drive has a wipe_records row, AND that row's
+      result == PASSED                   (this gate's own per-disk check)
+    * disk present but hidden/unverified (BIOS RAID — can't confirm it was
+      wiped at all)                      (this gate's own check)
+
+  Everything else the normalizer flags (Grade, Condition, CPU type/speed
+  parse, Manufacturer/Model, Storage Type/Size parse, Memory over-max,
+  screen size, ...) is NON-BLOCKING: the record still goes to `ready` with
+  that column left blank in the export, and an INCOMPLETE flag is attached
+  so the queue surfaces it instead of silently shipping a partial row.
 
   SOFT (still ready, but flagged so the queue can highlight it):
     * overall_result == FAIL      -> note TEST_FAIL
     * no disk installed           -> note NO_DISK
-
-Hard failures come from two places and are merged: the normalizer's own
-`exceptions` (domain/parse/required) plus this gate's per-disk wipe check.
+    * any non-blocking field failed to normalize -> note INCOMPLETE
 """
 
 from dataclasses import dataclass, field
+
+# Normalizer exception "field" values (= mapping_t_laptop.yaml column names)
+# that still block Ready. Every other normalizer exception is downgraded to
+# a non-blocking INCOMPLETE note — see module docstring.
+_BLOCKING_FIELDS = {"SerialNumber", "Weight"}
 
 
 @dataclass
@@ -25,16 +35,17 @@ class GateResult:
     status: str                       # 'ready' or 'pending'
     note: str = None                  # sync_note (soft flags or exception summary)
     exceptions: list = field(default_factory=list)   # hard failures (field, reason)
-    soft_flags: list = field(default_factory=list)   # NO_DISK / TEST_FAIL
+    soft_flags: list = field(default_factory=list)   # NO_DISK / TEST_FAIL / INCOMPLETE
 
 
 def evaluate(norm, wipe_fn) -> GateResult:
     """norm: NormResult from normalizer.normalize(). wipe_fn(drive_sn)->dict|None.
 
     Uses norm.context for storage + overall_result and norm.exceptions for the
-    normalization-level hard failures.
+    normalization-level failures (split into blocking vs. non-blocking above).
     """
-    exceptions = list(norm.exceptions)   # start with normalizer's hard failures
+    exceptions = [e for e in norm.exceptions if e["field"] in _BLOCKING_FIELDS]
+    incomplete = [e for e in norm.exceptions if e["field"] not in _BLOCKING_FIELDS]
     soft = []
     ctx = norm.context
     disk_state = ctx.get("context", {}).get("disk_state", "has_disk")
@@ -75,6 +86,9 @@ def evaluate(norm, wipe_fn) -> GateResult:
     if exceptions:
         note = "; ".join(f"{e['field']}: {e['reason']}" for e in exceptions)
         return GateResult(status="pending", note=note, exceptions=exceptions, soft_flags=soft)
+
+    if incomplete:
+        soft.append("INCOMPLETE")
 
     note = " | ".join(soft) if soft else None
     return GateResult(status="ready", note=note, exceptions=[], soft_flags=soft)
