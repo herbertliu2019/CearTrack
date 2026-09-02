@@ -213,7 +213,14 @@ def api_productions():
     out = []
     for p in PRODUCTIONS:
         item = dict(p)
-        item["batch"] = _batch_config(p["id"]) if p["active"] else None
+        if p["active"]:
+            info = _info(p["id"])
+            cfg = info["config"]() or {}
+            batch = dict(cfg.get("batch") or {})
+            batch["ready_window_days"] = cfg.get("ready_window_days", 30)
+            item["batch"] = batch
+        else:
+            item["batch"] = None
         out.append(item)
     return jsonify({"productions": out})
 
@@ -240,13 +247,12 @@ def _archive_slice(raw_rows: list, window_cutoff: str, sn_query: str, cap: int) 
 
 @blueprint.route("/api/queue")
 def api_queue():
-    """status=ready -> operator-grouped, window-filtered (both count and
-    list shrink to the recency window — see recency.py). exceptions/
-    exported/excluded/no_grade -> flat list, cumulative count (via
-    api_counts(), unchanged) but a window-limited + capped default list
-    (same recency window as Ready); pass sn= to search that status's full
-    history instead. Inactive productions have no data source yet -> empty
-    result."""
+    """status=ready/exceptions/exported/excluded/no_grade -> flat-or-grouped
+    list, cumulative count (via api_counts(), unchanged) but a
+    window-limited + capped default list; pass sn= to search that status's
+    full history instead, bypassing the window and cap (see
+    _archive_slice()). Inactive productions have no data source yet ->
+    empty result."""
     status = request.args.get("status", "ready")
     production = request.args.get("production", "T-Laptop")
     sn_query = request.args.get("sn", "").strip()
@@ -258,16 +264,12 @@ def api_queue():
     window_cutoff = recency.cutoff_date(info["config"]().get("ready_window_days", 30))
 
     if status == "ready":
-        # Window-filtered (a record just stops appearing once it ages out —
-        # see wipe_sync.py's module docstring for why this display filter,
-        # not a status write, is what actually keeps Ready small). Newest
-        # tested/wiped first within each operator's group (by the full
-        # record_ts, not the truncated display date, so same-day records
-        # still order correctly by time).
+        # Newest tested/wiped first within each operator's group (by the
+        # full record_ts, not the truncated display date, so same-day
+        # records still order correctly by time).
         raw_rows = sync_state.list_by_status("ready", module=module)
-        raw_rows = [r for r in raw_rows if (r.get("record_ts") or "") >= window_cutoff]
-        raw_rows.sort(key=lambda r: r.get("record_ts") or "", reverse=True)
-        rows = [_row_display(r, module) for r in raw_rows]
+        sliced, full_count = _archive_slice(raw_rows, window_cutoff, sn_query, _ARCHIVE_CAP)
+        rows = [_row_display(r, module) for r in sliced]
         groups: dict[str, list] = {}
         for r in rows:
             r["flags"] = [f for f in (r["note"].split(" | ") if r["note"] else []) if f]
@@ -276,7 +278,7 @@ def api_queue():
             {"operator": op, "count": len(recs), "records": recs}
             for op, recs in sorted(groups.items())
         ]
-        return jsonify({"groups": out, "total": len(rows)})
+        return jsonify({"groups": out, "total": len(rows), "cumulative_total": full_count, "searched": bool(sn_query)})
 
     if status == "exceptions":
         raw_rows = [r for r in sync_state.list_by_status("pending", module=module) if r.get("sync_note")]
@@ -333,15 +335,11 @@ def api_counts():
             1 for r in sync_state.list_by_status("excluded", module=module)
             if (r.get("sync_note") or "") == "NO_GRADE"
         )
-    # Ready's badge must match its (window-filtered) list — unlike the other
-    # four tabs, which stay cumulative on purpose (see api_queue).
-    window_cutoff = recency.cutoff_date(info["config"]().get("ready_window_days", 30))
-    ready_count = sum(
-        1 for r in sync_state.list_by_status("ready", module=module)
-        if (r.get("record_ts") or "") >= window_cutoff
-    )
+    # Ready's badge is cumulative, same as the other four — the recency
+    # window only shrinks the default *list* views (api_queue /
+    # api_batch_lookup), never a badge count.
     return jsonify({
-        "ready": ready_count,
+        "ready": c.get("ready", 0),
         "exceptions": c.get("pending", 0),
         "exported": c.get("synced", 0),
         "excluded": excluded_total - no_grade,
@@ -553,7 +551,14 @@ def api_batch_lookup():
 
     Excludes any SN already claimed by the current production's open batch
     — an added record must disappear from the pool (task: "an added record
-    disappears from the left column")."""
+    disappears from the left column").
+
+    The default (query-less) browse is windowed to `ready_window_days`
+    (same cutoff as api_batch_facets' dropdown options), so the pool
+    doesn't grow unbounded as history accumulates. A typed SN query bypasses
+    the window entirely — same precedent as _archive_slice — so an operator
+    scanning/typing a specific old-but-still-ready SN never gets a false
+    "not found"."""
     data = request.get_json(silent=True) or {}
     production = data.get("production", "T-Laptop")
     query = (data.get("query") or "").strip()
@@ -575,6 +580,7 @@ def api_batch_lookup():
     batch_cfg = _batch_config(production)
     filter_kinds = batch_cfg.get("filters") or []
     q = query.lower()
+    window_cutoff = recency.cutoff_date(info["config"]().get("ready_window_days", 30))
 
     current = batch_store.get_current(production)
     claimed = {i["record_sn"] for i in batch_store.list_items(current["batch_id"])} if current else set()
@@ -590,6 +596,8 @@ def api_batch_lookup():
         if sn in claimed:
             continue
         if q and q not in sn.lower():
+            continue
+        if not q and (r.get("record_ts") or "") < window_cutoff:
             continue
         if active_date_kind and (r.get("record_ts") or "")[:10] != filters_in[active_date_kind]:
             continue

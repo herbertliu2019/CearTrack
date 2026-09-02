@@ -212,7 +212,7 @@
       <!-- Left: Ready pool -->
       <div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
-          <span style="font-weight:700;">Ready pool · <span x-text="poolTotal"></span></span>
+          <span style="font-weight:700;">Ready pool (<span x-text="readyWindowDays()"></span> days) · <span x-text="poolTotal"></span></span>
           <div style="display:flex;gap:8px;">
             <template x-for="kind in batchFilters()" :key="kind">
               <select x-model="activeFilters[kind]" @change="refreshPool()"
@@ -572,6 +572,10 @@ function cyclelutionApp() {
     batchThirdColumn() {
       const p = this.productions.find(x => x.id === this.production);
       return (p && p.batch && p.batch.pool_third_column) || '';
+    },
+    readyWindowDays() {
+      const p = this.productions.find(x => x.id === this.production);
+      return (p && p.batch && p.batch.ready_window_days) || 30;
     },
     thirdColumnValue(r) {
       const col = this.batchThirdColumn();

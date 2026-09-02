@@ -127,7 +127,7 @@ SN 是跨模块主键。客户端不需要格式化 envelope，服务端负责�
 | `laptop` | ✅ 已上线 |
 | `wipe` | ✅ 已上线（XERASwin log 解析） |
 | `cpu` | ✅ 已上线（IPDT64 log 解析，含图片） |
-| `gpu` | 🔲 规划中 |
+| `gpu` |   ✅ 已上线|
 
 
 ---

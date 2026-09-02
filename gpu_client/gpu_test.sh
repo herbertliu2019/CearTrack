@@ -13,7 +13,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 UPLOAD_URL="http://192.168.30.18:80/gpu/api/upload"
 # Single source of truth for the script version. Bump on every release;
 # deploy_script.sh extracts it from here to generate server-side version.txt.
-SCRIPT_VERSION="1.5.0"
+SCRIPT_VERSION="1.5.1"
 LOG_DIR="/tmp/gpu_logs"
 BURN_DURATION=120           # gpu-burn stress test duration (seconds)
 AUTO_MODE=1                 # 1=unattended, 0=interactive
@@ -454,14 +454,14 @@ banner "Operator & Manual Input"
 
 # (0) Operator ID — required, non-empty. Preserve leading zeros (store string).
 #     Barcode badge scanner = keyboard input + Enter, no special handling needed.
-OPERATOR_ID=""
-while [[ -z "$OPERATOR_ID" ]]; do
-    read -rp "$(echo -e "  ${BOLD}Enter Operator ID (e.g. 0216): ${NC}")" OPERATOR_ID </dev/tty
-    OPERATOR_ID=$(echo "$OPERATOR_ID" | xargs)
-    [[ -z "$OPERATOR_ID" ]] && err "Operator ID cannot be empty."
-done
-ok "Operator: $OPERATOR_ID"
-echo ""
+#OPERATOR_ID=""
+#while [[ -z "$OPERATOR_ID" ]]; do
+#    read -rp "$(echo -e "  ${BOLD}Enter Operator ID (e.g. 0216): ${NC}")" OPERATOR_ID </dev/tty
+#    OPERATOR_ID=$(echo "$OPERATOR_ID" | xargs)
+#    [[ -z "$OPERATOR_ID" ]] && err "Operator ID cannot be empty."
+#done
+#ok "Operator: $OPERATOR_ID"
+#echo ""
 
 # (1) Weight — required positive number (lbs). Use awk for >0 test because bc is
 #     not installed at this early stage (Phase 0 installs tools later).
@@ -500,9 +500,26 @@ while :; do
     warn "Condition must be a single digit 0-9 (or Enter for 4)."
 done
 
-# (4) Color — free text, optional (Enter to skip)
-read -rp "$(echo -e "  ${BOLD}Enter Color (e.g. Black, Enter to skip): ${NC}")" COLOR </dev/tty
-COLOR=$(echo "$COLOR" | xargs)
+# (4) Color — numbered menu (matches Cyclelution color dropdown), optional (Enter to skip)
+COLOR_OPTIONS=("Black" "Blue" "Gold" "Gray" "Green" "Purple" "Red" "Silver" "White" "Yellow")
+echo -e "  ${BOLD}Color [Enter=none]:${NC}"
+_i=1
+for _opt in "${COLOR_OPTIONS[@]}"; do
+    printf "    %d) %s\n" "$_i" "$_opt"
+    _i=$((_i + 1))
+done
+COLOR=""
+while :; do
+    read -rp "$(echo -e "  ${BOLD}Select Color [1-${#COLOR_OPTIONS[@]}, Enter=none]: ${NC}")" _cl_input </dev/tty
+    _cl_input=$(echo "$_cl_input" | xargs)
+    [[ -z "$_cl_input" ]] && { COLOR=""; break; }
+    if [[ "$_cl_input" =~ ^[0-9]+$ ]] && (( _cl_input >= 1 && _cl_input <= ${#COLOR_OPTIONS[@]} )); then
+        COLOR="${COLOR_OPTIONS[$((_cl_input - 1))]}"
+        break
+    fi
+    warn "Invalid choice: $_cl_input (must be 1-${#COLOR_OPTIONS[@]}, or Enter to skip)."
+done
+echo -e "  Selected Color: ${COLOR:-<none>}"
 
 # (5) Mark — numbered menu + custom text + multi-select + skip. GPU-specific items
 #     (NOT laptop's keyboard/screen items). Multi-select joined with ';' to match
@@ -1771,6 +1788,15 @@ echo "############################################################"
 # Phase 9 — JSON Construction & Upload
 # ============================================================
 banner "Step 8: Building JSON Report"
+
+# Surface a known VRAM type (GDDR5/GDDR6/HBM2/etc.) as a mark — skip N/A / Unknown
+if [[ -n "$GPU_VRAM_TYPE" && "$GPU_VRAM_TYPE" != "N/A" && "$GPU_VRAM_TYPE" != "Unknown" ]]; then
+    if [[ -n "$MARK" ]]; then
+        MARK="${MARK};${GPU_VRAM_TYPE}"
+    else
+        MARK="$GPU_VRAM_TYPE"
+    fi
+fi
 
 TEST_END_TIME=$(date '+%Y-%m-%d %H:%M:%S')
 TEST_END_EPOCH=$(date +%s)

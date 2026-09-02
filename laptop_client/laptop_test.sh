@@ -8,7 +8,7 @@
 UPLOAD_URL="http://192.168.30.18:80/laptop/api/upload"
 # Single source of truth for the script version. Bump this on every release and
 # keep server-side version.txt in sync (deploy_script.sh extracts it from here).
-SCRIPT_VERSION="2.3.0"
+SCRIPT_VERSION="2.3.2"
 REPORT_FILE=""  # set after SYS_SERIAL is collected
 PASS="PASS"
 FAIL="FAIL"
@@ -1646,7 +1646,12 @@ banner "13. Kernel Health Scan"
 echo "  Scanning dmesg for hardware error signals..."
 
 # Driver noise to ignore — these are driver bugs, not hardware failures
-KH_IGNORE='nouveau|nvkm_|g84_bar_flush|gp102_acr_wpr_patch|ov[0-9]+.*probe.*failed|DMAR.*Passthrough|Bluetooth: hci.*command.*tx timeout|i915.*GPU HANG|WARNING: CPU.*at drivers/|Call Trace:| \? |RIP:|RSP:| Code:|Modules linked in:|end trace|Tainted:|irq/.*pciehp|rewind_stack_and_make_dead'
+# igen6_edac "HANDLING IBECC MEMORY ERROR" at boot: known kernel driver bug on
+# Intel client SoCs with IBECC — ECC_ERROR_LOG register reads back invalid ~0
+# and the driver misreports it as a correctable error. Fires every boot on
+# affected chipsets regardless of actual memory health; upstream fix not yet
+# in most Live USB kernels. Not a real hardware signal — always ignore.
+KH_IGNORE='nouveau|nvkm_|g84_bar_flush|gp102_acr_wpr_patch|ov[0-9]+.*probe.*failed|DMAR.*Passthrough|Bluetooth: hci.*command.*tx timeout|i915.*GPU HANG|WARNING: CPU.*at drivers/|Call Trace:| \? |RIP:|RSP:| Code:|Modules linked in:|end trace|Tainted:|irq/.*pciehp|rewind_stack_and_make_dead|EDAC igen6 MC[0-9]+: HANDLING IBECC MEMORY ERROR'
 
 # Real hardware error signals — only uncorrectable / fatal conditions
 # EDAC CE (correctable) is intentionally excluded here; it goes to WARN below.
@@ -1654,7 +1659,7 @@ KH_FAIL_RE='mce:|Machine Check|Hardware Error|EDAC.*(UE|[Uu]ncorrectable)|BadRAM
 
 # Warning signals — marginal or correctable hardware events, not conclusive failures.
 # EDAC HANDLING / CE = ECC correctable error (hardware already fixed the bit flip).
-KH_WARN_RE='EDAC.*(HANDLING|CE\b|[Cc]orrected)|device descriptor read/64, error -|device not accepting address|usb.*disabled by hub|ata[0-9]+.*SError|link is slow to respond'
+KH_WARN_RE='EDAC.*(HANDLING|\bCE\b|[Cc]orrected)|device descriptor read/64, error -|device not accepting address|usb.*disabled by hub|ata[0-9]+.*SError|link is slow to respond'
 
 DMESG_FILTERED=$(dmesg 2>/dev/null | grep -vE "$KH_IGNORE")
 

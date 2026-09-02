@@ -38,7 +38,7 @@ scan_since: "2026-07-17"
 # uses this (layered on top of scan_since) to skip evaluating drive_sns
 # that are old enough they'd never show in Ready anyway, purely so a
 # Rescan doesn't waste time re-processing decades of history every run.
-ready_window_days: 30
+ready_window_days: 60
 
 # How often the background poller (cyclelution/wipe_sync.py's
 # start_poll_scheduler) re-runs sync_all() automatically, in addition to

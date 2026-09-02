@@ -31,6 +31,7 @@ def _record_row(r: dict) -> dict:
         "gpu_name":       gpu.get("name", ""),
         "vendor":         gpu.get("vendor", ""),
         "vram_mb":        gpu.get("vram_mb", 0),
+        "grade":          (p.get("manual_input", {}) or {}).get("grade", ""),
         "overall_result": r.get("overall_result", ""),
         "timestamp":      r.get("timestamp", ""),
         "glmark2_score":  vb.get("score", 0),
@@ -99,6 +100,30 @@ def _normalize_subvendor(raw: str) -> str:
     first = raw.strip().split()[0] if raw.strip() else "Unknown"
     return first[:20]
 
+
+
+def _compute_by_grade(records):
+    """Grade distribution in fixed order A, B, C. Records without a grade
+    field are skipped entirely (not counted in numerator or denominator).
+
+    Raw value is like "Grade B" — take the trailing letter. gpu_test.sh
+    allows A/B/C/D, but Grade D means failed/not going into inventory, so
+    it's excluded here (both from the counts and from the denominator).
+    """
+    counts = {"A": 0, "B": 0, "C": 0}
+    for r in records:
+        raw = (r.get("payload", {}) or {}).get("manual_input", {}).get("grade", "")
+        grade = (raw or "").strip().split()[-1] if raw else ""
+        if grade in counts:
+            counts[grade] += 1
+
+    total_graded = sum(counts.values())
+    result = []
+    for g in ["A", "B", "C"]:
+        count = counts[g]
+        pct = round(count / total_graded * 100) if total_graded else 0
+        result.append({"grade": g, "count": count, "pct": pct})
+    return result
 
 
 class GpuModule(TestModule):
@@ -208,6 +233,20 @@ def api_upload():
         generate_pdf(envelope["sn"], envelope)
     except Exception as e:
         log.warning("GPU PDF generation failed for %s: %s", envelope["sn"], e)
+
+    # Cyclelution flow (T-Video Card): register + evaluate immediately so it
+    # lands in Ready or Exceptions right away. Best-effort — a failure here
+    # must never block the upload. Mirrors modules/laptop/module.py's hook.
+    try:
+        from cyclelution import sync_state, scan, context_gpu, gate_gpu
+        from cyclelution import normalizer as _cyc_normalizer
+        hp = paths["history_path"]
+        sync_state.ensure_pending(hp, sn=envelope["sn"], record_ts=envelope.get("timestamp"), module="gpu")
+        scan.evaluate_one(hp, envelope=envelope, module="gpu",
+                           config=_cyc_normalizer.load_config(context_gpu.CONFIG_PATH),
+                           context_builder=context_gpu.build_context, gate_fn=gate_gpu.evaluate)
+    except Exception as e:
+        log.warning("GPU cyclelution evaluate failed (non-fatal): %s", e)
 
     return jsonify({
         "status": "ok",
@@ -377,6 +416,7 @@ def api_today():
         "by_station":   by_station,
         "by_vendor":    by_vendor,
         "by_subvendor": by_subvendor,
+        "by_grade":     _compute_by_grade(records),
         "fail_reasons": fail_reasons,
         "yield_tiers":  yield_tiers,
         "records":      rows,
@@ -657,6 +697,7 @@ def api_stats():
         "by_station":    sorted(by_station_map.items(), key=lambda x: x[1], reverse=True),
         "by_station_daily": by_station_daily,
         "by_subvendor":  sv_rows,
+        "by_grade":      _compute_by_grade(records),
         "fail_reasons":  sorted(fail_reasons.items(), key=lambda x: x[1], reverse=True),
         "daily":         daily,
     })

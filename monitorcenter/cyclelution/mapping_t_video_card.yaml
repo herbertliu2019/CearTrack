@@ -23,7 +23,7 @@ environment: production          # production -> ProductName "T - Video Card"
 
 # Rolling candidate window (days) — see mapping_t_laptop.yaml's comment;
 # same shared concept (cyclelution/recency.py).
-ready_window_days: 60
+ready_window_days: 30
 
 # Scan-to-batch export workflow (tasks/Cyclelution/TASK_export_batch0901.md).
 # Enabled alongside wipe and laptop per explicit user request 2026-09-01 —
