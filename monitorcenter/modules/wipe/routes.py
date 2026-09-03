@@ -176,11 +176,12 @@ def api_scan_status():
     # Self-healing: if the auto-poll scheduler died (e.g. after service restart
     # interrupted a thread), revive it on the next status poll. Cost is one
     # thread.is_alive() check per request — negligible.
-    poll_state = get_poll_state()
+    cfg = current_app.config["WIPE_CFG"]
+    poll_state = get_poll_state(cfg)
     if not poll_state.get("poller_running"):
         try:
-            start_poll_scheduler(current_app.config["WIPE_CFG"])
-            poll_state = get_poll_state()
+            start_poll_scheduler(cfg)
+            poll_state = get_poll_state(cfg)
             poll_state["revived"] = True
         except Exception as e:
             poll_state["revive_error"] = str(e)

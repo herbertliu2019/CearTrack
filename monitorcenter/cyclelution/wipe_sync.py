@@ -63,6 +63,8 @@ request handler. _LOCK prevents two runs overlapping (a second caller gets
 {"busy": True} back immediately rather than corrupting/duplicating work).
 """
 
+import fcntl
+import os
 import threading
 from datetime import datetime, timedelta
 
@@ -171,10 +173,75 @@ _last_sync_at = None
 _next_sync_at = None
 _current_interval = 600
 
+# Cross-process ownership lock — same rationale as modules/wipe/scheduler.py's
+# lock: gunicorn's workers (+ preload master, + old/new generations during a
+# restart) each import this module independently, so without this every one
+# of them started its own poll loop. Only the flock winner runs the loop; the
+# OS releases it automatically on process exit/crash so another process can
+# take over with no manual cleanup.
+_lock_fh = None
+_lock_owner_pid: int | None = None
+
+
+def _lock_path() -> str:
+    return str(context_wipe.CONFIG_PATH.parent / ".wipe_sync_poller.lock")
+
+
+def _we_hold_lock() -> bool:
+    """True if THIS process (not a fork ancestor) actually earned the lock.
+
+    gunicorn's --preload forks workers from a master that already imported
+    (and locked) this module. fork() duplicates _lock_fh into every worker,
+    so a plain `_lock_fh is not None` check is fooled into thinking each
+    worker already owns the lock it merely inherited a reference to. Gating
+    on the owning pid forces every forked child to attempt (and correctly
+    fail) a real acquire of its own.
+    """
+    return _lock_fh is not None and _lock_owner_pid == os.getpid()
+
+
+def _acquire_owner_lock() -> bool:
+    global _lock_fh, _lock_owner_pid
+    if _we_hold_lock():
+        return True
+    fh = open(_lock_path(), "w")
+    try:
+        fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        fh.close()
+        return False
+    _lock_fh = fh
+    _lock_owner_pid = os.getpid()
+    return True
+
+
+def _is_owner_lock_held() -> bool:
+    if _we_hold_lock():
+        return True
+    try:
+        fh = open(_lock_path(), "w")
+    except OSError:
+        return False
+    try:
+        fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        fh.close()
+        return True
+    fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+    fh.close()
+    return False
+
 
 def get_poll_state() -> dict:
+    my_thread_alive = _poll_thread is not None and _poll_thread.is_alive()
+    if my_thread_alive:
+        running = True
+    elif _we_hold_lock():
+        running = False  # we own the lock but our thread died — allow self-heal
+    else:
+        running = _is_owner_lock_held()
     return {
-        "poller_running": _poll_thread is not None and _poll_thread.is_alive(),
+        "poller_running": running,
         "last_sync_at": _last_sync_at,
         "next_sync_at": _next_sync_at,
         "interval": _current_interval,
@@ -208,6 +275,10 @@ def start_poll_scheduler(interval=None, db_path=None) -> None:
     global _poll_thread, _current_interval
 
     if _poll_thread is not None and _poll_thread.is_alive():
+        return
+
+    if not _acquire_owner_lock():
+        print("[wipe_sync] another process already owns the poller, skip")
         return
 
     if interval is None:
