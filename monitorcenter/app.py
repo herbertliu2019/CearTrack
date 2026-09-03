@@ -92,8 +92,9 @@ def _search_wipe_sqlite(sn: str) -> list[dict]:
     if not db_path.exists():
         return []
     try:
-        conn = sqlite3.connect(str(db_path))
+        conn = sqlite3.connect(str(db_path), timeout=30.0)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA busy_timeout=30000")
         pattern = f"%{sn.upper()}%"
         rows = conn.execute(
             "SELECT * FROM wipe_records "
@@ -249,7 +250,8 @@ def api_summary():
     try:
         wp = app.config.get("WIPE_DB")
         if wp and Path(wp).exists():
-            c = sqlite3.connect(wp)
+            c = sqlite3.connect(wp, timeout=30.0)
+            c.execute("PRAGMA busy_timeout=30000")
             out["wipe"] = {
                 "today": c.execute("SELECT COUNT(*) FROM wipe_records WHERE wipe_date=?", (str(today),)).fetchone()[0],
                 "week":  c.execute("SELECT COUNT(*) FROM wipe_records WHERE wipe_date BETWEEN ? AND ?", (str(week_start), str(week_end))).fetchone()[0],

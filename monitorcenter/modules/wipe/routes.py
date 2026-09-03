@@ -1,3 +1,4 @@
+import sqlite3
 import threading
 from datetime import date, timedelta
 
@@ -111,29 +112,32 @@ def api_search():
 @wipe_bp.post("/api/scan")
 def api_scan():
     db_path = _db_path()
-    conn = get_conn(db_path)
-    status = get_scan_status(conn)
+    try:
+        conn = get_conn(db_path)
+        status = get_scan_status(conn)
 
-    if status["running"]:
-        # Check whether the scan thread is actually still alive.
-        # If the server restarted or the thread crashed, running=1 stays
-        # stuck in the DB forever and blocks every future scan.
-        thread_alive = any(
-            t.name == "wipe-full-scan" and t.is_alive()
-            for t in threading.enumerate()
-        )
-        if thread_alive:
-            conn.close()
-            return jsonify({"status": "already_running",
-                            "done": status.get("done", 0),
-                            "total": status.get("total", 0)})
-        # Thread is gone but flag is stuck — reset it before starting a new scan
-        upsert_scan_status(conn, running=0)
+        if status["running"]:
+            # Check whether the scan thread is actually still alive.
+            # If the server restarted or the thread crashed, running=1 stays
+            # stuck in the DB forever and blocks every future scan.
+            thread_alive = any(
+                t.name == "wipe-full-scan" and t.is_alive()
+                for t in threading.enumerate()
+            )
+            if thread_alive:
+                conn.close()
+                return jsonify({"status": "already_running",
+                                "done": status.get("done", 0),
+                                "total": status.get("total", 0)})
+            # Thread is gone but flag is stuck — reset it before starting a new scan
+            upsert_scan_status(conn, running=0)
 
-    conn.close()
-    cfg = current_app.config["WIPE_CFG"]
-    log_roots = cfg.get("log_roots") or [{"path": cfg["log_root"], "win_share_root": cfg.get("win_share_root", "")}]
-    scanner = WipeScanner(log_roots=log_roots, db_path=db_path)
+        conn.close()
+        cfg = current_app.config["WIPE_CFG"]
+        log_roots = cfg.get("log_roots") or [{"path": cfg["log_root"], "win_share_root": cfg.get("win_share_root", "")}]
+        scanner = WipeScanner(log_roots=log_roots, db_path=db_path)
+    except sqlite3.OperationalError as e:
+        return jsonify({"error": "database busy, please retry", "detail": str(e)}), 503
 
     force = request.args.get("force", "0") == "1"
 
@@ -151,14 +155,17 @@ def api_scan():
 def api_scan_poll():
     """Trigger an incremental poll scan in a background thread."""
     db_path = _db_path()
-    conn = get_conn(db_path)
-    status = get_scan_status(conn)
-    conn.close()
-    if status["running"]:
-        return jsonify({"status": "already_running"})
-    cfg = current_app.config["WIPE_CFG"]
-    log_roots = cfg.get("log_roots") or [{"path": cfg["log_root"], "win_share_root": cfg.get("win_share_root", "")}]
-    scanner = WipeScanner(log_roots=log_roots, db_path=db_path)
+    try:
+        conn = get_conn(db_path)
+        status = get_scan_status(conn)
+        conn.close()
+        if status["running"]:
+            return jsonify({"status": "already_running"})
+        cfg = current_app.config["WIPE_CFG"]
+        log_roots = cfg.get("log_roots") or [{"path": cfg["log_root"], "win_share_root": cfg.get("win_share_root", "")}]
+        scanner = WipeScanner(log_roots=log_roots, db_path=db_path)
+    except sqlite3.OperationalError as e:
+        return jsonify({"error": "database busy, please retry", "detail": str(e)}), 503
 
     def _run():
         scanner.run_poll()
