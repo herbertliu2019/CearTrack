@@ -1,0 +1,11 @@
+{
+  "scan_root": "/mnt/sp_memtest/MemTest_Logs",
+  "mem_db_path": "/opt/monitorcenter/data/mem/mem_index.db",
+  "go_live_date": "1970-01-01",
+  "poll_interval_sec": 900,
+  "file_globs": ["*.html", "*.htm"],
+  "exclude_dir_patterns": ["*_files"],
+  "archive_raw": true,
+  "archive_root": "/opt/monitorcenter/data/mem/raw",
+  "max_file_mb": 10
+}

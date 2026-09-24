@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Memory Tests — CEARTrack (Mockup)</title>
+<style>
+:root{
+  --bg:#12141f; --bg2:#171a28; --card:#1b1e2e; --card2:#1f2333;
+  --line:#2a2f45; --line2:#333a55;
+  --txt:#e6e9f5; --dim:#7e86a8; --dim2:#5d6484;
+  --cyan:#22d3ee; --pass:#4ade80; --warn:#facc15; --fail:#f87171;
+  --susp:#e07b3a; --purple:#8b5cf6; --purple2:#6d5ae6;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:13px;line-height:1.5}
+.mockbar{background:linear-gradient(90deg,#3b2a5e,#2a2f45);border-bottom:1px solid var(--line2);padding:6px 24px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#c4b5fd}
+
+/* nav */
+.nav{background:var(--bg2);border-bottom:1px solid var(--line);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;letter-spacing:.02em}
+.logo{width:26px;height:26px;border-radius:50%;background:conic-gradient(from 200deg,#22d3ee,#4ade80,#22d3ee);opacity:.9}
+.brand span.a{color:#7dd3fc}.brand span.b{color:var(--txt)}
+.navlinks{display:flex;gap:4px}
+.navlinks a{color:var(--dim);text-decoration:none;padding:7px 14px;border-radius:6px;font-size:13px}
+.navlinks a:hover{color:var(--txt);background:#232840}
+.navlinks a.on{color:var(--cyan);background:rgba(34,211,238,.10);box-shadow:inset 0 0 0 1px rgba(34,211,238,.25)}
+
+.wrap{max-width:1560px;margin:0 auto;padding:22px 24px 60px}
+
+/* page head */
+.phead{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.picon{width:34px;height:34px;border-radius:8px;background:rgba(34,211,238,.12);display:flex;align-items:center;justify-content:center;color:var(--cyan);font-size:17px}
+.phead h1{font-size:21px;color:var(--cyan);letter-spacing:.04em;font-weight:700}
+.phead p{color:var(--dim2);font-size:11px;letter-spacing:.06em;text-transform:uppercase;margin-top:1px}
+
+/* search */
+.searchrow{display:flex;gap:10px;align-items:center;margin-bottom:12px}
+.searchbox{flex:1;display:flex}
+.searchbox input{flex:1;background:var(--card);border:1px solid var(--line);border-right:0;border-radius:7px 0 0 7px;padding:10px 14px;color:var(--txt);font-size:13px;outline:none}
+.searchbox input::placeholder{color:var(--dim2)}
+.searchbox button{background:#2b3150;border:1px solid var(--line2);border-radius:0 7px 7px 0;color:var(--txt);padding:0 20px;cursor:pointer;font-size:13px}
+.scanmeta{text-align:right;color:var(--dim2);font-size:10.5px;line-height:1.4;white-space:nowrap}
+.scanbtn{background:linear-gradient(135deg,var(--purple2),var(--purple));border:0;border-radius:7px;color:#fff;padding:11px 20px;font-size:12px;font-weight:600;letter-spacing:.06em;cursor:pointer;white-space:nowrap}
+
+.ranges{display:flex;gap:7px;margin-bottom:18px}
+.ranges button{background:var(--card);border:1px solid var(--line);color:var(--dim);border-radius:6px;padding:6px 16px;font-size:12px;cursor:pointer}
+.ranges button.on{color:var(--cyan);border-color:rgba(34,211,238,.4);background:rgba(34,211,238,.08)}
+
+/* kpi */
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 16px;text-align:center}
+.kpi.hl{border-color:rgba(139,92,246,.45);box-shadow:inset 0 0 0 1px rgba(139,92,246,.12)}
+.kpi .v{font-size:30px;font-weight:700;color:var(--cyan);letter-spacing:-.01em}
+.kpi .v.g{color:var(--pass)}.kpi .v.p{color:#a78bfa}
+.kpi .lab{margin-top:5px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim2)}
+.kpi .sub{margin-top:3px;font-size:10px;color:var(--dim2)}
+.dual{display:flex;justify-content:center;gap:22px}
+.dual .v{font-size:30px;font-weight:700}
+.dual .y{color:var(--warn)}.dual .r{color:var(--fail)}
+.dual small{display:block;font-size:9px;letter-spacing:.1em;color:var(--dim2);margin-top:2px;text-transform:uppercase}
+
+/* cards */
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:14px}
+.card h3{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim2);margin-bottom:14px;font-weight:600}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px}
+@media(max-width:1200px){.grid3{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
+
+/* bar rows */
+.brow{display:flex;align-items:center;gap:10px;margin-bottom:9px;font-size:12px}
+.brow .n{width:120px;color:#c7cce4;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brow .t{flex:1;height:7px;background:rgba(255,255,255,.055);border-radius:4px;overflow:hidden}
+.brow .f{height:100%;border-radius:4px;background:var(--cyan)}
+.brow .f.pu{background:var(--purple)}
+.brow .f.gr{background:var(--pass)}
+.brow .c{width:32px;text-align:right;color:var(--dim);font-size:11px;flex-shrink:0}
+
+/* daily volume */
+.dv{display:flex;align-items:flex-end;gap:26px;height:170px;padding:0 10px}
+.dvcol{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%}
+.dvstack{width:100%;max-width:150px;display:flex;flex-direction:column-reverse;border-radius:4px 4px 0 0;overflow:hidden}
+.dvseg{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#0d1117}
+.dvlab{margin-top:8px;font-size:11px;color:var(--dim)}
+.legend{display:flex;gap:16px;font-size:10.5px;color:var(--dim);margin-bottom:12px}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:middle}
+
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim2);font-weight:600;padding:9px 10px;border-bottom:1px solid var(--line)}
+td{padding:10px;border-bottom:1px solid rgba(42,47,69,.55);color:#cdd2e8}
+tr.click{cursor:pointer}
+tr.click:hover td{background:rgba(255,255,255,.028)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em}
+.sn{color:var(--cyan);font-weight:600}
+.muted{color:var(--dim2)}
+
+/* badges */
+.bg{display:inline-block;padding:2.5px 9px;border-radius:11px;font-size:10px;font-weight:700;letter-spacing:.06em}
+.bg.p{background:rgba(74,222,128,.13);color:var(--pass);box-shadow:inset 0 0 0 1px rgba(74,222,128,.3)}
+.bg.w{background:rgba(250,204,21,.13);color:var(--warn);box-shadow:inset 0 0 0 1px rgba(250,204,21,.3)}
+.bg.f{background:rgba(248,113,113,.13);color:var(--fail);box-shadow:inset 0 0 0 1px rgba(248,113,113,.3)}
+.bg.s{background:rgba(224,123,58,.15);color:var(--susp);box-shadow:inset 0 0 0 1px rgba(224,123,58,.35)}
+.evererr{color:var(--warn);margin-left:5px;cursor:help}
+
+/* tabs */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:0}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;color:var(--dim);padding:11px 20px;font-size:12px;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;font-weight:600}
+.tabs button.on{color:var(--cyan);border-bottom-color:var(--cyan)}
+.tabs .cnt{color:var(--dim2);font-weight:400;margin-left:5px}
+
+/* filters */
+.filters{display:flex;gap:8px;flex-wrap:wrap;padding:14px 0}
+.filters select{background:var(--card2);border:1px solid var(--line);border-radius:6px;color:#c7cce4;padding:6px 10px;font-size:11.5px;outline:none}
+
+/* detail panel */
+.detail{background:#161927;border:1px solid var(--line2);border-radius:9px;margin:4px 0 12px;overflow:hidden}
+.dhead{display:flex;justify-content:space-between;align-items:flex-start;padding:15px 18px;background:rgba(34,211,238,.045);border-bottom:1px solid var(--line)}
+.dhead .t{font-size:16px;font-weight:700;color:var(--cyan)}
+.dhead .s{font-size:11.5px;color:var(--dim);margin-top:3px}
+.hist{padding:6px 18px 16px}
+.hrow{border-left:2px solid var(--line2);padding:12px 0 12px 16px;margin-top:10px;position:relative}
+.hrow.warn{border-left-color:var(--warn)}
+.hrow.pass{border-left-color:var(--pass)}
+.hrow .top{display:flex;gap:14px;align-items:center;font-size:12.5px;margin-bottom:7px}
+.kv{display:grid;grid-template-columns:62px 1fr;gap:3px 10px;font-size:11.5px;color:var(--dim)}
+.kv b{color:var(--dim2);font-weight:600;font-size:10px;letter-spacing:.07em;text-transform:uppercase;padding-top:1px}
+.kv span{color:#c7cce4;word-break:break-all}
+.errbox{margin-top:9px;background:rgba(250,204,21,.055);border:1px solid rgba(250,204,21,.2);border-radius:6px;padding:9px 12px;font-size:11.5px}
+.errbox .h{color:var(--warn);font-size:10px;letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px;font-weight:600}
+.acts{margin-top:9px;display:flex;gap:8px}
+.acts a{font-size:11px;color:var(--cyan);text-decoration:none;border:1px solid rgba(34,211,238,.3);border-radius:5px;padding:4px 11px}
+.acts a:hover{background:rgba(34,211,238,.09)}
+
+/* parse issues */
+.issues{background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.28);border-radius:10px;padding:15px 18px;margin-top:14px}
+.issues h3{color:var(--fail);margin-bottom:10px}
+.issues .r{font-size:11.5px;color:#cdd2e8;padding:6px 0;border-bottom:1px solid rgba(248,113,113,.12)}
+
+
+/* packages */
+.pkgwrap{display:grid;grid-template-columns:300px 1fr;gap:16px;padding:16px 0 4px}
+@media(max-width:1100px){.pkgwrap{grid-template-columns:1fr}}
+.pkglist{display:flex;flex-direction:column;gap:9px}
+.newpkg{background:linear-gradient(135deg,var(--purple2),var(--purple));border:0;border-radius:8px;color:#fff;padding:10px;font-size:12px;font-weight:600;letter-spacing:.05em;cursor:pointer;margin-bottom:3px}
+.pkgcard{background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:12px 13px;cursor:pointer;text-align:left}
+.pkgcard:hover{border-color:var(--line2)}
+.pkgcard.on{border-color:rgba(34,211,238,.55);background:rgba(34,211,238,.06)}
+.pkgcard .no{font-size:12.5px;font-weight:700;color:var(--cyan);font-family:ui-monospace,Menlo,monospace}
+.pkgcard .sp{font-size:11px;color:#c7cce4;margin-top:4px}
+.pkgcard .mt{font-size:10.5px;color:var(--dim2);margin-top:4px}
+.pkgcard .row1{display:flex;justify-content:space-between;align-items:center}
+.pkgpane{background:#161927;border:1px solid var(--line2);border-radius:10px;overflow:hidden}
+.pkghead{padding:15px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+.pkghead.lockbg{background:rgba(125,211,252,.03)}
+.pkghead .no{font-size:17px;font-weight:700;color:var(--cyan);font-family:ui-monospace,Menlo,monospace}
+.pkghead .sub{font-size:11.5px;color:var(--dim);margin-top:4px}
+.btn{border-radius:6px;padding:7px 14px;font-size:11.5px;font-weight:600;cursor:pointer;border:1px solid var(--line2);background:var(--card2);color:#c7cce4}
+.btn.pri{background:linear-gradient(135deg,var(--purple2),var(--purple));border:0;color:#fff}
+.btn.dan{border-color:rgba(248,113,113,.35);color:var(--fail);background:rgba(248,113,113,.07)}
+.attrs{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border-bottom:1px solid var(--line)}
+@media(max-width:900px){.attrs{grid-template-columns:repeat(2,1fr)}}
+.attr{background:#161927;padding:11px 14px}
+.attr b{display:block;font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim2);font-weight:600;margin-bottom:4px}
+.attr .v{font-size:13px;color:#e6e9f5;font-weight:600}
+.attr .v.calc{color:var(--cyan)}
+.attr select,.attr input{background:var(--card2);border:1px solid var(--line2);border-radius:5px;color:#e6e9f5;padding:3px 7px;font-size:12.5px;font-weight:600;outline:none;width:100%}
+.attr .lk{font-size:9px;color:var(--dim2);margin-left:5px;font-weight:400;letter-spacing:.04em}
+.sect{padding:14px 18px}
+.sect h4{font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim2);font-weight:600;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.xbtn{background:none;border:0;color:var(--dim2);cursor:pointer;font-size:14px;padding:0 4px}
+.xbtn:hover{color:var(--fail)}
+.addpanel{background:rgba(139,92,246,.05);border:1px solid rgba(139,92,246,.22);border-radius:8px;padding:13px 15px;margin:4px 18px 18px}
+.lockchip{display:inline-flex;align-items:center;gap:5px;background:rgba(34,211,238,.10);border:1px solid rgba(34,211,238,.25);border-radius:5px;padding:3px 9px;font-size:10.5px;color:#9fdcea;font-family:ui-monospace,Menlo,monospace}
+.lockbanner{display:flex;align-items:center;gap:10px;background:rgba(125,211,252,.06);border:1px solid rgba(125,211,252,.22);border-radius:8px;padding:11px 15px;margin:14px 18px 0;font-size:12px;color:#bcd6e8}
+.memtbl td,.memtbl th{padding:7px 10px}
+.ck{width:13px;height:13px;accent-color:#22d3ee;cursor:pointer;vertical-align:middle}
+.tid{font-family:ui-monospace,Menlo,monospace;color:#7dd3fc}
+
+.hide{display:none}
+.note{font-size:11px;color:var(--dim2);padding:14px 2px}
+.sub{padding-left:28px!important;color:var(--dim)}
+.expandable{background:#191c2b}
+</style>
+</head>
+<body>
+
+<div class="mockbar">Mockup — SNs, test records and file names come from two real MemTest86 logs; weekly statistics are simulated</div>
+
+<div class="nav">
+  <div class="brand"><div class="logo"></div><span class="a">CEAR</span><span class="b">Track</span></div>
+  <div class="navlinks">
+    <a href="#">Home</a><a href="#">Laptop</a><a href="#">Wipe</a><a href="#">CPU</a>
+    <a href="#" class="on">Memory</a><a href="#">GPU</a><a href="#">Cyclelution</a>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="phead">
+    <div class="picon">▤</div>
+    <div><h1>MEMORY</h1><p>MemTest86 Module Test Dashboard</p></div>
+  </div>
+
+  <div class="searchrow">
+    <div class="searchbox">
+      <input placeholder="Search by module SN, part number, or report file name (partial match)…" value="35BA48C9">
+      <button>Search</button>
+    </div>
+    <div class="scanmeta">Next in: 0s<br>Last scan: 2026-09-22 10:20</div>
+    <button class="scanbtn">⟳ SCAN MEMORY TEST LOGS</button>
+  </div>
+
+  <div class="ranges"><button class="on">Week</button><button>Month</button><button>Custom</button></div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="v">120</div><div class="lab">This Week DIMMs</div><div class="sub">2026-09-20 – 2026-09-22</div></div>
+    <div class="kpi"><div class="v g">112</div><div class="lab">Passed</div></div>
+    <div class="kpi"><div class="dual"><div><div class="v y">6</div><small>Warn</small></div><div><div class="v r">2</div><small>Fail</small></div></div><div class="lab" style="margin-top:8px">Attention</div></div>
+    <div class="kpi"><div class="v">4.6 TB</div><div class="lab">Total Capacity</div></div>
+    <div class="kpi hl"><div class="v p">3,418</div><div class="lab">All Time</div></div>
+  </div>
+
+  <div class="grid3">
+    <div class="card"><h3>By Capacity</h3>
+      <div class="brow"><div class="n">64GB</div><div class="t"><div class="f" style="width:100%"></div></div><div class="c">48</div></div>
+      <div class="brow"><div class="n">32GB</div><div class="t"><div class="f" style="width:83%"></div></div><div class="c">40</div></div>
+      <div class="brow"><div class="n">16GB</div><div class="t"><div class="f" style="width:50%"></div></div><div class="c">24</div></div>
+      <div class="brow"><div class="n">8GB</div><div class="t"><div class="f" style="width:17%"></div></div><div class="c">8</div></div>
+    </div>
+    <div class="card"><h3>By Type</h3>
+      <div class="brow"><div class="n">DDR4 ECC</div><div class="t"><div class="f pu" style="width:100%"></div></div><div class="c">88</div></div>
+      <div class="brow"><div class="n">DDR4</div><div class="t"><div class="f pu" style="width:27%"></div></div><div class="c">24</div></div>
+      <div class="brow"><div class="n">DDR3</div><div class="t"><div class="f pu" style="width:9%"></div></div><div class="c">8</div></div>
+    </div>
+    <div class="card"><h3>By Vendor</h3>
+      <div class="brow"><div class="n">Samsung</div><div class="t"><div class="f gr" style="width:100%"></div></div><div class="c">52</div></div>
+      <div class="brow"><div class="n">SK Hynix</div><div class="t"><div class="f gr" style="width:73%"></div></div><div class="c">38</div></div>
+      <div class="brow"><div class="n">Micron</div><div class="t"><div class="f gr" style="width:42%"></div></div><div class="c">22</div></div>
+      <div class="brow"><div class="n">Kingston</div><div class="t"><div class="f gr" style="width:15%"></div></div><div class="c">8</div></div>
+    </div>
+  </div>
+
+  <div class="card"><h3>Top 15 Part Numbers</h3>
+    <div class="brow"><div class="n mono">M386A8K40BM1-CRC</div><div class="t"><div class="f" style="width:100%"></div></div><div class="c">24</div></div>
+    <div class="brow"><div class="n mono">HMA84GR7AFR4N-UH</div><div class="t"><div class="f" style="width:75%"></div></div><div class="c">18</div></div>
+    <div class="brow"><div class="n mono">MTA36ASF4G72PZ</div><div class="t"><div class="f" style="width:58%"></div></div><div class="c">14</div></div>
+    <div class="brow"><div class="n mono">M393A2K43BB1-CRC</div><div class="t"><div class="f" style="width:50%"></div></div><div class="c">12</div></div>
+    <div class="brow"><div class="n mono">HMA82GR7CJR8N-XN</div><div class="t"><div class="f" style="width:37%"></div></div><div class="c">9</div></div>
+  </div>
+
+  <div class="card"><h3>Daily Volume</h3>
+    <div class="legend"><span><i style="background:var(--pass)"></i>Pass</span><span><i style="background:var(--warn)"></i>Warn</span><span><i style="background:var(--fail)"></i>Fail</span></div>
+    <div class="dv">
+      <div class="dvcol"><div class="dvstack"><div class="dvseg" style="height:96px;background:var(--pass)">34</div><div class="dvseg" style="height:14px;background:var(--warn)">2</div><div class="dvseg" style="height:9px;background:var(--fail)">1</div></div><div class="dvlab">Sun 9/20</div></div>
+      <div class="dvcol"><div class="dvstack"><div class="dvseg" style="height:128px;background:var(--pass)">46</div><div class="dvseg" style="height:12px;background:var(--warn)">2</div></div><div class="dvlab">Mon 9/21</div></div>
+      <div class="dvcol"><div class="dvstack"><div class="dvseg" style="height:88px;background:var(--pass)">32</div><div class="dvseg" style="height:12px;background:var(--warn)">2</div><div class="dvseg" style="height:9px;background:var(--fail)">1</div></div><div class="dvlab">Tue 9/22</div></div>
+      <div class="dvcol"><div class="dvstack"></div><div class="dvlab">Wed 9/23</div></div>
+      <div class="dvcol"><div class="dvstack"></div><div class="dvlab">Thu 9/24</div></div>
+    </div>
+  </div>
+
+  <div class="card"><h3>Daily Breakdown</h3>
+    <table>
+      <tr><th>Date</th><th>Reports</th><th>DIMMs</th><th>Passed</th><th>Warn</th><th>Failed</th><th>Pass Rate</th><th></th></tr>
+      <tr class="click"><td>2026-09-20 (Sun)</td><td>5</td><td>37</td><td>34</td><td style="color:var(--warn)">2</td><td style="color:var(--fail)">1</td><td>91.9%</td><td class="muted">▸</td></tr>
+      <tr class="click"><td>2026-09-21 (Mon)</td><td>6</td><td>48</td><td>46</td><td style="color:var(--warn)">2</td><td class="muted">—</td><td>95.8%</td><td class="muted">▸</td></tr>
+      <tr class="click"><td>2026-09-22 (Tue)</td><td>4</td><td>35</td><td>32</td><td style="color:var(--warn)">2</td><td style="color:var(--fail)">1</td><td>91.4%</td><td class="muted">▸</td></tr>
+    </table>
+  </div>
+
+  <!-- ======== TABS ======== -->
+  <div class="card" style="padding:0 18px 18px">
+    <div class="tabs">
+      <button class="on" onclick="tab(this,'t1')">DIMMs <span class="cnt">(3,418)</span></button>
+      <button onclick="tab(this,'t2')">Reports <span class="cnt">(412)</span></button>
+      <button onclick="tab(this,'t3')">Packages</button>
+    </div>
+
+    <!-- MODULES -->
+    <div id="t1">
+      <div class="filters">
+        <select><option>Status: All</option><option>PASS</option><option>WARN</option><option>FAIL</option><option>SUSPECT</option></select>
+        <select><option>Ever Errored: All</option><option>Yes</option><option>No</option></select>
+        <select><option>Capacity: All</option><option>64GB</option><option>32GB</option><option>16GB</option></select>
+        <select><option>Type: All</option><option>DDR4 ECC</option><option>DDR4</option></select>
+        <select><option>Vendor: All</option><option>Samsung</option><option>SK Hynix</option><option>Micron</option></select>
+        <select><option>Date: This Week</option><option>This Month</option><option>Custom</option></select>
+      </div>
+      <table>
+        <tr><th>SN</th><th>Capacity</th><th>Type</th><th>Vendor</th><th>Part Number</th><th>Speed</th><th>Last Slot</th><th>Last Tested</th><th>Tests</th><th>Status</th></tr>
+
+        <tr class="click" onclick="det()"><td class="mono sn">35BA48C9</td><td>64GB</td><td>DDR4 ECC</td><td>Samsung</td><td class="mono">M386A8K40BM1-CRC</td><td>2400MT/s</td><td>G1</td><td>2025-03-14 15:13</td><td>2</td><td><span class="bg p">PASS</span><span class="evererr" title="Test 1 of 2 returned WARN">⚠</span></td></tr>
+
+        <tr id="dtr" class="hide"><td colspan="10" style="padding:0 0 6px">
+          <div class="detail">
+            <div class="dhead">
+              <div>
+                <div class="t mono">35BA48C9</div>
+                <div class="s">Samsung M386A8K40BM1-CRC · 64GB DDR4 4Rx8 ECC · PC4-19200 · 2400MT/s · 2 tests</div>
+              </div>
+              <div style="text-align:right"><span class="bg p">PASS</span> <span class="evererr">⚠</span><div style="font-size:10px;color:var(--dim2);margin-top:5px">Warned in earlier test</div></div>
+            </div>
+            <div class="hist">
+              <div style="font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim2);padding-top:12px;font-weight:600">Test History</div>
+
+              <div class="hrow pass">
+                <div class="top"><span class="mono" style="color:#dfe4f5">2025-03-14 15:13:44</span><span class="bg p">PASS</span><span class="muted">DIMM G1</span><span class="muted">0:22:21</span></div>
+                <div class="kv">
+                  <b>System</b><span>Supermicro SYS-6018R-MT (S/N S16580317A07443)</span>
+                  <b>File</b><span class="mono">3 10 2025-74E07175-MemTest86-Report-20250314-151344_161697.html</span>
+                  <b>Folder</b><span class="mono">/MemTest_Logs/3 10 2025/</span>
+                </div>
+                <div class="acts"><a href="#">View Raw Log</a><a href="#">Download</a></div>
+              </div>
+
+              <div class="hrow warn">
+                <div class="top"><span class="mono" style="color:#dfe4f5">2025-03-14 14:29:14</span><span class="bg w">WARN</span><span class="muted">DIMM G1</span><span class="muted">0:22:22</span></div>
+                <div class="kv">
+                  <b>System</b><span>Supermicro SYS-6018R-MT (S/N S16580317A07443)</span>
+                  <b>File</b><span class="mono">3 10 2025-74E07175-MemTest86-Report-20250314-142914_979757.html</span>
+                  <b>Folder</b><span class="mono">/MemTest_Logs/3 10 2025/</span>
+                </div>
+                <div class="errbox">
+                  <div class="h">Errors (1)</div>
+                  <div class="mono">14:46:32 &nbsp;[ECC Errors] &nbsp;Test 5 &nbsp;Ch-Slot 6-0 &nbsp;· &nbsp;ECC Corrected: Yes &nbsp;· &nbsp;Syndrome: 0000</div>
+                </div>
+                <div class="acts"><a href="#">View Raw Log</a><a href="#">Download</a></div>
+              </div>
+            </div>
+          </div>
+        </td></tr>
+
+        <tr class="click"><td class="mono sn">74E07175</td><td>64GB</td><td>DDR4 ECC</td><td>Samsung</td><td class="mono">M386A8K40BM1-CRC</td><td>2400MT/s</td><td>A1</td><td>2025-03-14 15:13</td><td>2</td><td><span class="bg p">PASS</span></td></tr>
+        <tr class="click"><td class="mono sn">74AF6DB4</td><td>64GB</td><td>DDR4 ECC</td><td>Samsung</td><td class="mono">M386A8K40BM1-CRC</td><td>2400MT/s</td><td>B1</td><td>2025-03-14 15:13</td><td>2</td><td><span class="bg p">PASS</span></td></tr>
+        <tr class="click"><td class="mono sn">33A4510C</td><td>64GB</td><td>DDR4 ECC</td><td>Samsung</td><td class="mono">M386A8K40BM1-CRC</td><td>2400MT/s</td><td>C1</td><td>2025-03-14 15:13</td><td>2</td><td><span class="bg p">PASS</span></td></tr>
+        <tr class="click"><td class="mono sn">35BA4712</td><td>64GB</td><td>DDR4 ECC</td><td>Samsung</td><td class="mono">M386A8K40BM1-CRC</td><td>2400MT/s</td><td>D1</td><td>2025-03-14 15:13</td><td>2</td><td><span class="bg p">PASS</span></td></tr>
+        <tr class="click"><td class="mono sn">33B0FE17</td><td>64GB</td><td>DDR4 ECC</td><td>Samsung</td><td class="mono">M386A8K40BM1-CRC</td><td>2400MT/s</td><td>E1</td><td>2025-03-14 15:13</td><td>2</td><td><span class="bg p">PASS</span></td></tr>
+        <tr class="click"><td class="mono sn">33A4484D</td><td>64GB</td><td>DDR4 ECC</td><td>Samsung</td><td class="mono">M386A8K40BM1-CRC</td><td>2400MT/s</td><td>F1</td><td>2025-03-14 15:13</td><td>2</td><td><span class="bg p">PASS</span></td></tr>
+        <tr class="click"><td class="mono sn">74AF6B18</td><td>64GB</td><td>DDR4 ECC</td><td>Samsung</td><td class="mono">M386A8K40BM1-CRC</td><td>2400MT/s</td><td>H1</td><td>2025-03-14 15:13</td><td>2</td><td><span class="bg p">PASS</span></td></tr>
+        <tr class="click"><td class="mono sn">5B1C77A2</td><td>32GB</td><td>DDR4 ECC</td><td>SK Hynix</td><td class="mono">HMA84GR7AFR4N-UH</td><td>2666MT/s</td><td>C2</td><td>2026-09-22 09:41</td><td>1</td><td><span class="bg w">WARN</span></td></tr>
+        <tr class="click"><td class="mono sn">9E4402D1</td><td>32GB</td><td>DDR4 ECC</td><td>Micron</td><td class="mono">MTA36ASF4G72PZ</td><td>2666MT/s</td><td>E2</td><td>2026-09-22 09:41</td><td>1</td><td><span class="bg f">FAIL</span></td></tr>
+        <tr class="click"><td class="mono sn">A11F63C7</td><td>32GB</td><td>DDR4 ECC</td><td>Micron</td><td class="mono">MTA36ASF4G72PZ</td><td>2666MT/s</td><td>F2</td><td>2026-09-20 16:02</td><td>1</td><td><span class="bg s">SUSPECT</span></td></tr>
+      </table>
+      <div class="note">Showing 1–11 of 3,418 &nbsp;·&nbsp; 50 rows per page &nbsp;·&nbsp; SUSPECT = report result is FAIL but the errors could not be attributed to a specific SN, so every DIMM in that report needs a retest</div>
+    </div>
+
+    <!-- REPORTS -->
+    <div id="t2" class="hide">
+      <div class="filters">
+        <select><option>Date: This Week</option><option>This Month</option><option>Custom</option></select>
+        <select><option>Result: All</option><option>PASS</option><option>FAIL</option></select>
+      </div>
+      <table>
+        <tr><th>Report Date</th><th>Test Start</th><th>System</th><th>System SN</th><th>DIMMs</th><th>Result</th><th>ECC CE/UE</th><th>Elapsed</th><th>Source File</th></tr>
+        <tr class="click" onclick="rep()"><td>2025-03-14 15:41</td><td class="mono">15:13:44</td><td>Supermicro SYS-6018R-MT</td><td class="mono">S16580317A07443</td><td>8</td><td><span class="bg p">PASS</span></td><td class="muted">0 / 0</td><td>0:22:21</td><td class="mono" style="font-size:11px" title="/MemTest_Logs/3 10 2025/">3 10 2025-…-151344_161697.html</td></tr>
+        <tr class="click" onclick="rep()"><td>2025-03-14 15:13</td><td class="mono">14:29:14</td><td>Supermicro SYS-6018R-MT</td><td class="mono">S16580317A07443</td><td>8</td><td><span class="bg p">PASS</span></td><td style="color:var(--warn)">1 / 0</td><td>0:22:22</td><td class="mono" style="font-size:11px" title="/MemTest_Logs/3 10 2025/">3 10 2025-…-142914_979757.html</td></tr>
+        <tr id="rtr" class="hide expandable"><td colspan="9" style="padding:14px 18px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+            <div>
+              <h3 style="font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim2);margin-bottom:9px">DIMMs (8)</h3>
+              <table>
+                <tr><th>Slot</th><th>SN</th><th>Spec</th><th>Status</th></tr>
+                <tr><td>A1</td><td class="mono sn">74E07175</td><td class="muted">64GB DDR4 4Rx8 ECC</td><td><span class="bg p">PASS</span></td></tr>
+                <tr><td>B1</td><td class="mono sn">74AF6DB4</td><td class="muted">64GB DDR4 4Rx8 ECC</td><td><span class="bg p">PASS</span></td></tr>
+                <tr><td>C1</td><td class="mono sn">33A4510C</td><td class="muted">64GB DDR4 4Rx8 ECC</td><td><span class="bg p">PASS</span></td></tr>
+                <tr><td>D1</td><td class="mono sn">35BA4712</td><td class="muted">64GB DDR4 4Rx8 ECC</td><td><span class="bg p">PASS</span></td></tr>
+                <tr><td>E1</td><td class="mono sn">33B0FE17</td><td class="muted">64GB DDR4 4Rx8 ECC</td><td><span class="bg p">PASS</span></td></tr>
+                <tr><td>F1</td><td class="mono sn">33A4484D</td><td class="muted">64GB DDR4 4Rx8 ECC</td><td><span class="bg p">PASS</span></td></tr>
+                <tr style="background:rgba(250,204,21,.05)"><td>G1</td><td class="mono sn">35BA48C9</td><td class="muted">64GB DDR4 4Rx8 ECC</td><td><span class="bg w">WARN</span></td></tr>
+                <tr><td>H1</td><td class="mono sn">74AF6B18</td><td class="muted">64GB DDR4 4Rx8 ECC</td><td><span class="bg p">PASS</span></td></tr>
+              </table>
+            </div>
+            <div>
+              <h3 style="font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim2);margin-bottom:9px">Tests</h3>
+              <table>
+                <tr><th>Test</th><th>Passed</th><th>Errors</th></tr>
+                <tr><td>Test 2 [Address test, own address]</td><td>1/1 (100%)</td><td>0</td></tr>
+                <tr><td>Test 5 [Moving inversions, random pattern]</td><td>1/1 (100%)</td><td>0</td></tr>
+              </table>
+              <h3 style="font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim2);margin:18px 0 9px">Errors (1)</h3>
+              <div class="errbox" style="margin-top:0">
+                <div class="mono" style="font-size:11px;line-height:1.7">2025-03-14 14:46:32 · [ECC Errors] · Test 5<br>Ch-Slot 6-0 · ECC Corrected: Yes · Syndrome: 0000<br>→ Attributed to <span class="sn">35BA48C9</span> (DIMM G1)</div>
+              </div>
+              <div class="kv" style="margin-top:16px">
+                <b>Folder</b><span class="mono">/MemTest_Logs/3 10 2025/</span>
+                <b>File</b><span class="mono">3 10 2025-74E07175-MemTest86-Report-20250314-142914_979757.html</span>
+              </div>
+              <div class="acts"><a href="#">View Raw Log</a><a href="#">Download</a></div>
+            </div>
+          </div>
+        </td></tr>
+      </table>
+      <div class="note">Only reports inside the selected date range are preloaded. The other 398 archived reports are not — use the search box above to look them up by file name, system SN or module SN.</div>
+    </div>
+
+    <!-- PACKAGES -->
+    <div id="t3" class="hide">
+      <div class="pkgwrap">
+
+        <div class="pkglist">
+          <button class="newpkg">+ NEW PACKAGE</button>
+          <button class="pkgcard on" onclick="pkg(this,'pA')">
+            <div class="row1"><span class="no">MEM-20260922-003</span><span class="bg w">DRAFT</span></div>
+            <div class="sp">32GB DDR4 ECC · 2400MT/s · Grade D</div>
+            <div class="mt">38 units · 2.17 LB · opened 09-22</div>
+          </button>
+          <button class="pkgcard" onclick="pkg(this,'pB')">
+            <div class="row1"><span class="no">MEM-20260915-002</span><span class="bg p">EXPORTED</span></div>
+            <div class="sp">32GB DDR4 ECC · 2400MT/s · Grade D</div>
+            <div class="mt">42 units · 2.40 LB · TID TI2601048-000034</div>
+          </button>
+          <button class="pkgcard" onclick="pkg(this,'pB')">
+            <div class="row1"><span class="no">MEM-20260910-001</span><span class="bg p">EXPORTED</span></div>
+            <div class="sp">16GB DDR4 ECC · 2666MT/s · Grade C</div>
+            <div class="mt">60 units · 3.42 LB · TID TI2601048-000019</div>
+          </button>
+        </div>
+
+        <!-- DRAFT -->
+        <div class="pkgpane" id="pA">
+          <div class="pkghead">
+            <div>
+              <div class="no">MEM-20260922-003</div>
+              <div class="sub">Opened 2026-09-22 09:12 by herbert · last change 10:41</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-shrink:0">
+              <button class="btn dan">Delete</button>
+              <button class="btn pri">Mark Ready →</button>
+            </div>
+          </div>
+
+          <div class="attrs">
+            <div class="attr"><b>Product Name</b><div class="v">T - Memory</div></div>
+            <div class="attr"><b>Grade</b><select><option>Grade D</option><option>Grade A</option><option>Grade B</option><option>Grade C</option></select></div>
+            <div class="attr"><b>Capacity <span class="lk">locked</span></b><div class="v">32 GB</div></div>
+            <div class="attr"><b>Type <span class="lk">locked</span></b><div class="v">DDR4 ECC</div></div>
+            <div class="attr"><b>Speed <span class="lk">locked</span></b><div class="v">2400MT/s</div></div>
+            <div class="attr"><b>Qty <span class="lk">auto</span></b><div class="v calc">38 Unit</div></div>
+            <div class="attr"><b>Weight <span class="lk">auto · editable</span></b><input value="2.17 LB"></div>
+            <div class="attr"><b>Data Sanitization</b><div class="v">ND-No Data</div></div>
+          </div>
+
+          <div class="sect">
+            <h4><span>Members (38)</span><span style="font-weight:400;letter-spacing:0;text-transform:none;color:var(--dim2);font-size:11px">Location: Testing Area</span></h4>
+            <table class="memtbl">
+              <tr><th style="width:34px">#</th><th>SN</th><th>Part Number</th><th>Vendor</th><th>Last Tested</th><th>Status</th><th style="width:34px"></th></tr>
+              <tr><td class="muted">1</td><td class="mono sn">5B1C77A2</td><td class="mono">HMA84GR7AFR4N-UH</td><td>SK Hynix</td><td>2026-09-22 09:41</td><td><span class="bg p">PASS</span></td><td><button class="xbtn">×</button></td></tr>
+              <tr><td class="muted">2</td><td class="mono sn">5B1C7803</td><td class="mono">HMA84GR7AFR4N-UH</td><td>SK Hynix</td><td>2026-09-22 09:41</td><td><span class="bg p">PASS</span></td><td><button class="xbtn">×</button></td></tr>
+              <tr><td class="muted">3</td><td class="mono sn">4419A02C</td><td class="mono">M393A4K40BB1-CRC</td><td>Samsung</td><td>2026-09-21 14:03</td><td><span class="bg p">PASS</span></td><td><button class="xbtn">×</button></td></tr>
+              <tr><td class="muted">4</td><td class="mono sn">4419A11D</td><td class="mono">M393A4K40BB1-CRC</td><td>Samsung</td><td>2026-09-21 14:03</td><td><span class="bg p">PASS</span></td><td><button class="xbtn">×</button></td></tr>
+              <tr><td class="muted">5</td><td class="mono sn">7C02FE45</td><td class="mono">MTA36ASF4G72PZ</td><td>Micron</td><td>2026-09-20 16:02</td><td><span class="bg p">PASS</span></td><td><button class="xbtn">×</button></td></tr>
+              <tr><td colspan="7" class="muted" style="text-align:center;padding:9px">… 33 more</td></tr>
+            </table>
+          </div>
+
+          <div class="addpanel">
+            <h4 style="font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:#c4b5fd;font-weight:600;margin-bottom:10px">Add DIMMs</h4>
+            <div style="font-size:11px;color:var(--dim);margin-bottom:11px">
+              Candidates are locked to this package's spec — <b style="color:#c7cce4">32GB · DDR4 ECC · 2400MT/s</b> · status PASS · not already in a package. 14 match.
+            </div>
+            <div class="filters" style="padding:0 0 11px">
+              <select><option>Vendor: All</option><option>Samsung</option><option>SK Hynix</option><option>Micron</option></select>
+              <select><option>Part Number: All</option></select>
+              <select><option>Tested: Last 30 days</option><option>All time</option></select>
+              <input placeholder="Filter by SN…" style="background:var(--card2);border:1px solid var(--line);border-radius:6px;color:#c7cce4;padding:6px 10px;font-size:11.5px;outline:none;width:150px">
+            </div>
+            <table class="memtbl">
+              <tr><th style="width:30px"><input type="checkbox" class="ck"></th><th>SN</th><th>Part Number</th><th>Vendor</th><th>Last Tested</th><th>Status</th></tr>
+              <tr><td><input type="checkbox" class="ck" checked></td><td class="mono sn">7C0300A1</td><td class="mono">MTA36ASF4G72PZ</td><td>Micron</td><td>2026-09-22 09:41</td><td><span class="bg p">PASS</span></td></tr>
+              <tr><td><input type="checkbox" class="ck" checked></td><td class="mono sn">7C0300B8</td><td class="mono">MTA36ASF4G72PZ</td><td>Micron</td><td>2026-09-22 09:41</td><td><span class="bg p">PASS</span></td></tr>
+              <tr><td><input type="checkbox" class="ck" checked></td><td class="mono sn">4419A2E0</td><td class="mono">M393A4K40BB1-CRC</td><td>Samsung</td><td>2026-09-22 09:41</td><td><span class="bg p">PASS</span></td></tr>
+              <tr><td><input type="checkbox" class="ck" checked></td><td class="mono sn">4419A33F</td><td class="mono">M393A4K40BB1-CRC</td><td>Samsung</td><td>2026-09-21 14:03</td><td><span class="bg p">PASS</span></td></tr>
+              <tr><td><input type="checkbox" class="ck"></td><td class="mono sn">5B1C79C4</td><td class="mono">HMA84GR7AFR4N-UH</td><td>SK Hynix</td><td>2026-09-21 14:03</td><td><span class="bg p">PASS</span></td></tr>
+              <tr><td colspan="6" class="muted" style="text-align:center;padding:9px">… 9 more</td></tr>
+            </table>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+              <span style="font-size:11px;color:var(--dim)">4 selected → package would become 42 units / 2.40 LB</span>
+              <button class="btn pri">Add 4 Selected</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- EXPORTED (locked) -->
+        <div class="pkgpane hide" id="pB">
+          <div class="pkghead lockbg">
+            <div>
+              <div class="no">MEM-20260915-002 &nbsp;<span style="font-size:14px">🔒</span></div>
+              <div class="sub">Opened 2026-08-18 by herbert · sealed 2026-08-21 · exported 2026-08-21 15:04</div>
+            </div>
+            <span class="bg p" style="flex-shrink:0;padding:5px 13px">EXPORTED</span>
+          </div>
+
+          <div class="lockbanner">
+            <span style="font-size:15px">🔒</span>
+            <span>Exported to Cyclelution — this package is locked and can no longer be edited. To correct it, void the package and build a new one; the void is recorded in the audit log.</span>
+          </div>
+
+          <div class="attrs" style="margin-top:14px">
+            <div class="attr"><b>Product Name</b><div class="v">T - Memory</div></div>
+            <div class="attr"><b>Grade</b><div class="v">Grade D</div></div>
+            <div class="attr"><b>Capacity</b><div class="v">32 GB</div></div>
+            <div class="attr"><b>Type</b><div class="v">DDR4 ECC</div></div>
+            <div class="attr"><b>Speed</b><div class="v">2400MT/s</div></div>
+            <div class="attr"><b>Qty</b><div class="v calc">42 Unit</div></div>
+            <div class="attr"><b>Weight</b><div class="v calc">2.40 LB</div></div>
+            <div class="attr"><b>Data Sanitization</b><div class="v">ND-No Data</div></div>
+          </div>
+
+          <div class="sect" style="border-bottom:1px solid var(--line)">
+            <h4>Cyclelution</h4>
+            <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">
+              <span class="lockchip">TID &nbsp;<span class="tid">TI2601048-000034</span></span>
+              <span class="lockchip">Batch &nbsp;B-0142</span>
+              <span class="lockchip">Exported &nbsp;2026-08-21 15:04</span>
+              <span class="lockchip">Location &nbsp;Testing Area</span>
+              <a href="#" style="font-size:11px;color:var(--cyan);text-decoration:none;border:1px solid rgba(34,211,238,.3);border-radius:5px;padding:4px 11px">Download xlsx</a>
+              <a href="#" style="font-size:11px;color:var(--cyan);text-decoration:none;border:1px solid rgba(34,211,238,.3);border-radius:5px;padding:4px 11px">Audit Log</a>
+            </div>
+          </div>
+
+          <div class="sect">
+            <h4><span>Members (42) — read only</span></h4>
+            <table class="memtbl">
+              <tr><th style="width:34px">#</th><th>SN</th><th>Part Number</th><th>Vendor</th><th>Last Tested</th><th>Status</th></tr>
+              <tr><td class="muted">1</td><td class="mono sn">3F02A1C7</td><td class="mono">M393A4K40BB1-CRC</td><td>Samsung</td><td>2026-08-19 11:22</td><td><span class="bg p">PASS</span></td></tr>
+              <tr><td class="muted">2</td><td class="mono sn">3F02A2D9</td><td class="mono">M393A4K40BB1-CRC</td><td>Samsung</td><td>2026-08-19 11:22</td><td><span class="bg p">PASS</span></td></tr>
+              <tr><td class="muted">3</td><td class="mono sn">88B41E05</td><td class="mono">HMA84GR7AFR4N-UH</td><td>SK Hynix</td><td>2026-08-20 08:47</td><td><span class="bg p">PASS</span></td></tr>
+              <tr><td colspan="6" class="muted" style="text-align:center;padding:9px">… 39 more</td></tr>
+            </table>
+          </div>
+        </div>
+
+      </div>
+      <div class="note">A DIMM can belong to only one package at a time. Spec fields lock to the first member added and cannot be changed while the package has members.</div>
+    </div>
+  </div>
+
+  <div class="issues">
+    <h3>Parse Issues (2)</h3>
+    <div class="r"><span class="mono">3 18 2025-…-MemTest86-Report-20250318-101122_44531.html</span> &nbsp;·&nbsp; 3 error lines unparsed (unknown error-line format) &nbsp;·&nbsp; <a href="#" style="color:var(--cyan)">View Source</a></div>
+    <div class="r" style="border:0"><span class="mono">4 02 2025-…-MemTest86-Report-20250402-143301_77120.html</span> &nbsp;·&nbsp; DIMM D2 missing Vendor Part Info — DIMM not imported &nbsp;·&nbsp; <a href="#" style="color:var(--cyan)">View Source</a></div>
+  </div>
+
+</div>
+
+<script>
+function tab(btn,id){
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  ['t1','t2','t3'].forEach(t=>document.getElementById(t).classList.add('hide'));
+  document.getElementById(id).classList.remove('hide');
+}
+function det(){document.getElementById('dtr').classList.toggle('hide')}
+function pkg(btn,id){
+  document.querySelectorAll('.pkgcard').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  ['pA','pB'].forEach(p=>document.getElementById(p).classList.add('hide'));
+  document.getElementById(id).classList.remove('hide');
+}
+function rep(){document.getElementById('rtr').classList.toggle('hide')}
+document.getElementById('dtr').classList.remove('hide');
+</script>
+</body>
+</html>

@@ -178,6 +178,53 @@ def _search_cpu_sqlite(sn: str) -> list[dict]:
         return []
 
 
+def _search_mem_sqlite(sn: str) -> list[dict]:
+    """Search mem SQLite DB by module SN or part number. Skips silently if DB not found."""
+    import sqlite3
+    from pathlib import Path
+    db_path_str = app.config.get("MEM_DB_PATH")
+    if not db_path_str:
+        return []
+    db_path = Path(db_path_str)
+    if not db_path.exists():
+        return []
+    try:
+        conn = sqlite3.connect(str(db_path), timeout=30.0)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA busy_timeout=30000")
+        pattern = f"%{sn.upper()}%"
+        rows = conn.execute(
+            "SELECT * FROM mem_modules "
+            "WHERE UPPER(module_sn) LIKE ? OR UPPER(part_number) LIKE ? "
+            "ORDER BY last_tested_at DESC",
+            (pattern, pattern),
+        ).fetchall()
+        conn.close()
+        results = []
+        for row in rows:
+            r = dict(row)
+            parts = [r.get("vendor") or "—"]
+            if r.get("part_number"):
+                parts.append(r["part_number"])
+            if r.get("size_gb"):
+                parts.append(f"{r['size_gb']}GB")
+            if r.get("mem_type"):
+                parts.append(r["mem_type"])
+            results.append({
+                "module":         "mem",
+                "sn":             r.get("module_sn", sn),
+                "system_sn":      r.get("module_sn", ""),
+                "timestamp":      r.get("last_tested_at") or "",
+                "overall_result": r.get("current_status") or "UNKNOWN",
+                "summary":        " | ".join(parts),
+                "payload":        r,
+            })
+        return results
+    except Exception as e:
+        print(f"Mem SQLite search error: {e}")
+        return []
+
+
 @app.route("/api/search")
 def api_search():
     """Cross-module SN search — returns a flat list of envelopes.
@@ -201,6 +248,9 @@ def api_search():
 
     # CPU also uses SQLite — query separately
     results.extend(_search_cpu_sqlite(sn))
+
+    # Mem also uses SQLite — query separately
+    results.extend(_search_mem_sqlite(sn))
 
     results.sort(key=lambda r: r.get("timestamp", ""), reverse=True)
     resp = jsonify(results)
@@ -279,6 +329,23 @@ def api_summary():
     except Exception:
         out["cpu"] = {"today": 0, "week": 0, "month": 0}
 
+    # ── Mem (SQLite) ─────────────────────────────────────────────────
+    try:
+        mp = app.config.get("MEM_DB_PATH")
+        if mp and Path(mp).exists():
+            c = sqlite3.connect(mp, timeout=30.0)
+            c.execute("PRAGMA busy_timeout=30000")
+            out["mem"] = {
+                "today": c.execute("SELECT COUNT(*) FROM mem_module_tests WHERE test_date=?", (str(today),)).fetchone()[0],
+                "week":  c.execute("SELECT COUNT(*) FROM mem_module_tests WHERE test_date BETWEEN ? AND ?", (str(week_start), str(week_end))).fetchone()[0],
+                "month": c.execute("SELECT COUNT(*) FROM mem_module_tests WHERE test_date BETWEEN ? AND ?", (str(month_start), str(month_end))).fetchone()[0],
+            }
+            c.close()
+        else:
+            out["mem"] = {"today": 0, "week": 0, "month": 0}
+    except Exception:
+        out["mem"] = {"today": 0, "week": 0, "month": 0}
+
     # ── GPU (JSON history files) ─────────────────────────────────────
     try:
         gpu_today = len(storage.read_latest("gpu"))
@@ -316,6 +383,9 @@ register_wipe_module(app)
 
 from modules.cpu.integration import register_cpu_module
 register_cpu_module(app)
+
+from modules.mem.integration import register_mem_module
+register_mem_module(app)
 
 from cyclelution.integration import register_cyclelution_module
 register_cyclelution_module(app)

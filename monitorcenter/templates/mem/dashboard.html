@@ -1,0 +1,791 @@
+{% extends "base.html" %}
+{% block title %}Memory Tests — CEARTrack{% endblock %}
+{% block content %}
+
+<style>
+/* ── KPI cards ───────────────────────────────────────────────────────────── */
+.kpi-strip { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:20px; }
+.kpi-card { background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:16px 18px; text-align:center; }
+.kpi-value { font-size:2em; font-weight:700; line-height:1.1; color:var(--accent); }
+.kpi-value.pass  { color:var(--pass); }
+.kpi-value.fail  { color:var(--fail); }
+.kpi-value.warn  { color:var(--warn); }
+.kpi-value.muted { color:var(--text-secondary); }
+.kpi-label { font-size:0.7em; font-weight:600; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-secondary); margin-top:5px; }
+.kpi-sub { font-size:0.68em; color:var(--text-secondary); margin-top:3px; }
+.kpi-dual { display:flex; justify-content:center; gap:18px; }
+.kpi-dual .v { font-size:1.5em; font-weight:700; }
+
+/* ── Chart panels ────────────────────────────────────────────────────────── */
+.chart-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:14px; }
+.chart-panel { background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:16px 18px; }
+.chart-panel.full { grid-column:1/-1; }
+.chart-title { font-size:0.7em; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-secondary); margin-bottom:12px; }
+
+/* ── Horizontal bar rows ─────────────────────────────────────────────────── */
+.hbar-list { display:grid; grid-template-columns:minmax(0,max-content) 1fr auto; column-gap:8px; row-gap:5px; align-items:center; }
+.hbar-row { display:contents; }
+.hbar-label { font-size:11.5px; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text-primary); max-width:260px; }
+.hbar-track { height:12px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden; }
+.hbar-fill { height:100%; border-radius:3px; opacity:0.85; transition:width 0.4s ease; }
+.hbar-val { min-width:28px; font-size:11.5px; font-weight:700; color:var(--accent); text-align:right; }
+
+/* ── Top bar ─────────────────────────────────────────────────────────────── */
+.period-tabs { display:flex; gap:6px; }
+.tab-btn2 { padding:6px 14px; border-radius:6px; border:1px solid var(--border); background:transparent; color:var(--text-secondary); cursor:pointer; font-size:0.82em; font-weight:600; transition:all 0.15s; }
+.tab-btn2.active, .tab-btn2:hover { border-color:var(--accent); color:var(--accent); background:rgba(0,210,255,0.08); }
+
+/* ── Sub-tabs (DIMMS/REPORTS/PACKAGES) ──────────────────────────────────── */
+.subtabs { display:flex; gap:2px; border-bottom:1px solid var(--border); margin-bottom:14px; }
+.subtabs button { background:none; border:0; border-bottom:2px solid transparent; color:var(--text-secondary); padding:11px 18px; font-size:0.8em; letter-spacing:0.06em; text-transform:uppercase; cursor:pointer; font-weight:700; }
+.subtabs button.active { color:var(--accent); border-bottom-color:var(--accent); }
+.subtabs .cnt { color:var(--text-secondary); font-weight:400; margin-left:4px; }
+
+.filters { display:flex; gap:8px; flex-wrap:wrap; padding:12px 0; }
+.filters select, .filters input { background:var(--bg-secondary); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); padding:6px 10px; font-size:11.5px; outline:none; }
+
+/* ── Records table ───────────────────────────────────────────────────────── */
+.mem-table { width:100%; border-collapse:collapse; font-size:0.87em; }
+.mem-table th { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); font-size:0.7em; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-secondary); }
+.mem-table td { padding:9px 10px; border-bottom:1px solid rgba(255,255,255,0.04); }
+.mem-table tr.data-row:hover { background:rgba(255,255,255,0.03); cursor:pointer; }
+.mem-table tr.expanded-row td { padding:0; border:none; }
+.mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+.sn-cell { color:var(--accent); font-weight:600; }
+.evererr { color:var(--warn); margin-left:5px; cursor:help; }
+
+.badge.suspect { background:rgba(224,123,58,0.15); color:#e07b3a; box-shadow:inset 0 0 0 1px rgba(224,123,58,0.35); }
+
+/* ── SN / Report detail panel ───────────────────────────────────────────── */
+.detail-panel { background:rgba(0,210,255,0.04); border:1px solid rgba(0,210,255,0.18); border-radius:8px; padding:18px 20px; margin:2px 0 10px; }
+.detail-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; }
+.detail-head .t { font-size:1.1em; font-weight:700; color:var(--accent); font-family:ui-monospace,monospace; }
+.detail-head .s { font-size:0.8em; color:var(--text-secondary); margin-top:3px; }
+.hrow { border-left:2px solid var(--border); padding:10px 0 10px 16px; margin-top:8px; position:relative; }
+.hrow.warn { border-left-color:var(--warn); }
+.hrow.fail, .hrow.suspect { border-left-color:var(--fail); }
+.hrow.pass { border-left-color:var(--pass); }
+.hrow .top { display:flex; gap:12px; align-items:center; font-size:0.85em; margin-bottom:6px; flex-wrap:wrap; }
+.kv-grid { display:grid; grid-template-columns:62px 1fr; gap:3px 10px; font-size:0.78em; color:var(--text-secondary); }
+.kv-grid b { color:var(--text-secondary); font-weight:600; font-size:0.85em; text-transform:uppercase; letter-spacing:0.05em; padding-top:1px; }
+.kv-grid span { color:var(--text-primary); word-break:break-all; }
+.errbox { margin-top:8px; background:rgba(241,196,15,0.06); border:1px solid rgba(241,196,15,0.22); border-radius:6px; padding:8px 12px; font-size:0.8em; }
+.errbox .h { color:var(--warn); font-size:0.8em; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:5px; font-weight:600; }
+.acts { margin-top:8px; display:flex; gap:8px; }
+.acts a { font-size:0.78em; color:var(--accent); text-decoration:none; border:1px solid rgba(0,210,255,0.3); border-radius:5px; padding:4px 11px; }
+.acts a:hover { background:rgba(0,210,255,0.09); }
+
+/* ── Parse issues ────────────────────────────────────────────────────────── */
+.issues-card { background:rgba(231,76,60,0.06); border:1px solid rgba(231,76,60,0.28); border-radius:10px; padding:15px 18px; margin-top:16px; }
+.issues-card h3 { color:var(--fail); margin-bottom:10px; font-size:0.8em; text-transform:uppercase; letter-spacing:0.06em; }
+.issues-card .r { font-size:0.82em; color:var(--text-primary); padding:6px 0; border-bottom:1px solid rgba(231,76,60,0.12); }
+
+/* ── Packages placeholder ────────────────────────────────────────────────── */
+.pkg-placeholder { background:var(--bg-card); border:1px dashed var(--border); border-radius:10px; padding:32px; text-align:center; color:var(--text-secondary); }
+.pkg-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:18px; max-width:640px; margin-left:auto; margin-right:auto; }
+
+.empty-state { text-align:center; padding:40px 20px; color:var(--text-secondary); font-size:0.9em; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; }
+
+@media (max-width:900px) {
+  .kpi-strip { grid-template-columns:repeat(3,1fr); }
+  .chart-row { grid-template-columns:1fr; }
+  .pkg-stats { grid-template-columns:1fr; }
+}
+
+/* ── Daily volume chart ──────────────────────────────────── */
+.daily-panel { background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:14px 18px; margin-bottom:14px; }
+.daily-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.daily-legend { display:flex; gap:14px; font-size:0.78em; color:var(--text-secondary); }
+.legend-dot { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:middle; }
+.legend-dot.pass { background:var(--pass); } .legend-dot.warn { background:var(--warn); } .legend-dot.fail { background:var(--fail); }
+.daily-chart { display:flex; align-items:flex-end; gap:4px; height:140px; padding:18px 0 26px; border-bottom:1px solid rgba(255,255,255,0.08); position:relative; }
+.daily-col { flex:1; height:100%; display:flex; flex-direction:column-reverse; min-width:14px; position:relative; cursor:default; }
+.daily-col:hover .daily-tooltip { display:block; }
+.daily-seg { width:100%; transition:opacity 0.15s; }
+.daily-seg.pass { background:var(--pass); } .daily-seg.warn { background:var(--warn); } .daily-seg.fail { background:var(--fail); }
+.daily-col:hover .daily-seg { opacity:0.85; }
+.daily-label { position:absolute; bottom:-20px; left:50%; transform:translateX(-50%); font-size:10px; color:var(--text-secondary); white-space:nowrap; }
+.daily-total { position:absolute; top:-16px; left:50%; transform:translateX(-50%); font-size:10px; font-weight:700; color:var(--text-secondary); white-space:nowrap; }
+.daily-tooltip { display:none; position:absolute; bottom:100%; left:50%; transform:translateX(-50%); background:var(--bg-primary); border:1px solid var(--border); border-radius:5px; padding:6px 10px; font-size:0.75em; white-space:nowrap; z-index:5; pointer-events:none; margin-bottom:4px; }
+</style>
+
+<div x-data="memApp()" x-init="init()">
+
+  <!-- ── Page Header ──────────────────────────────────────────────────── -->
+  <div style="margin-bottom:24px;">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:6px;">
+      <div style="width:36px;height:36px;border-radius:8px;background:rgba(0,210,255,0.12);
+                  display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:18px;">▤</div>
+      <div>
+        <div style="font-size:1.45em;font-weight:800;letter-spacing:0.06em;color:var(--accent);text-transform:uppercase;line-height:1.1;">MEMORY</div>
+        <div style="font-size:0.78em;color:var(--text-secondary);letter-spacing:0.04em;margin-top:2px;">MemTest86 Module Test Dashboard</div>
+      </div>
+    </div>
+    <div style="height:1px;background:linear-gradient(to right,var(--accent) 0%, rgba(0,210,255,0.15) 40%, transparent 100%);margin-top:10px;"></div>
+  </div>
+
+  <!-- ── Search row ────────────────────────────────────────────────── -->
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+    <div class="search-box" style="flex:1;margin-bottom:0;">
+      <input type="text" x-model="searchQuery"
+             @keydown.enter="search()" @keydown.escape="clearSearch()"
+             placeholder="Search by module SN, part number, or report file name (partial match)…">
+      <button @click="search()">Search</button>
+      <button x-show="searched" @click="clearSearch()"
+              style="background:transparent;color:var(--text-secondary);border:1px solid var(--border);
+                     padding:6px 12px;border-radius:4px;cursor:pointer;font-size:0.85em;">✕ Clear</button>
+    </div>
+
+  </div>
+
+  <!-- ── Period tabs (hidden during search) ──────────────────────────── -->
+  <div x-show="!searched" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:20px;">
+    <div class="period-tabs">
+      <button class="tab-btn2" :class="{active: period==='week'}"   @click="setPeriod('week')">Week</button>
+      <button class="tab-btn2" :class="{active: period==='month'}"  @click="setPeriod('month')">Month</button>
+      <button class="tab-btn2" :class="{active: period==='custom'}" @click="setPeriod('custom')">Custom</button>
+    </div>
+    <template x-if="period==='custom'">
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input type="date" x-model="customStart"
+               style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:6px 10px;color:var(--text-primary);font-size:0.85em;">
+        <span style="color:var(--text-secondary);">–</span>
+        <input type="date" x-model="customEnd"
+               style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:6px 10px;color:var(--text-primary);font-size:0.85em;">
+        <button class="tab-btn2 active" @click="loadCustom()">Apply</button>
+      </div>
+    </template>
+  </div>
+
+  <!-- ── Search results ───────────────────────────────────────────────── -->
+  <div x-show="searched">
+    <div style="margin-bottom:10px;font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);">
+      Search Results
+    </div>
+
+    <template x-if="searchModules.length === 1 && searchReports.length === 0">
+      <div>
+        <div x-html="buildModuleDetailHtml(searchModuleDetail)" x-show="searchModuleDetail"></div>
+      </div>
+    </template>
+
+    <template x-if="!(searchModules.length === 1 && searchReports.length === 0)">
+      <div>
+        <template x-if="searchModules.length === 0 && searchReports.length === 0">
+          <div class="empty-state">No results found.</div>
+        </template>
+        <template x-if="searchModules.length > 0">
+          <div style="margin-bottom:16px;">
+            <div style="font-size:0.72em;color:var(--text-secondary);margin-bottom:6px;">DIMMS (<span x-text="searchModules.length"></span>)</div>
+            <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+              <table class="mem-table">
+                <thead><tr><th>SN</th><th>Capacity</th><th>Type</th><th>Vendor</th><th>Part Number</th><th>Last Tested</th><th>Status</th></tr></thead>
+                <template x-for="m in searchModules" :key="m.module_sn">
+                  <tbody>
+                    <tr class="data-row" @click="toggleModule(m.module_sn)">
+                      <td class="mono sn-cell" x-text="m.module_sn"></td>
+                      <td x-text="m.size_gb ? m.size_gb+'GB' : '—'"></td>
+                      <td x-text="m.mem_type ?? '—'"></td>
+                      <td x-text="m.vendor ?? '—'"></td>
+                      <td class="mono" x-text="m.part_number ?? '—'"></td>
+                      <td x-text="m.last_tested_at ?? '—'"></td>
+                      <td><span class="badge" :class="badgeClass(m.current_status)" x-text="m.current_status"></span></td>
+                    </tr>
+                    <tr class="expanded-row" x-show="expandedSn === m.module_sn">
+                      <td colspan="7"><div x-html="buildModuleDetailHtml(moduleDetails[m.module_sn])"></div></td>
+                    </tr>
+                  </tbody>
+                </template>
+              </table>
+            </div>
+          </div>
+        </template>
+        <template x-if="searchReports.length > 0">
+          <div>
+            <div style="font-size:0.72em;color:var(--text-secondary);margin-bottom:6px;">REPORTS (<span x-text="searchReports.length"></span>)</div>
+            <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+              <table class="mem-table">
+                <thead><tr><th>Test Start</th><th>System</th><th>System SN</th><th>DIMMs</th><th>Result</th><th>Source File</th></tr></thead>
+                <template x-for="r in searchReports" :key="r.report_uid">
+                  <tbody>
+                    <tr class="data-row" @click="toggleReport(r.report_uid)">
+                      <td x-text="r.test_start ?? '—'"></td>
+                      <td x-text="(r.system_mfr ?? '') + ' ' + (r.system_product ?? '')"></td>
+                      <td class="mono" x-text="r.system_sn ?? '—'"></td>
+                      <td x-text="r.modules_count ?? '—'"></td>
+                      <td><span class="badge" :class="badgeClass(r.overall_result)" x-text="r.overall_result"></span></td>
+                      <td class="mono" style="font-size:0.85em;" :title="r.source_dir" x-text="r.source_file"></td>
+                    </tr>
+                    <tr class="expanded-row" x-show="expandedReportUid === r.report_uid">
+                      <td colspan="6"><div x-html="buildReportDetailHtml(reportDetails[r.report_uid])"></div></td>
+                    </tr>
+                  </tbody>
+                </template>
+              </table>
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+  </div>
+
+  <!-- ── Dashboard (hidden during search) ────────────────────────────── -->
+  <div x-show="!searched">
+
+    <!-- KPI cards -->
+    <div class="kpi-strip" style="grid-template-columns:repeat(4,1fr) 1px 1.1fr;">
+      <div class="kpi-card">
+        <div class="kpi-value" x-text="stats.summary?.total?.toLocaleString() ?? '…'"></div>
+        <div class="kpi-label" x-text="periodLabel + ' DIMMs'"></div>
+        <div class="kpi-sub" x-text="stats.start ? stats.start + ' – ' + stats.end : ''"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value pass" x-text="stats.summary?.pass_count?.toLocaleString() ?? '…'"></div>
+        <div class="kpi-label">Passed</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-dual">
+          <div><div class="v warn" x-text="stats.summary?.warn_count ?? 0"></div><small style="color:var(--text-secondary);font-size:0.6em;">WARN</small></div>
+          <div><div class="v fail" x-text="(stats.summary?.fail_count ?? 0) + (stats.summary?.suspect_count ?? 0)"></div><small style="color:var(--text-secondary);font-size:0.6em;">FAIL</small></div>
+        </div>
+        <div class="kpi-label" style="margin-top:6px;">Attention</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value" x-text="fmtCapacity(stats.summary?.total_capacity_gb)"></div>
+        <div class="kpi-label">Total Capacity</div>
+      </div>
+      <div style="background:rgba(0,210,255,0.2);border-radius:1px;margin:12px 0;"></div>
+      <div class="kpi-card" style="background:rgba(0,210,255,0.10);border-right:3px solid var(--accent);">
+        <div class="kpi-value" x-text="stats.total_all_time?.toLocaleString() ?? '…'"></div>
+        <div class="kpi-label">All Time</div>
+      </div>
+    </div>
+
+    <!-- 3-column distribution -->
+    <div class="chart-row">
+      <div class="chart-panel">
+        <div class="chart-title">By Capacity</div>
+        <template x-if="(stats.by_capacity ?? []).length === 0"><div style="color:var(--text-secondary);font-size:0.8em;">No data</div></template>
+        <div class="hbar-list">
+          <template x-for="item in (stats.by_capacity ?? [])" :key="item.size_gb">
+            <div class="hbar-row">
+              <span class="hbar-label" x-text="item.size_gb + 'GB'"></span>
+              <div class="hbar-track"><div class="hbar-fill" :style="'width:' + pct(item.count, maxVal(stats.by_capacity,'count')) + '%;background:var(--accent)'"></div></div>
+              <span class="hbar-val" x-text="item.count"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+      <div class="chart-panel">
+        <div class="chart-title">By Type</div>
+        <template x-if="(stats.by_type ?? []).length === 0"><div style="color:var(--text-secondary);font-size:0.8em;">No data</div></template>
+        <div class="hbar-list">
+          <template x-for="item in (stats.by_type ?? [])" :key="item.mem_type + '-' + item.is_ecc">
+            <div class="hbar-row">
+              <span class="hbar-label" x-text="item.mem_type + (item.is_ecc ? ' ECC' : '')"></span>
+              <div class="hbar-track"><div class="hbar-fill" :style="'width:' + pct(item.count, maxVal(stats.by_type,'count')) + '%;background:#a78bfa'"></div></div>
+              <span class="hbar-val" x-text="item.count"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+      <div class="chart-panel">
+        <div class="chart-title">By Vendor</div>
+        <template x-if="(stats.by_vendor ?? []).length === 0"><div style="color:var(--text-secondary);font-size:0.8em;">No data</div></template>
+        <div class="hbar-list">
+          <template x-for="item in (stats.by_vendor ?? [])" :key="item.vendor">
+            <div class="hbar-row">
+              <span class="hbar-label" x-text="item.vendor"></span>
+              <div class="hbar-track"><div class="hbar-fill" :style="'width:' + pct(item.count, maxVal(stats.by_vendor,'count')) + '%;background:var(--pass)'"></div></div>
+              <span class="hbar-val" x-text="item.count"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top 15 Part Numbers -->
+    <div class="chart-panel" style="margin-bottom:18px;">
+      <div class="chart-title">Top 15 Part Numbers</div>
+      <template x-if="(stats.top_part_numbers ?? []).length === 0"><div style="color:var(--text-secondary);font-size:0.8em;">No data</div></template>
+      <div class="hbar-list">
+        <template x-for="item in (stats.top_part_numbers ?? [])" :key="item.part_number">
+          <div class="hbar-row">
+            <span class="hbar-label mono" :title="item.part_number" x-text="item.part_number"></span>
+            <div class="hbar-track"><div class="hbar-fill" :style="'width:' + pct(item.count, maxVal(stats.top_part_numbers,'count')) + '%;background:var(--accent)'"></div></div>
+            <span class="hbar-val" x-text="item.count"></span>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Daily Volume -->
+    <div class="daily-panel" x-show="period !== 'today'">
+      <div class="daily-head">
+        <div class="chart-title" style="margin:0;">Daily Volume</div>
+        <div class="daily-legend">
+          <span><span class="legend-dot pass"></span>Pass</span>
+          <span><span class="legend-dot warn"></span>Warn</span>
+          <span><span class="legend-dot fail"></span>Fail</span>
+        </div>
+      </div>
+      <div class="daily-chart">
+        <template x-for="d in paddedDailyData()" :key="d.date">
+          <div class="daily-col" :style="d.dimms > 0 ? 'cursor:pointer;' : ''" @click="d.dimms > 0 && jumpToDay(d.date)">
+            <div class="daily-total" x-show="d.dimms > 0" x-text="d.dimms"></div>
+            <div class="daily-seg fail" :style="'height:' + dailyPct(d.failed) + '%'"></div>
+            <div class="daily-seg warn" :style="'height:' + dailyPct(d.warn) + '%'"></div>
+            <div class="daily-seg pass" :style="'height:' + dailyPct(d.passed) + '%'"></div>
+            <div class="daily-label" x-text="dailyLabel(d.date)"></div>
+            <div class="daily-tooltip">
+              <div style="font-weight:700;margin-bottom:3px;" x-text="d.date"></div>
+              <div><span class="legend-dot pass"></span>Pass <span x-text="d.passed"></span></div>
+              <div x-show="d.warn > 0"><span class="legend-dot warn"></span>Warn <span x-text="d.warn"></span></div>
+              <div x-show="d.failed > 0"><span class="legend-dot fail"></span>Fail <span x-text="d.failed"></span></div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Daily Breakdown -->
+    <div class="chart-panel" style="margin-bottom:18px;" x-show="(stats.daily ?? []).length > 0">
+      <div class="chart-title">Daily Breakdown</div>
+      <table class="mem-table">
+        <thead><tr><th>Date</th><th>Reports</th><th>DIMMs</th><th>Passed</th><th>Warn</th><th>Failed</th><th>Pass Rate</th><th></th></tr></thead>
+        <template x-for="d in (stats.daily ?? [])" :key="'db'+d.date">
+          <tbody>
+            <tr :id="'mem-db-row-' + d.date" style="cursor:pointer;" @click="toggleDailyOpen(d.date)">
+              <td x-text="d.date"></td>
+              <td x-text="d.reports"></td>
+              <td x-text="d.dimms"></td>
+              <td style="color:var(--pass);" x-text="d.passed ?? 0"></td>
+              <td :style="(d.warn ?? 0) > 0 ? 'color:var(--warn);font-weight:700;' : 'color:var(--text-secondary);'" x-text="(d.warn ?? 0) || '—'"></td>
+              <td :style="(d.failed ?? 0) > 0 ? 'color:var(--fail);font-weight:700;' : 'color:var(--text-secondary);'" x-text="(d.failed ?? 0) || '—'"></td>
+              <td x-text="d.dimms ? Math.round((d.passed??0)/d.dimms*100) + '%' : '—'"></td>
+              <td style="text-align:right;color:var(--text-secondary);" x-text="dailyOpenDate === d.date ? '▾' : '▸'"></td>
+            </tr>
+            <tr x-show="dailyOpenDate === d.date">
+              <td colspan="8" style="padding:0;">
+                <div style="background:rgba(0,210,255,0.03);border-top:1px solid rgba(0,210,255,0.2);padding:10px 14px;">
+                  <div x-show="dailyRecordsLoading" style="color:var(--text-secondary);font-size:0.84em;">Loading…</div>
+                  <template x-if="!dailyRecordsLoading && dailyRecords.length > 0">
+                    <table class="mem-table" style="font-size:0.82em;">
+                      <thead><tr><th>SN</th><th>Slot</th><th>Capacity</th><th>Type</th><th>System</th><th>Status</th></tr></thead>
+                      <template x-for="r in dailyRecords" :key="r.id">
+                        <tr>
+                          <td class="mono sn-cell" x-text="r.module_sn"></td>
+                          <td x-text="r.dimm_slot ?? '—'"></td>
+                          <td x-text="r.size_gb ? r.size_gb+'GB' : '—'"></td>
+                          <td x-text="r.mem_type ?? '—'"></td>
+                          <td class="mono" x-text="r.system_sn ?? '—'"></td>
+                          <td><span class="badge" :class="badgeClass(r.module_status)" x-text="r.module_status"></span></td>
+                        </tr>
+                      </template>
+                    </table>
+                  </template>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </template>
+      </table>
+    </div>
+
+    <!-- ══════ Sub-tabs ══════ -->
+    <div class="chart-panel" style="padding:0 18px 18px;">
+      <div class="subtabs">
+        <button :class="{active: activeTab==='dimms'}" @click="setTab('dimms')">DIMMS <span class="cnt" x-text="'('+modulesTotal.toLocaleString()+')'"></span></button>
+        <button :class="{active: activeTab==='reports'}" @click="setTab('reports')">REPORTS <span class="cnt" x-text="'('+reportsTotal.toLocaleString()+')'"></span></button>
+        <button :class="{active: activeTab==='packages'}" @click="setTab('packages')">LOTS</button>
+      </div>
+
+      <!-- DIMMS -->
+      <div x-show="activeTab==='dimms'">
+        <div class="filters">
+          <select x-model="modFilters.status" @change="loadModules(1)">
+            <option value="">Status: All</option><option value="PASS">PASS</option><option value="WARN">WARN</option>
+            <option value="FAIL">FAIL</option><option value="SUSPECT">SUSPECT</option>
+          </select>
+          <select x-model="modFilters.ever_err" @change="loadModules(1)">
+            <option value="">Ever Errored: All</option><option value="yes">Yes</option><option value="no">No</option>
+          </select>
+          <input placeholder="Vendor" x-model="modFilters.vendor" @change="loadModules(1)" style="width:110px;">
+          <input placeholder="Type (e.g. DDR4)" x-model="modFilters.type" @change="loadModules(1)" style="width:130px;">
+        </div>
+        <template x-if="modules.length === 0"><div class="empty-state">No DIMMs recorded yet.</div></template>
+        <template x-if="modules.length > 0">
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+            <table class="mem-table">
+              <thead><tr><th>SN</th><th>Capacity</th><th>Type</th><th>Vendor</th><th>Part Number</th><th>Speed</th><th>Last Slot</th><th>Last Tested</th><th>Tests</th><th>Status</th></tr></thead>
+              <template x-for="m in modules" :key="m.module_sn">
+                <tbody>
+                  <tr class="data-row" @click="toggleModule(m.module_sn)">
+                    <td class="mono sn-cell" x-text="m.module_sn"></td>
+                    <td x-text="m.size_gb ? m.size_gb+'GB' : '—'"></td>
+                    <td x-text="(m.mem_type ?? '—') + (m.is_ecc ? ' ECC' : '')"></td>
+                    <td x-text="m.vendor ?? '—'"></td>
+                    <td class="mono" x-text="m.part_number ?? '—'"></td>
+                    <td x-text="m.smbios_profile ?? '—'"></td>
+                    <td x-text="m.last_dimm_slot ?? '—'"></td>
+                    <td x-text="m.last_tested_at ?? '—'"></td>
+                    <td x-text="m.test_count"></td>
+                    <td>
+                      <span class="badge" :class="badgeClass(m.current_status)" x-text="m.current_status"></span>
+                      <span class="evererr" x-show="(m.ever_fail || m.ever_warn) && m.current_status==='PASS'" title="Errored in an earlier test">⚠</span>
+                    </td>
+                  </tr>
+                  <tr class="expanded-row" x-show="expandedSn === m.module_sn">
+                    <td colspan="10"><div x-html="buildModuleDetailHtml(moduleDetails[m.module_sn])"></div></td>
+                  </tr>
+                </tbody>
+              </template>
+            </table>
+          </div>
+        </template>
+        <div style="padding:10px 0;text-align:center;font-size:0.8em;color:var(--text-secondary);" x-show="modulesTotal > modules.length">
+          Showing <span x-text="modules.length"></span> of <span x-text="modulesTotal"></span>.
+          <a href="#" @click.prevent="loadModules(modulesPage+1)" style="color:var(--accent);">Load more →</a>
+        </div>
+      </div>
+
+      <!-- REPORTS -->
+      <div x-show="activeTab==='reports'">
+        <template x-if="reports.length === 0"><div class="empty-state">No reports in this window. Use the search box above to look up older reports.</div></template>
+        <template x-if="reports.length > 0">
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+            <table class="mem-table">
+              <thead><tr><th>Report Date</th><th>Test Start</th><th>System</th><th>System SN</th><th>DIMMs</th><th>Result</th><th>ECC CE/UE</th><th>Elapsed</th><th>Source File</th></tr></thead>
+              <template x-for="r in reports" :key="r.report_uid">
+                <tbody>
+                  <tr class="data-row" @click="toggleReport(r.report_uid)">
+                    <td x-text="(r.report_date ?? '—').substring(0,16)"></td>
+                    <td class="mono" x-text="r.test_start ?? '—'"></td>
+                    <td x-text="(r.system_mfr ?? '') + ' ' + (r.system_product ?? '')"></td>
+                    <td class="mono" x-text="r.system_sn ?? '—'"></td>
+                    <td x-text="r.modules_count ?? '—'"></td>
+                    <td><span class="badge" :class="badgeClass(r.overall_result)" x-text="r.overall_result"></span></td>
+                    <td class="mono" x-text="(r.ecc_ce ?? 0) + ' / ' + (r.ecc_ue ?? 0)"></td>
+                    <td x-text="r.elapsed ?? '—'"></td>
+                    <td class="mono" style="font-size:0.85em;" :title="r.source_dir" x-text="r.source_file"></td>
+                  </tr>
+                  <tr class="expanded-row" x-show="expandedReportUid === r.report_uid">
+                    <td colspan="9"><div x-html="buildReportDetailHtml(reportDetails[r.report_uid])"></div></td>
+                  </tr>
+                </tbody>
+              </template>
+            </table>
+          </div>
+        </template>
+        <div style="padding:10px 0;text-align:center;font-size:0.8em;color:var(--text-secondary);" x-show="reportsTotal > reports.length">
+          Showing <span x-text="reports.length"></span> of <span x-text="reportsTotal"></span>.
+          <a href="#" @click.prevent="loadReports(reportsPage+1)" style="color:var(--accent);">Load more →</a>
+        </div>
+      </div>
+
+      <!-- PACKAGES (Phase 5 placeholder) -->
+      <div x-show="activeTab==='packages'">
+        <div class="pkg-placeholder">
+          <div style="font-size:1.1em;font-weight:700;color:var(--text-primary);margin-bottom:6px;">LOTS — Phase 5</div>
+          <div style="font-size:0.85em;">Packaging DIMMs into sellable units and exporting to Cyclelution ships in a later phase.</div>
+          <div class="pkg-stats">
+            <div class="kpi-card"><div class="kpi-value pass" x-text="pkgStats.packageable_count ?? '…'"></div><div class="kpi-label">Packageable (PASS)</div></div>
+            <div class="kpi-card"><div class="kpi-value" x-text="fmtCapacity(pkgStats.packageable_capacity_gb)"></div><div class="kpi-label">Total Capacity</div></div>
+            <div class="kpi-card"><div class="kpi-value warn" x-text="pkgStats.needs_retest_count ?? '…'"></div><div class="kpi-label">Needs Retest</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Parse issues -->
+    <div class="issues-card" x-show="(parseIssues.bad_reports?.length ?? 0) > 0 || (parseIssues.dimm_issues?.length ?? 0) > 0">
+      <h3 x-text="'Parse Issues (' + ((parseIssues.bad_reports?.length ?? 0) + (parseIssues.dimm_issues?.length ?? 0)) + ')'"></h3>
+      <template x-for="rep in (parseIssues.bad_reports ?? [])" :key="rep.report_uid">
+        <div class="r">
+          <span class="mono" x-text="rep.source_file"></span> —
+          <span x-text="rep.unparsed_error_lines > 0 ? rep.unparsed_error_lines + ' error line(s) unparsed' : (rep.parse_note ?? 'parse issue')"></span>
+          <a :href="'/mem/raw/' + rep.report_uid" target="_blank" style="color:var(--accent);margin-left:8px;">View Source</a>
+        </div>
+      </template>
+      <template x-for="(di, i) in (parseIssues.dimm_issues ?? [])" :key="'di'+i">
+        <div class="r">
+          <span class="mono" x-text="di.source_file"></span> — DIMM <span x-text="di.dimm_slot"></span>
+          <span x-text="'(' + di.spec_raw + ')'"></span>: <span x-text="di.reason"></span>
+          <a :href="'/mem/raw/' + di.report_uid" target="_blank" style="color:var(--accent);margin-left:8px;">View Source</a>
+        </div>
+      </template>
+    </div>
+
+  </div><!-- /!searched -->
+</div><!-- /x-data -->
+
+<script>
+function memApp() {
+  return {
+    period: 'week', periodLabel: 'This Week',
+    stats: {},
+    customStart: '', customEnd: '',
+    activeTab: 'dimms',
+
+    modules: [], modulesTotal: 0, modulesPage: 1,
+    modFilters: { status: '', ever_err: '', vendor: '', type: '' },
+    expandedSn: null, moduleDetails: {},
+
+    reports: [], reportsTotal: 0, reportsPage: 1,
+    expandedReportUid: null, reportDetails: {},
+
+    searchQuery: '', searched: false,
+    searchModules: [], searchReports: [], searchModuleDetail: null,
+
+    dailyOpenDate: null, dailyRecords: [], dailyRecordsLoading: false,
+
+    parseIssues: {}, pkgStats: {},
+
+    async init() {
+      await Promise.all([
+        this.loadStats('week'),
+        this.loadModules(1),
+        this.loadReports(1),
+        this.fetchParseIssues(),
+        this.fetchPkgStats(),
+      ]);
+    },
+
+    async loadStats(period, start, end) {
+      let url = `/mem/api/summary?range=${period}`;
+      if (period === 'custom' && start && end) url += `&from=${start}&to=${end}`;
+      this.stats = await fetch(url).then(r => r.json());
+    },
+
+    async setPeriod(p) {
+      this.period = p;
+      this.periodLabel = p === 'week' ? 'This Week' : p === 'month' ? 'This Month' : 'Custom';
+      this.dailyOpenDate = null; this.dailyRecords = [];
+      if (p !== 'custom') await this.loadStats(p);
+    },
+
+    async loadCustom() {
+      if (!this.customStart || !this.customEnd) return;
+      this.periodLabel = 'Custom';
+      await this.loadStats('custom', this.customStart, this.customEnd);
+    },
+
+    setTab(t) { this.activeTab = t; },
+
+    async loadModules(page) {
+      this.modulesPage = page;
+      const p = new URLSearchParams({ page, per_page: 50 });
+      if (this.modFilters.status) p.set('status', this.modFilters.status);
+      if (this.modFilters.ever_err) p.set('ever_err', this.modFilters.ever_err);
+      if (this.modFilters.vendor) p.set('vendor', this.modFilters.vendor);
+      if (this.modFilters.type) p.set('type', this.modFilters.type);
+      const r = await fetch('/mem/api/modules?' + p.toString()).then(r => r.json());
+      this.modules = page === 1 ? r.modules : this.modules.concat(r.modules);
+      this.modulesTotal = r.total;
+    },
+
+    async loadReports(page) {
+      this.reportsPage = page;
+      const p = new URLSearchParams({ page, per_page: 50 });
+      const r = await fetch('/mem/api/reports?' + p.toString()).then(r => r.json());
+      this.reports = page === 1 ? r.reports : this.reports.concat(r.reports);
+      this.reportsTotal = r.total;
+    },
+
+    async toggleModule(sn) {
+      if (this.expandedSn === sn) { this.expandedSn = null; return; }
+      this.expandedSn = sn;
+      if (!this.moduleDetails[sn]) {
+        this.moduleDetails[sn] = await fetch('/mem/api/module/' + sn).then(r => r.json());
+      }
+    },
+
+    async toggleReport(uid) {
+      if (this.expandedReportUid === uid) { this.expandedReportUid = null; return; }
+      this.expandedReportUid = uid;
+      if (!this.reportDetails[uid]) {
+        this.reportDetails[uid] = await fetch('/mem/api/report/' + uid).then(r => r.json());
+      }
+    },
+
+    async search() {
+      const q = this.searchQuery.trim();
+      if (q.length < 2) return;
+      const [modRes, repRes] = await Promise.all([
+        fetch('/mem/api/modules?q=' + encodeURIComponent(q) + '&per_page=100').then(r => r.json()),
+        fetch('/mem/api/reports?q=' + encodeURIComponent(q) + '&per_page=100').then(r => r.json()),
+      ]);
+      this.searchModules = modRes.modules ?? [];
+      this.searchReports = repRes.reports ?? [];
+      this.searched = true;
+      if (this.searchModules.length === 1 && this.searchReports.length === 0) {
+        const sn = this.searchModules[0].module_sn;
+        this.searchModuleDetail = await fetch('/mem/api/module/' + sn).then(r => r.json());
+      } else {
+        this.searchModuleDetail = null;
+      }
+    },
+
+    clearSearch() {
+      this.searchQuery = ''; this.searchModules = []; this.searchReports = [];
+      this.searched = false; this.searchModuleDetail = null;
+    },
+
+    async fetchParseIssues() {
+      try { this.parseIssues = await fetch('/mem/api/parse_issues').then(r => r.json()); } catch {}
+    },
+
+    async fetchPkgStats() {
+      try { this.pkgStats = await fetch('/mem/api/packageable').then(r => r.json()); } catch {}
+    },
+
+    // ── Helpers ──────────────────────────────────────────────────────────
+    pct(val, max) { if (!max) return 4; return Math.max(4, Math.round((val / max) * 100)); },
+    maxVal(arr, key) { if (!arr?.length) return 1; return Math.max(...arr.map(x => x[key] || 0)); },
+    badgeClass(status) {
+      if (status === 'PASS') return 'pass';
+      if (status === 'WARN') return 'warn';
+      if (status === 'SUSPECT') return 'suspect';
+      return 'fail';
+    },
+    fmtCapacity(gb) {
+      if (!gb) return '—';
+      if (gb >= 1024) return (gb / 1024).toFixed(1) + ' TB';
+      return gb + ' GB';
+    },
+
+    paddedDailyData() {
+      const daily = this.stats.daily ?? [];
+      const map = {}; daily.forEach(d => { map[d.date] = d; });
+      const empty = (date) => ({ date, dimms: 0, passed: 0, warn: 0, failed: 0, reports: 0 });
+      if (this.period === 'week') {
+        const slots = []; const today = new Date();
+        const sunday = new Date(today); sunday.setDate(today.getDate() - today.getDay());
+        const cur = new Date(sunday);
+        while (cur <= today) { const s = cur.toISOString().slice(0,10); slots.push(map[s] || empty(s)); cur.setDate(cur.getDate()+1); }
+        return slots;
+      }
+      if (this.period === 'month') {
+        const today = new Date(); const y = today.getFullYear(), m = today.getMonth(), todayDay = today.getDate();
+        const slots = [];
+        for (let i = 1; i <= todayDay; i++) { const s = `${y}-${String(m+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`; slots.push(map[s] || empty(s)); }
+        return slots;
+      }
+      if (this.period === 'custom' && this.customStart && this.customEnd) {
+        const start = new Date(this.customStart+'T00:00:00'), end = new Date(this.customEnd+'T00:00:00');
+        if (Math.round((end-start)/86400000)+1 <= 62) {
+          const slots = []; const cur = new Date(start);
+          while (cur <= end) { const s = cur.toISOString().slice(0,10); slots.push(map[s] || empty(s)); cur.setDate(cur.getDate()+1); }
+          return slots;
+        }
+      }
+      return daily;
+    },
+    maxDailyVal() { return Math.max(1, ...this.paddedDailyData().map(d => d.dimms || 0)); },
+    dailyPct(val) { if (!val) return 0; return Math.max(2, (val / this.maxDailyVal()) * 100); },
+    dailyLabel(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr+'T00:00:00'); if (isNaN(d.getTime())) return dateStr.slice(5);
+      const wd = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      return wd[d.getDay()] + ' ' + (d.getMonth()+1) + '/' + d.getDate();
+    },
+    async jumpToDay(dateStr) {
+      if (this.dailyOpenDate !== dateStr) await this.toggleDailyOpen(dateStr);
+      this.$nextTick(() => {
+        const el = document.getElementById('mem-db-row-' + dateStr);
+        if (el) el.scrollIntoView({ behavior:'smooth', block:'center' });
+      });
+    },
+    async toggleDailyOpen(date) {
+      if (this.dailyOpenDate === date) { this.dailyOpenDate = null; this.dailyRecords = []; return; }
+      this.dailyOpenDate = date; this.dailyRecords = []; this.dailyRecordsLoading = true;
+      try {
+        const data = await fetch(`/mem/api/day/${date}`).then(r => r.json());
+        this.dailyRecords = data.records ?? [];
+      } finally { this.dailyRecordsLoading = false; }
+    },
+
+    buildModuleDetailHtml(detail) {
+      if (!detail || !detail.module) return '<div class="detail-panel">Loading…</div>';
+      const m = detail.module;
+      const hist = (detail.tests ?? []).map(t => {
+        const cls = t.module_status === 'PASS' ? 'pass' : t.module_status === 'WARN' ? 'warn' : 'fail';
+        const errHtml = (t.errors ?? []).length ? `
+          <div class="errbox">
+            <div class="h">Errors (${t.errors.length})</div>
+            ${t.errors.map(e => `<div class="mono" style="font-size:0.85em;">${e.err_time ?? '?'} &nbsp;[${e.err_type ?? 'unknown'}] &nbsp;Test ${e.test_no ?? '?'} &nbsp;Ch-Slot ${e.channel_slot ?? '?'} &nbsp;· &nbsp;ECC Corrected: ${e.ecc_corrected===1?'Yes':e.ecc_corrected===0?'No':'?'} &nbsp;· &nbsp;Syndrome: ${e.syndrome ?? '—'}</div>`).join('')}
+          </div>` : '';
+        return `
+          <div class="hrow ${cls}">
+            <div class="top">
+              <span class="mono">${t.test_start}</span>
+              <span class="badge ${this.badgeClass(t.module_status)}">${t.module_status}</span>
+              <span style="color:var(--text-secondary);">DIMM ${t.dimm_slot ?? '—'}</span>
+            </div>
+            <div class="kv-grid">
+              <b>System</b><span>${(t.system_mfr ?? '')} ${(t.system_product ?? '')} (S/N ${t.system_sn ?? '—'})</span>
+              <b>File</b><span class="mono">${t.source_file ?? '—'}</span>
+              <b>Folder</b><span class="mono">${t.source_dir || '/'}</span>
+            </div>
+            ${errHtml}
+            <div class="acts">
+              <a href="/mem/raw/${t.report_uid}" target="_blank" rel="noopener">View Raw Log</a>
+              <a href="/mem/raw/${t.report_uid}?download=1">Download</a>
+            </div>
+          </div>`;
+      }).join('');
+      return `
+        <div class="detail-panel">
+          <div class="detail-head">
+            <div>
+              <div class="t">${m.module_sn}</div>
+              <div class="s">${m.vendor ?? ''} ${m.part_number ?? ''} · ${m.size_gb ?? '?'}GB ${m.mem_type ?? ''} ${m.rank_org ?? ''} ${m.is_ecc ? 'ECC' : ''} · ${m.smbios_profile ?? ''} · ${m.test_count} test(s)</div>
+            </div>
+            <span class="badge ${this.badgeClass(m.current_status)}">${m.current_status}</span>
+          </div>
+          <div style="font-size:0.7em;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:6px;">Test History</div>
+          ${hist}
+        </div>`;
+    },
+
+    buildReportDetailHtml(detail) {
+      if (!detail || !detail.report) return '<div class="detail-panel">Loading…</div>';
+      const r = detail.report;
+      const modRows = (detail.modules ?? []).map(m => `
+        <tr><td>${m.dimm_slot ?? '—'}</td><td class="mono sn-cell">${m.module_sn}</td>
+        <td class="muted">${m.size_gb ?? '?'}GB ${m.mem_type ?? ''} ${m.rank_org ?? ''} ${m.is_ecc ? 'ECC' : ''}</td>
+        <td><span class="badge ${this.badgeClass(m.module_status)}">${m.module_status}</span></td></tr>`).join('');
+      const testRows = (detail.tests ?? []).map(t => `
+        <tr><td>${t.test_name}</td><td>${t.passed_raw}</td><td>${t.errors ?? 0}</td></tr>`).join('');
+      const errRows = (detail.errors ?? []).map(e => `
+        <div class="mono" style="font-size:0.82em;line-height:1.7;">${e.err_time ?? '?'} · [${e.err_type ?? 'unknown'}] · Test ${e.test_no ?? '?'}<br>
+        Ch-Slot ${e.channel_slot ?? '?'} · ECC Corrected: ${e.ecc_corrected===1?'Yes':e.ecc_corrected===0?'No':'?'} · Syndrome: ${e.syndrome ?? '—'}
+        ${e.module_sn ? `→ Attributed to <span class="sn-cell">${e.module_sn}</span>` : '<span style="color:var(--fail);">→ unattributed</span>'}</div>`).join('');
+      const issueRows = (detail.dimm_issues ?? []).map(di => `
+        <div style="color:var(--fail);font-size:0.82em;">DIMM ${di.dimm_slot ?? '?'} (${di.spec_raw ?? '?'}): ${di.reason}</div>`).join('');
+      return `
+        <div class="detail-panel">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+            <div>
+              <div style="font-size:0.7em;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:8px;">DIMMs (${(detail.modules ?? []).length})</div>
+              <table class="mem-table"><thead><tr><th>Slot</th><th>SN</th><th>Spec</th><th>Status</th></tr></thead><tbody>${modRows}</tbody></table>
+              ${issueRows ? `<div style="margin-top:10px;">${issueRows}</div>` : ''}
+            </div>
+            <div>
+              <div style="font-size:0.7em;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:8px;">Tests</div>
+              <table class="mem-table"><thead><tr><th>Test</th><th>Passed</th><th>Errors</th></tr></thead><tbody>${testRows}</tbody></table>
+              ${errRows ? `<div style="font-size:0.7em;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-secondary);margin:14px 0 8px;">Errors</div><div class="errbox" style="margin-top:0;">${errRows}</div>` : ''}
+              <div class="kv-grid" style="margin-top:14px;">
+                <b>Folder</b><span class="mono">${r.source_dir || '/'}</span>
+                <b>File</b><span class="mono">${r.source_file ?? '—'}</span>
+              </div>
+              <div class="acts"><a href="/mem/raw/${r.report_uid}" target="_blank" rel="noopener">View Raw Log</a><a href="/mem/raw/${r.report_uid}?download=1">Download</a></div>
+            </div>
+          </div>
+        </div>`;
+    },
+  };
+}
+</script>
+
+{% endblock %}
