@@ -5,6 +5,11 @@ from datetime import datetime
 def init_db(db_path: str) -> None:
     conn = sqlite3.connect(db_path, timeout=30.0)
     conn.execute("PRAGMA busy_timeout=30000")
+    # journal_mode is persisted in the db file itself (unlike synchronous/
+    # busy_timeout, which are per-connection) — set it once here instead of
+    # on every get_conn() call, which was re-issuing this under heavy write
+    # load and surfacing as spurious "disk I/O error" on read-only requests.
+    conn.execute("PRAGMA journal_mode=WAL")
     try:
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS wipe_records (
@@ -97,13 +102,12 @@ def _migrate_scan_status(conn: sqlite3.Connection) -> None:
 def get_conn(db_path: str) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path, timeout=30.0)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
     conn.execute("PRAGMA busy_timeout=30000")
     return conn
 
 
-def insert_record(conn: sqlite3.Connection, record: dict) -> bool:
+def insert_record(conn: sqlite3.Connection, record: dict, commit: bool = True) -> bool:
     fields = [
         "drive_sn", "system_sn", "wipe_date", "wipe_datetime", "duration_min",
         "method", "result", "health_score", "grade", "ssd_life", "power_on_hrs",
@@ -121,7 +125,8 @@ def insert_record(conn: sqlite3.Connection, record: dict) -> bool:
         f"INSERT OR IGNORE INTO wipe_records ({col_list}) VALUES ({placeholders})",
         values,
     )
-    conn.commit()
+    if commit:
+        conn.commit()
     return cur.rowcount == 1
 
 
@@ -131,10 +136,10 @@ def total_record_count(conn: sqlite3.Connection) -> int:
     return row[0] if row else 0
 
 
-def upsert_record(conn: sqlite3.Connection, record: dict) -> None:
+def upsert_record(conn: sqlite3.Connection, record: dict, commit: bool = True) -> None:
     """Delete existing row for log_path then insert fresh (force-rescan mode)."""
     conn.execute("DELETE FROM wipe_records WHERE log_path = ?", (record["log_path"],))
-    insert_record(conn, record)
+    insert_record(conn, record, commit=commit)
 
 
 def purge_missing_logs(conn: sqlite3.Connection, existing_paths: set[str]) -> int:

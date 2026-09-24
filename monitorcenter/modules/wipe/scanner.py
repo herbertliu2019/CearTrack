@@ -1,6 +1,7 @@
 import argparse
 import json
 import logging
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 
@@ -185,46 +186,83 @@ class WipeScanner:
         conn = get_conn(self.db_path)
         total = len(files)
         inserted = skipped = errors = 0
+        started_at = datetime.now().isoformat()
 
         upsert_scan_status(
             conn, running=1, total=total, done=0, errors=0,
-            scan_type=scan_type, started_at=datetime.now().isoformat(),
+            scan_type=scan_type, started_at=started_at,
         )
+
+        # Commit in batches instead of once per file — with 30k+ files a
+        # commit-per-record pattern means tens of thousands of fsyncs in a
+        # tight loop, which was enough to surface as spurious "disk I/O
+        # error" on unrelated read-only requests hitting the same db under load.
+        COMMIT_BATCH = 200
 
         for i, f in enumerate(files, 1):
             now_str = datetime.now().isoformat()
-            record = self.parse_file(f)
-            if record is None:
+            due_commit = (i % COMMIT_BATCH == 0) or (i == total)
+            try:
+                record = self.parse_file(f)
+            except OSError as e:
+                # Mid-scan mount drop (stale CIFS share, etc.) must not kill the
+                # whole thread — that leaves scan_status.running=1 stuck forever
+                # with no thread left alive to self-heal it.
+                logger.error(f"[WipeScanner] read failed, skipping {f}: {e}")
                 conn.execute(
                     "INSERT INTO scan_errors (log_path, error_msg, attempted_at) VALUES (?,?,?)",
-                    (str(f), "parse returned None", now_str),
+                    (str(f), f"OSError: {e}", now_str),
                 )
-                conn.commit()
+                if due_commit:
+                    conn.commit()
                 errors += 1
-            else:
-                record["log_path"]   = str(f)
-                record["win_path"]   = self.make_win_path(f)
-                record["source"]     = self.get_source(f)
-                record["indexed_at"] = now_str
-                if force:
-                    upsert_record(conn, record)
-                    inserted += 1
+                continue
+
+            try:
+                if record is None:
+                    conn.execute(
+                        "INSERT INTO scan_errors (log_path, error_msg, attempted_at) VALUES (?,?,?)",
+                        (str(f), "parse returned None", now_str),
+                    )
+                    errors += 1
                 else:
-                    if insert_record(conn, record):
+                    record["log_path"]   = str(f)
+                    record["win_path"]   = self.make_win_path(f)
+                    record["source"]     = self.get_source(f)
+                    record["indexed_at"] = now_str
+                    if force:
+                        upsert_record(conn, record, commit=False)
                         inserted += 1
                     else:
-                        skipped += 1
+                        if insert_record(conn, record, commit=False):
+                            inserted += 1
+                        else:
+                            skipped += 1
+                if due_commit:
+                    conn.commit()
+            except sqlite3.OperationalError as e:
+                # Transient disk-level failure (I/O error, busy timeout, ...):
+                # drop this batch rather than crash the whole scan thread.
+                logger.error(f"[WipeScanner] db write failed near {f}: {e}")
+                conn.rollback()
+                errors += 1
 
             if i % 500 == 0:
+                # upsert_scan_status does INSERT OR REPLACE — any column not
+                # passed here reverts to its default, so inserted/skipped must
+                # be included on every checkpoint, not just the final call.
                 upsert_scan_status(conn, running=1, total=total, done=i,
-                                   errors=errors, scan_type=scan_type)
+                                   errors=errors, scan_type=scan_type,
+                                   inserted=inserted, skipped=skipped,
+                                   started_at=started_at)
             if progress_every and i % progress_every == 0:
                 print(f"  [{scan_type}] {i}/{total} files... "
                       f"inserted={inserted} skipped={skipped} errors={errors}")
 
         upsert_scan_status(conn, running=0, total=total, done=total,
                            errors=errors, scan_type=scan_type,
-                           inserted=inserted, skipped=skipped)
+                           inserted=inserted, skipped=skipped,
+                           started_at=started_at)
         conn.close()
         return {"total": total, "inserted": inserted, "skipped": skipped, "errors": errors}
 
