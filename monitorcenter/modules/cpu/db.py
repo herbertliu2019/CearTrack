@@ -275,12 +275,8 @@ def stats_summary(db_path: str, start: str, end: str) -> dict:
 
 
 def total_all_time(db_path: str) -> int:
-    """Total log file count across all records."""
-    conn = get_conn(db_path)
-    try:
-        return conn.execute("SELECT COUNT(*) FROM cpu_records").fetchone()[0] or 0
-    finally:
-        conn.close()
+    """Total CPUs (one row per SN). Same query as the unfiltered CPUS list count."""
+    return count_records(db_path)
 
 
 def by_series(db_path: str, start: str, end: str) -> list[dict]:
@@ -327,13 +323,35 @@ def by_core_count(db_path: str, start: str, end: str) -> list[dict]:
         conn.close()
 
 
-def query_records(db_path: str, offset: int = 0, limit: int = 50) -> tuple[list[dict], int]:
+def _records_where(last_from: str | None = None, last_to: str | None = None) -> tuple[str, list]:
+    if last_from and last_to:
+        return "WHERE test_date BETWEEN ? AND ?", [last_from, last_to]
+    return "", []
+
+
+def count_records(db_path: str, **filters) -> int:
+    """CPU inventory count (one row per SN) — shared by the CPUS list and the All Time KPI."""
+    clause, params = _records_where(**filters)
     conn = get_conn(db_path)
     try:
-        total = conn.execute("SELECT COUNT(*) FROM cpu_records").fetchone()[0] or 0
+        return conn.execute(f"SELECT COUNT(*) FROM cpu_records {clause}", params).fetchone()[0] or 0
+    finally:
+        conn.close()
+
+
+def query_records(db_path: str, page: int = 1, per_page: int = 25,
+                  **filters) -> tuple[list[dict], int]:
+    clause, params = _records_where(**filters)
+    total = count_records(db_path, **filters)
+    per_page = min(200, max(1, per_page))
+    offset = (max(1, page) - 1) * per_page
+    conn = get_conn(db_path)
+    try:
         rows = conn.execute(
-            "SELECT * FROM cpu_records ORDER BY start_time DESC LIMIT ? OFFSET ?",
-            (limit, offset),
+            f"""SELECT * FROM cpu_records {clause}
+                ORDER BY start_time DESC, id DESC
+                LIMIT ? OFFSET ?""",
+            [*params, per_page, offset],
         ).fetchall()
         return _rows_to_dicts(rows), total
     finally:
