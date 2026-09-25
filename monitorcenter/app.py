@@ -335,10 +335,13 @@ def api_summary():
         if mp and Path(mp).exists():
             c = sqlite3.connect(mp, timeout=30.0)
             c.execute("PRAGMA busy_timeout=30000")
+            # Unique DIMM SNs (retests not double-counted), excluded reports skipped
+            mem_q = ("SELECT COUNT(DISTINCT module_sn) FROM mem_module_tests WHERE test_date BETWEEN ? AND ? "
+                     "AND report_uid IN (SELECT report_uid FROM mem_reports WHERE excluded = 0)")
             out["mem"] = {
-                "today": c.execute("SELECT COUNT(*) FROM mem_module_tests WHERE test_date=?", (str(today),)).fetchone()[0],
-                "week":  c.execute("SELECT COUNT(*) FROM mem_module_tests WHERE test_date BETWEEN ? AND ?", (str(week_start), str(week_end))).fetchone()[0],
-                "month": c.execute("SELECT COUNT(*) FROM mem_module_tests WHERE test_date BETWEEN ? AND ?", (str(month_start), str(month_end))).fetchone()[0],
+                "today": c.execute(mem_q, (str(today), str(today))).fetchone()[0],
+                "week":  c.execute(mem_q, (str(week_start), str(week_end))).fetchone()[0],
+                "month": c.execute(mem_q, (str(month_start), str(month_end))).fetchone()[0],
             }
             c.close()
         else:

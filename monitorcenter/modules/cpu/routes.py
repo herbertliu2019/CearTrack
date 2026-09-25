@@ -2,7 +2,7 @@ import os
 import threading
 from datetime import date, timedelta
 
-from flask import Blueprint, current_app, jsonify, render_template, request, send_file
+from flask import Blueprint, current_app, jsonify, redirect, render_template, request, send_file, url_for
 
 from modules.cpu import db
 from modules.cpu.scanner import CpuScanner
@@ -30,6 +30,17 @@ def _sanitize(records: list[dict]) -> list[dict]:
     return out
 
 
+def _resolve_range(period: str, frm: str | None, to: str | None) -> tuple[str, str]:
+    today = date.today()
+    if period == "week":
+        # Start from this week's Sunday (weekday: Mon=0 ... Sun=6)
+        days_since_sunday = (today.weekday() + 1) % 7
+        return str(today - timedelta(days=days_since_sunday)), str(today)
+    if period == "month":
+        return today.replace(day=1).isoformat(), str(today)
+    return frm or str(today), to or str(today)
+
+
 # ── Dashboard ──────────────────────────────────────────────────────────────
 
 @cpu_bp.get("/")
@@ -53,19 +64,7 @@ def api_today():
 @cpu_bp.get("/api/stats")
 def api_stats():
     period = request.args.get("period", "week")
-    today = date.today()
-
-    if period == "week":
-        # Start from this week's Sunday (weekday: Mon=0 ... Sun=6)
-        days_since_sunday = (today.weekday() + 1) % 7
-        start = str(today - timedelta(days=days_since_sunday))
-        end = str(today)
-    elif period == "month":
-        start = today.replace(day=1).isoformat()
-        end = str(today)
-    else:  # custom
-        start = request.args.get("start", str(today))
-        end = request.args.get("end", str(today))
+    start, end = _resolve_range(period, request.args.get("start"), request.args.get("end"))
 
     db_path = _db_path()
     return jsonify({
@@ -103,24 +102,35 @@ def api_day(date_str):
 
 @cpu_bp.get("/all")
 def all_tests():
-    return render_template("cpu/all_tests.html")
+    # Superseded by the CPUS inventory list on the dashboard; kept so old links don't 404.
+    return redirect(url_for("cpu.dashboard"))
 
 
-# ── Records (paginated) ─────────────────────────────────────────────────────
+# ── Records (CPUS inventory list, paginated) ────────────────────────────────
 
 @cpu_bp.get("/api/records")
 def api_records():
     try:
-        offset = max(0, int(request.args.get("offset", 0)))
-        limit  = min(200, max(1, int(request.args.get("limit", 50))))
+        page     = max(1, int(request.args.get("page", 1)))
+        per_page = min(200, max(1, int(request.args.get("per_page", 25))))
     except ValueError:
-        offset, limit = 0, 50
-    records, total = db.query_records(_db_path(), offset=offset, limit=limit)
+        page, per_page = 1, 25
+
+    # "Last Tested" filter — independent of the dashboard Week/Month range; default all time
+    last = request.args.get("last", "all")
+    last_from = last_to = None
+    if last in ("week", "month") or (last == "custom" and request.args.get("last_from")
+                                     and request.args.get("last_to")):
+        last_from, last_to = _resolve_range(
+            last, request.args.get("last_from"), request.args.get("last_to"))
+
+    records, total = db.query_records(_db_path(), page=page, per_page=per_page,
+                                      last_from=last_from, last_to=last_to)
     return jsonify({
-        "records": _sanitize(records),
-        "total":   total,
-        "offset":  offset,
-        "limit":   limit,
+        "records":  _sanitize(records),
+        "total":    total,
+        "page":     page,
+        "per_page": per_page,
     })
 
 
