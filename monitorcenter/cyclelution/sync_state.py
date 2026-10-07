@@ -112,7 +112,12 @@ def init_schema(module="laptop", db_path=None) -> None:
 
 def ensure_pending(history_path, sn=None, record_ts=None, module="laptop", db_path=None) -> None:
     """Insert a default 'pending' row for this record if none exists.
-    No-op when the record already has a row (status is preserved)."""
+    No-op when the record already has a row (status is preserved).
+
+    Also supersedes this SN's older ready/pending rows right away: a
+    re-upload deletes the old history file (core/storage.py), so if the
+    follow-up evaluate_one() fails, a stale `ready` row would otherwise
+    stay in the pool pointing at a missing file and 500 the export."""
     table = _table(module)
     conn = _open(module, db_path)
     try:
@@ -125,6 +130,7 @@ def ensure_pending(history_path, sn=None, record_ts=None, module="laptop", db_pa
             )
     finally:
         conn.close()
+    reconcile_sn(sn, module=module, db_path=db_path)
 
 
 def get(history_path, module="laptop", db_path=None):

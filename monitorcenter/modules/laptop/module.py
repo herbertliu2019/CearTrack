@@ -235,7 +235,9 @@ def api_upload():
         sync_state.ensure_pending(hp, sn=envelope["sn"], record_ts=envelope.get("timestamp"))
         scan.evaluate_one(hp, envelope=envelope)
     except Exception as e:
+        import traceback
         print(f"[laptop] cyclelution evaluate failed (non-fatal): {e}")
+        traceback.print_exc()
 
     return jsonify({
         "status": "ok",
