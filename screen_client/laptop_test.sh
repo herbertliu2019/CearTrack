@@ -1,0 +1,2610 @@
+#!/bin/bash
+# ============================================================
+# laptop_test.sh — Laptop Hardware Test & Report Generator
+# All sub-tests (screen, keyboard, audio) are embedded inline.
+# Usage: sudo bash laptop_test.sh
+# ============================================================
+
+UPLOAD_URL="http://192.168.30.18:80/laptop/api/upload"
+# Single source of truth for the script version. Bump this on every release and
+# keep server-side version.txt in sync (deploy_script.sh extracts it from here).
+SCRIPT_VERSION="2.3.17"
+REPORT_FILE=""  # set after SYS_SERIAL is collected
+PASS="PASS"
+FAIL="FAIL"
+
+# ── Colors ───────────────────────────────────────────────────
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
+
+banner() { echo -e "\n${CYAN}${BOLD}=== $1 ===${NC}"; }
+ok()     { echo -e "  ${GREEN}✓ $1${NC}"; }
+warn()   { echo -e "  ${YELLOW}⚠ $1${NC}"; }
+err()    { echo -e "  ${RED}✗ $1${NC}"; }
+esc()    { printf '%s' "$1" | tr '\n\r\t' '   ' | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+
+# ── Require root ─────────────────────────────────────────────
+if [[ $EUID -ne 0 ]]; then
+  echo -e "${RED}Please run with sudo: sudo bash laptop_test.sh${NC}"; exit 1
+fi
+
+# ── Operator ID ───────────────────────────────────────────────
+OPERATOR_ID=""
+while [[ -z "$OPERATOR_ID" ]]; do
+  read -rp "$(echo -e "  ${BOLD}Enter your operator ID: ${NC}")" OPERATOR_ID </dev/tty
+  OPERATOR_ID=$(echo "$OPERATOR_ID" | xargs)  # trim whitespace
+  [[ -z "$OPERATOR_ID" ]] && echo -e "  ${RED}Operator ID cannot be empty.${NC}"
+done
+echo -e "  ${GREEN}✓ Operator: $OPERATOR_ID${NC}"
+echo ""
+
+# ── Start test timer ──────────────────────────────────────────
+TEST_TIMER_START=$SECONDS
+
+# ============================================================
+# EMBEDDED: screen_test
+# ============================================================
+run_screen_test() {
+  banner "SCREEN — Dead Pixel / Backlight Test"
+  echo -e "  ${YELLOW}Displaying full-screen color patterns. Look carefully for dead/bright pixels.${NC}"
+  echo -e "  ${YELLOW}Press Ctrl+C to skip to next color.${NC}"
+  echo ""
+
+  if [[ -n "$DISPLAY" ]] && command -v xterm &>/dev/null; then
+    local colors=("red" "green" "blue" "white" "black")
+    for color in "${colors[@]}"; do
+      echo -e "  Showing: ${BOLD}$color${NC} (5 seconds)..."
+      xterm -fullscreen -bg "$color" -fg "$color" -e "sleep 5" 2>/dev/null &
+      local xpid=$!
+      sleep 5
+      kill "$xpid" 2>/dev/null
+      wait "$xpid" 2>/dev/null
+    done
+  else
+    python3 - <<'PYEOF'
+import os, sys, time, signal
+
+COLORS = [
+    ("\033[41m\033[30m", "RED"),
+    ("\033[42m\033[30m", "GREEN"),
+    ("\033[44m\033[37m", "BLUE"),
+    ("\033[47m\033[30m", "WHITE"),
+    ("\033[40m\033[37m", "BLACK"),
+]
+
+interrupted = False
+
+def handle_int(sig, frame):
+    global interrupted
+    interrupted = True
+
+signal.signal(signal.SIGINT, handle_int)
+
+try:
+    rows, cols = os.get_terminal_size()
+except Exception:
+    rows, cols = 24, 80
+
+for ansi, name in COLORS:
+    interrupted = False
+    sys.stdout.write("\033[2J\033[H")
+    sys.stdout.write(ansi)
+    line = " " * cols
+    for _ in range(rows):
+        sys.stdout.write(line)
+    mid_row = rows // 2
+    label = f" [ {name} - checking for dead pixels ] "
+    col_pos = max(0, (cols - len(label)) // 2)
+    sys.stdout.write(f"\033[{mid_row};{col_pos}H{label}")
+    sys.stdout.flush()
+    for _ in range(50):
+        if interrupted:
+            break
+        time.sleep(0.1)
+    sys.stdout.write("\033[0m\033[2J\033[H")
+    sys.stdout.flush()
+
+sys.stdout.write("\033[0m")
+sys.stdout.flush()
+PYEOF
+  fi
+  echo ""
+  ok "Screen color test complete."
+}
+
+# ============================================================
+# EMBEDDED: keyboard_test
+# ============================================================
+run_keyboard_test() {
+  banner "KEYBOARD — Physical Key Test"
+  KB_TEST_RESULT="SKIPPED"
+
+  # ── evdev mode ───────────────────────────────────────────────
+  python3 - <<'EVDEV_EOF'
+import sys, select
+
+tty_out = open('/dev/tty', 'w', buffering=1)
+def w(s): tty_out.write(s); tty_out.flush()
+
+try:
+    import evdev
+    from evdev import ecodes
+except ImportError:
+    w("  NO_EVDEV\n")
+    sys.exit(42)
+
+KEY_MAP = {
+    'KEY_ESC': 'Esc',
+    'KEY_F1': 'F1',  'KEY_F2': 'F2',  'KEY_F3': 'F3',  'KEY_F4': 'F4',
+    'KEY_F5': 'F5',  'KEY_F6': 'F6',  'KEY_F7': 'F7',  'KEY_F8': 'F8',
+    'KEY_F9': 'F9',  'KEY_F10': 'F10','KEY_F11': 'F11','KEY_F12': 'F12',
+    'KEY_BRIGHTNESSDOWN': 'Bri-', 'KEY_BRIGHTNESSUP': 'Bri+',
+    'KEY_VOLUMEDOWN': 'Vol-',     'KEY_VOLUMEUP': 'Vol+',
+    'KEY_MUTE': 'Mute', 'KEY_MICMUTE': 'MicMute',
+    'KEY_PLAYPAUSE': 'Play', 'KEY_PREVIOUSSONG': 'Prev', 'KEY_NEXTSONG': 'Next',
+    'KEY_GRAVE': '`',  'KEY_1': '1', 'KEY_2': '2', 'KEY_3': '3', 'KEY_4': '4',
+    'KEY_5': '5',      'KEY_6': '6', 'KEY_7': '7', 'KEY_8': '8', 'KEY_9': '9',
+    'KEY_0': '0',      'KEY_MINUS': '-', 'KEY_EQUAL': '=', 'KEY_BACKSPACE': 'BkSp',
+    'KEY_TAB': 'Tab',
+    'KEY_Q': 'Q', 'KEY_W': 'W', 'KEY_E': 'E', 'KEY_R': 'R', 'KEY_T': 'T',
+    'KEY_Y': 'Y', 'KEY_U': 'U', 'KEY_I': 'I', 'KEY_O': 'O', 'KEY_P': 'P',
+    'KEY_LEFTBRACE': '[', 'KEY_RIGHTBRACE': ']', 'KEY_BACKSLASH': '\\',
+    'KEY_CAPSLOCK': 'CapsL',
+    'KEY_A': 'A', 'KEY_S': 'S', 'KEY_D': 'D', 'KEY_F': 'F', 'KEY_G': 'G',
+    'KEY_H': 'H', 'KEY_J': 'J', 'KEY_K': 'K', 'KEY_L': 'L',
+    'KEY_SEMICOLON': ';', 'KEY_APOSTROPHE': "'", 'KEY_ENTER': 'Enter',
+    'KEY_LEFTSHIFT': 'Shift-L', 'KEY_RIGHTSHIFT': 'Shift-R',
+    'KEY_Z': 'Z', 'KEY_X': 'X', 'KEY_C': 'C', 'KEY_V': 'V', 'KEY_B': 'B',
+    'KEY_N': 'N', 'KEY_M': 'M',
+    'KEY_COMMA': ',', 'KEY_DOT': '.', 'KEY_SLASH': '/',
+    'KEY_LEFTCTRL': 'Ctrl-L', 'KEY_RIGHTCTRL': 'Ctrl-R',
+    'KEY_LEFTMETA': 'Win',    'KEY_RIGHTMETA': 'Win-R',
+    'KEY_LEFTALT': 'Alt-L',   'KEY_RIGHTALT': 'Alt-R',
+    'KEY_SPACE': 'Space', 'KEY_FN': 'Fn', 'KEY_COMPOSE': 'Menu',
+    'KEY_UP': 'Up', 'KEY_DOWN': 'Down', 'KEY_LEFT': 'Left', 'KEY_RIGHT': 'Right',
+    'KEY_INSERT': 'Ins',  'KEY_DELETE': 'Del',
+    'KEY_HOME': 'Home',   'KEY_END': 'End',
+    'KEY_PAGEUP': 'PgUp', 'KEY_PAGEDOWN': 'PgDn',
+    'KEY_SYSRQ': 'PrtSc', 'KEY_SCROLLLOCK': 'ScrLk', 'KEY_PAUSE': 'Pause',
+}
+
+# Build code ↔ display-name mappings
+CODE_TO_DISP = {}
+KEY_BY_CODE  = {}
+for attr in dir(ecodes):
+    if attr.startswith('KEY_'):
+        code = getattr(ecodes, attr)
+        if isinstance(code, int):
+            KEY_BY_CODE[code] = attr
+            if attr in KEY_MAP:
+                CODE_TO_DISP[code] = KEY_MAP[attr]
+
+# Keyboard layout rows — None = visual spacer between groups
+ROWS = [
+    ['Esc', None, 'F1','F2','F3','F4', None, 'F5','F6','F7','F8', None, 'F9','F10','F11','F12'],
+    [],
+    ['`','1','2','3','4','5','6','7','8','9','0','-','=','BkSp'],
+    ['Tab','Q','W','E','R','T','Y','U','I','O','P','[',']','\\'],
+    ['CapsL','A','S','D','F','G','H','J','K','L',';',"'",'Enter'],
+    ['Shift-L','Z','X','C','V','B','N','M',',','.','/', 'Shift-R'],
+    ['Ctrl-L','Win','Alt-L','Space','Alt-R','Fn','Menu','Ctrl-R'],
+    [None, None, None, None, 'Up'],
+    ['Left','Down','Right', None, 'Ins','Del','Home','End','PgUp','PgDn'],
+]
+TOTAL = sum(1 for row in ROWS for k in row if k is not None)
+
+DIM = '\033[2;37m'
+GRN = '\033[1;32m'
+RST = '\033[0m'
+
+def key_cell(name, pressed):
+    c = GRN if name in pressed else DIM
+    return c + '[' + name + ']' + RST
+
+def draw(pressed, other):
+    lines = []
+    for row in ROWS:
+        if not row:
+            lines.append('')
+            continue
+        parts = []
+        for k in row:
+            parts.append('  ' if k is None else key_cell(k, pressed))
+        lines.append(' '.join(parts))
+    lines.append('')
+    lines.append('  Other: ' + (DIM + ' '.join(sorted(other)) + RST if other else '-'))
+    lines.append('  Pressed: ' + GRN + str(len(pressed)) + RST +
+                 ' / ' + str(TOTAL) + '   (Ctrl+C to finish)')
+    return lines
+
+def find_keyboard():
+    devs = [evdev.InputDevice(p) for p in evdev.list_devices()]
+    for dev in devs:
+        caps = dev.capabilities()
+        if ecodes.EV_KEY in caps:
+            keys = caps[ecodes.EV_KEY]
+            if ecodes.KEY_A in keys and ecodes.KEY_SPACE in keys:
+                if ecodes.KEY_LEFT not in caps.get(ecodes.EV_REL, []):
+                    return dev
+    return None
+
+kbd = find_keyboard()
+if kbd is None:
+    w("  NO_KEYBOARD\n")
+    sys.exit(42)
+
+w("  Device: " + kbd.name + "\n")
+w("  Press EVERY key — Ctrl+C when done\n\n")
+
+pressed = set()
+held    = set()
+other   = set()
+
+lines  = draw(pressed, other)
+NLINES = len(lines)
+for line in lines:
+    w(line + '\n')
+
+kbd.grab()
+try:
+    while True:
+        r, _, _ = select.select([kbd.fd], [], [], 0.05)
+        if not r:
+            continue
+        try:
+            events = kbd.read()
+        except BlockingIOError:
+            continue
+        for ev in events:
+            if ev.type != ecodes.EV_KEY:
+                continue
+            code, val = ev.code, ev.value
+            if val == 1:    # key down
+                held.add(code)
+                if code == ecodes.KEY_C and (
+                        ecodes.KEY_LEFTCTRL in held or ecodes.KEY_RIGHTCTRL in held):
+                    raise KeyboardInterrupt
+                disp = CODE_TO_DISP.get(code)
+                if disp:
+                    pressed.add(disp)
+                else:
+                    raw = KEY_BY_CODE.get(code, 'KEY_' + str(code))
+                    other.add(raw.replace('KEY_', ''))
+            elif val == 0:  # key up
+                held.discard(code)
+            else:
+                continue    # repeat events — skip
+            new_lines = draw(pressed, other)
+            w('\033[' + str(NLINES) + 'A')
+            for line in new_lines:
+                w('\033[2K' + line + '\n')
+except KeyboardInterrupt:
+    pass
+finally:
+    try:
+        kbd.ungrab()
+    except Exception:
+        pass
+
+w('\n  Done — ' + str(len(pressed)) + ' / ' + str(TOTAL) + ' keys detected.\n')
+tty_out.close()
+EVDEV_EOF
+
+  # ── fallback to TTY mode if evdev unavailable ────────────────
+  if [[ $? -eq 42 ]]; then
+    echo -e "  ${YELLOW}⚠ evdev not available — falling back to TTY mode${NC}"
+    echo -e "  ${YELLOW}Press EVERY key. For Ctrl/Shift/Alt use combos (e.g. Ctrl+A).${NC}"
+    echo -e "  ${YELLOW}Press Ctrl+C when done.${NC}"
+    echo ""
+    python3 /dev/stdin </dev/tty <<'TTY_EOF'
+import sys, tty, termios, select
+
+try:
+    tty_fd = open('/dev/tty', 'rb', buffering=0)
+    out    = open('/dev/tty', 'w')
+except OSError as e:
+    print("  ERROR: Cannot open /dev/tty: " + str(e))
+    sys.exit(1)
+
+pressed = set()
+old_settings = termios.tcgetattr(tty_fd.fileno())
+
+def restore():
+    try:
+        termios.tcsetattr(tty_fd.fileno(), termios.TCSADRAIN, old_settings)
+    except Exception:
+        pass
+
+SINGLE = {
+    b'\x08': 'Backspace', b'\x09': 'Tab', b'\x0a': 'Enter',
+    b'\x0d': 'Enter',     b'\x1b': 'Esc', b'\x7f': 'Backspace',
+    b'\x00': 'Ctrl+Space',
+}
+for i in range(1, 27):
+    k = bytes([i])
+    if k not in SINGLE:
+        SINGLE[k] = 'Ctrl+' + chr(i + 64)
+
+ESCAPE_SEQS = {
+    b'\x1b[A': 'Up',      b'\x1b[B': 'Down',
+    b'\x1b[C': 'Right',   b'\x1b[D': 'Left',
+    b'\x1b[H': 'Home',    b'\x1b[F': 'End',
+    b'\x1bOH': 'Home',    b'\x1bOF': 'End',
+    b'\x1b[1~': 'Home',   b'\x1b[4~': 'End',
+    b'\x1b[2~': 'Insert', b'\x1b[3~': 'Delete',
+    b'\x1b[5~': 'PgUp',   b'\x1b[6~': 'PgDn',
+    b'\x1bOP': 'F1',  b'\x1bOQ': 'F2',  b'\x1bOR': 'F3',  b'\x1bOS': 'F4',
+    b'\x1b[15~': 'F5', b'\x1b[17~': 'F6', b'\x1b[18~': 'F7', b'\x1b[19~': 'F8',
+    b'\x1b[20~': 'F9', b'\x1b[21~': 'F10',b'\x1b[23~': 'F11',b'\x1b[24~': 'F12',
+}
+
+def read_key():
+    tty.setraw(tty_fd.fileno())
+    ch = tty_fd.read(1)
+    if ch == b'\x1b':
+        seq = ch
+        while True:
+            r, _, _ = select.select([tty_fd], [], [], 0.08)
+            if not r:
+                break
+            seq += tty_fd.read(1)
+        return seq
+    return ch
+
+out.write("  Keys: ")
+out.flush()
+try:
+    while True:
+        key = read_key()
+        if key == b'\x03':
+            out.write("\n\n  Ctrl+C — done.\n")
+            out.flush()
+            break
+        name = ESCAPE_SEQS.get(key) or SINGLE.get(key)
+        if name is None:
+            try:
+                d = key.decode('utf-8')
+                name = d if (len(d) == 1 and d.isprintable()) else '<' + key.hex() + '>'
+            except Exception:
+                name = '<' + key.hex() + '>'
+        if key not in pressed:
+            pressed.add(key)
+            out.write('\033[32m' + name + '\033[0m ')
+            out.flush()
+except Exception as e:
+    out.write("\n  Error: " + str(e) + "\n")
+    out.flush()
+finally:
+    restore()
+    tty_fd.close()
+
+out.write("\n  Total unique keys: " + str(len(pressed)) + "\n")
+out.flush()
+out.close()
+TTY_EOF
+  fi
+
+  echo ""
+  read -rp "  Did all keys respond correctly? [p=pass / f=fail / s=skip]: " ans </dev/tty
+  case "$ans" in
+    p|P) KB_TEST_RESULT="PASS" ;;
+    f|F) KB_TEST_RESULT="FAIL" ;;
+    *)   KB_TEST_RESULT="SKIPPED" ;;
+  esac
+}
+
+# ============================================================
+# EMBEDDED: audio_test
+# ============================================================
+run_audio_test() {
+  banner "AUDIO — Speaker & Microphone Test"
+
+  SPEAKER_QUALITY_RESULT="SKIPPED"
+  MIC_RECORD_RESULT="SKIPPED"
+  AUDIO_CARD_USED=""
+
+  # Speaker Test
+  echo -e "\n  ${BOLD}[1/2] Speaker Test${NC}"
+
+  # --- Reset ALSA state so prior boot's mute/0% volume cannot follow us ---
+  alsactl init >/dev/null 2>&1 || true
+
+  # --- Pick the best playback card adaptively (brand-agnostic) ---
+  # Score: any card with "Master" or "Speaker" mixer control beats one without.
+  # Exclude: HDMI / DisplayPort / NVidia / Dock outputs (not internal speakers).
+  pick_speaker_card() {
+    local best="" fallback=""
+    while IFS= read -r line; do
+      # aplay -l line: "card N: ID [Long Name], device M: ..."
+      [[ "$line" =~ ^card[[:space:]]+([0-9]+): ]] || continue
+      local idx="${BASH_REMATCH[1]}"
+      local lc; lc=$(echo "$line" | tr '[:upper:]' '[:lower:]')
+      # Skip non-internal outputs
+      echo "$lc" | grep -qE "hdmi|displayport|nvidia|dock" && continue
+      # Prefer cards exposing analog speaker controls
+      if amixer -c "$idx" scontrols 2>/dev/null \
+           | grep -qE "'(Master|Speaker)'"; then
+        best="$idx"
+        break
+      fi
+      [[ -z "$fallback" ]] && fallback="$idx"
+    done < <(aplay -l 2>/dev/null | grep "^card ")
+    echo "${best:-$fallback}"
+  }
+
+  AUDIO_CARD_USED=$(pick_speaker_card)
+
+  # --- Unmute and set sane volume on whichever controls exist ---
+  if [[ -n "$AUDIO_CARD_USED" ]]; then
+    for ctl in "Master" "Speaker" "Headphone" "PCM" "Front" "Front Speaker"; do
+      amixer -c "$AUDIO_CARD_USED" sset "$ctl" unmute >/dev/null 2>&1 || true
+      amixer -c "$AUDIO_CARD_USED" sset "$ctl" 80% >/dev/null 2>&1 || true
+    done
+    # Some Realtek codecs auto-mute internal speakers when a (phantom) headphone
+    # is detected. Force Disabled so the speaker stays on during testing.
+    amixer -c "$AUDIO_CARD_USED" sset "Auto-Mute Mode" Disabled >/dev/null 2>&1 || true
+    echo "  Audio card selected: card $AUDIO_CARD_USED"
+  else
+    echo "  No usable audio card found — falling back to default device."
+  fi
+
+  # --- Play tone, forcing the chosen card to bypass default-device drift ---
+  if command -v speaker-test &>/dev/null; then
+    echo "  Playing test tone for 3 seconds..."
+    if [[ -n "$AUDIO_CARD_USED" ]]; then
+      speaker-test -D "plughw:${AUDIO_CARD_USED},0" -t sine -f 1000 -c 2 -l 1 &>/dev/null &
+    else
+      speaker-test -t sine -f 1000 -c 2 -l 1 &>/dev/null &
+    fi
+    SPKR_PID=$!
+    sleep 3
+    kill "$SPKR_PID" 2>/dev/null
+    wait "$SPKR_PID" 2>/dev/null
+  else
+    echo "  Generating tone via Python + aplay..."
+    APLAY_DEV=()
+    [[ -n "$AUDIO_CARD_USED" ]] && APLAY_DEV=(-D "plughw:${AUDIO_CARD_USED},0")
+    python3 -c "
+import struct, math, wave, io, sys
+rate=44100; dur=2; freq=440
+samples=[int(32767*math.sin(2*math.pi*freq*i/rate)) for i in range(rate*dur)]
+buf=io.BytesIO()
+w=wave.open(buf,'wb'); w.setnchannels(1); w.setsampwidth(2); w.setframerate(rate)
+w.writeframes(struct.pack('<'+'h'*len(samples),*samples)); w.close()
+sys.stdout.buffer.write(buf.getvalue())
+" 2>/dev/null | aplay -q "${APLAY_DEV[@]}" 2>/dev/null
+  fi
+
+  read -rp "  Did you hear the speaker clearly? [p=pass / f=fail / s=skip]: " ans </dev/tty
+  case "$ans" in
+    p|P) SPEAKER_QUALITY_RESULT="PASS" ;;
+    f|F) SPEAKER_QUALITY_RESULT="FAIL" ;;
+    *)   SPEAKER_QUALITY_RESULT="SKIPPED" ;;
+  esac
+
+  # Microphone Test
+  echo -e "\n  ${BOLD}[2/2] Microphone Test${NC}"
+
+  # Discover capture devices via arecord -l and pick the best card+device pair.
+  # Priority: DMIC (not DMIC16kHz) > HDA Analog > any other non-HDMI device.
+  # Returns "CARD,DEVICE" string, e.g. "0,6".
+  pick_mic_device() {
+    local dmic_cd="" analog_cd="" fallback_cd=""
+    while IFS= read -r line; do
+      # arecord -l lines: "card N: ID [Long Name], device M: NAME [desc]"
+      [[ "$line" =~ ^card[[:space:]]+([0-9]+).*device[[:space:]]+([0-9]+):[[:space:]]*(.*) ]] || continue
+      local cidx="${BASH_REMATCH[1]}"
+      local didx="${BASH_REMATCH[2]}"
+      local dname_lc; dname_lc=$(echo "${BASH_REMATCH[3]}" | tr '[:upper:]' '[:lower:]')
+      # Skip HDMI/DisplayPort outputs (appear in capture list on some cards)
+      echo "$dname_lc" | grep -qE "hdmi|displayport" && continue
+      # DMIC16kHz — lower quality, only use as last resort
+      if echo "$dname_lc" | grep -q "dmic16khz"; then
+        [[ -z "$fallback_cd" ]] && fallback_cd="${cidx},${didx}"
+        continue
+      fi
+      # Prefer DMIC (broadband) — typical for SOF/Intel SST laptops
+      if echo "$dname_lc" | grep -q "dmic"; then
+        [[ -z "$dmic_cd" ]] && dmic_cd="${cidx},${didx}"
+        continue
+      fi
+      # HDA Analog — Realtek/Conexant external mic jack
+      if echo "$dname_lc" | grep -qE "analog|hda analog"; then
+        [[ -z "$analog_cd" ]] && analog_cd="${cidx},${didx}"
+        continue
+      fi
+      [[ -z "$fallback_cd" ]] && fallback_cd="${cidx},${didx}"
+    done < <(arecord -l 2>/dev/null | grep "^card ")
+    # Return best available: DMIC > Analog > fallback
+    echo "${dmic_cd:-${analog_cd:-$fallback_cd}}"
+  }
+
+  MIC_DEV=$(pick_mic_device)   # e.g. "0,6"
+  MIC_CARD_USED="${MIC_DEV%%,*}"
+
+  if [[ -n "$MIC_DEV" ]]; then
+    # Show operator what was found
+    _mic_label=$(arecord -l 2>/dev/null \
+      | awk -v c="${MIC_DEV%%,*}" -v d="${MIC_DEV##*,}" \
+          '$0 ~ "^card "c".*device "d":" {sub(/.*device [0-9]+: /,""); print $0; exit}')
+    ok "Mic device found: card ${MIC_DEV%%,*} device ${MIC_DEV##*,} — ${_mic_label:-unknown}"
+
+    # Only unmute and enable capture — do not override volume levels.
+    # Setting Mic Boost + Capture both to 100% causes clipping distortion.
+    # System defaults after alsactl init are sufficient.
+    for ctl in "Capture" "Internal Mic" "Mic" "Front Mic" "Dmic" "Mic Boost" "Internal Mic Boost"; do
+      amixer -c "$MIC_CARD_USED" sset "$ctl" cap    >/dev/null 2>&1 || true
+      amixer -c "$MIC_CARD_USED" sset "$ctl" unmute >/dev/null 2>&1 || true
+    done
+  else
+    warn "No capture device found in arecord -l — will try default device."
+  fi
+
+  REC_FILE="/tmp/mic_test_$$.wav"
+  echo "  Recording 3 seconds... Please speak into the microphone now."
+  AREC_DEV=()
+  [[ -n "$MIC_DEV" ]] && AREC_DEV=(-D "plughw:${MIC_DEV}")
+
+  if arecord "${AREC_DEV[@]}" -f cd -d 3 -q "$REC_FILE" 2>/dev/null; then
+    if [[ -f "$REC_FILE" && -s "$REC_FILE" ]]; then
+      # Analyze amplitude to auto-detect voice — no playback needed.
+      # 16-bit PCM scale: -32768..32767. Normal speech peak >> 1500; background << 500.
+      MIC_ANALYSIS=$(python3 -c "
+import sys, wave, struct, math
+try:
+    with wave.open('$REC_FILE', 'rb') as wf:
+        frames = wf.readframes(wf.getnframes())
+        nchan = wf.getnchannels()
+        n = len(frames) // 2
+        if n == 0:
+            print('0,0'); sys.exit()
+        samples = struct.unpack('<' + 'h' * n, frames)
+        if nchan == 2:
+            samples = samples[::2]
+        peak = max(abs(s) for s in samples)
+        rms = int(math.sqrt(sum(s*s for s in samples) / len(samples)))
+        print(str(peak) + ',' + str(rms))
+except:
+    print('0,0')
+" 2>/dev/null)
+      rm -f "$REC_FILE"
+      MIC_PEAK="${MIC_ANALYSIS%%,*}"
+      MIC_RMS="${MIC_ANALYSIS##*,}"
+      MIC_THRESHOLD=1500   # conservatively above background noise
+
+      if [[ "${MIC_PEAK:-0}" -gt "$MIC_THRESHOLD" ]]; then
+        ok "Voice detected — Peak: ${MIC_PEAK}  RMS: ${MIC_RMS}  (threshold: ${MIC_THRESHOLD})"
+        MIC_RECORD_RESULT="PASS"
+      else
+        err "No voice detected — Peak: ${MIC_PEAK:-0}  RMS: ${MIC_RMS:-0}  (threshold: ${MIC_THRESHOLD})"
+        echo "  Tip: speak louder or move closer to the microphone."
+        MIC_RECORD_RESULT="FAIL"
+      fi
+    else
+      err "Recording file empty — microphone may not be working."
+      MIC_RECORD_RESULT="FAIL"
+      rm -f "$REC_FILE"
+    fi
+  else
+    err "arecord failed — no microphone device found."
+    MIC_RECORD_RESULT="FAIL"
+  fi
+}
+
+# ============================================================
+# INSTALL DEPENDENCIES
+# ============================================================
+banner "Checking and Installing Dependencies"
+PKGS=(python3 dmidecode smartmontools util-linux pciutils usbutils \
+      curl jq alsa-utils v4l-utils iw ethtool bc \
+      fswebcam ffmpeg libcamera-tools libcamera-ipa python3-evdev)
+
+# Collect which packages are missing first
+MISSING=()
+for pkg in "${PKGS[@]}"; do
+  dpkg -s "$pkg" &>/dev/null 2>&1 || MISSING+=("$pkg")
+done
+
+if [[ ${#MISSING[@]} -eq 0 ]]; then
+  ok "All dependencies already installed."
+else
+  warn "${#MISSING[@]} package(s) missing: ${MISSING[*]}"
+  echo "  Running apt-get update..."
+  apt-get update -qq 2>/dev/null || warn "apt-get update failed — network may be unavailable."
+
+  FAILED=()
+  for pkg in "${MISSING[@]}"; do
+    echo -n "  Installing $pkg ... "
+    if apt-get install -y -q "$pkg" &>/dev/null 2>&1; then
+      echo -e "${GREEN}OK${NC}"
+    else
+      echo -e "${RED}FAILED${NC}"
+      FAILED+=("$pkg")
+    fi
+  done
+
+  if [[ ${#FAILED[@]} -eq 0 ]]; then
+    ok "All dependencies installed successfully."
+  else
+    warn "Could not install: ${FAILED[*]}"
+    warn "Some tests may be skipped or limited."
+  fi
+fi
+
+# ============================================================
+# 1. SYSTEM INFO
+# ============================================================
+banner "1. System Info"
+SYS_VENDOR=$(dmidecode -s system-manufacturer 2>/dev/null | tr -d '\n')
+SYS_MODEL=$(dmidecode -s system-product-name 2>/dev/null | tr -d '\n')
+SYS_SERIAL=$(dmidecode -s system-serial-number 2>/dev/null | tr -d '\n')
+BIOS_VER=$(dmidecode -s bios-version 2>/dev/null | tr -d '\n')
+SN_CLEAN=$(echo "$SYS_SERIAL" | tr -cd '[:alnum:]_-')
+REPORT_FILE="/tmp/${SN_CLEAN:-$(date +%Y%m%d_%H%M%S)}.json"
+TEST_TIME=$(date +"%Y-%m-%dT%H:%M:%SZ")
+HOSTNAME=$(hostname)
+ok "Vendor: $SYS_VENDOR | Model: $SYS_MODEL | Serial: $SYS_SERIAL"
+
+# ============================================================
+# 2. CPU
+# ============================================================
+banner "2. CPU"
+CPU_MODEL=$(grep "model name" /proc/cpuinfo | head -1 | cut -d: -f2 | xargs)
+CPU_CORES=$(nproc --all)
+CPU_THREADS=$(grep -c "^processor" /proc/cpuinfo)
+CPU_MAX_MHZ=$(lscpu | grep "CPU max MHz" | awk '{print $NF}' | cut -d. -f1)
+CPU_ARCH=$(uname -m)
+ok "$CPU_MODEL | ${CPU_CORES} cores / ${CPU_THREADS} threads | Max ${CPU_MAX_MHZ:-?} MHz"
+
+# ============================================================
+# 3. MEMORY
+# ============================================================
+banner "3. Memory"
+MEM_TOTAL_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')       # OS-visible RAM
+MEM_TOTAL_GB=$(echo "scale=1; $MEM_TOTAL_KB/1024/1024" | bc)
+MEM_TYPE=$(dmidecode -t memory 2>/dev/null | grep -E "^\s+Type:" | grep -v "Unknown\|Error" | head -1 | awk '{print $2}')
+MEM_SPEED=$(dmidecode -t memory 2>/dev/null | grep -E "^\s+Speed:" | grep -v "Unknown" | head -1 | awk '{print $2, $3}')
+MEM_SLOTS=$(dmidecode -t memory 2>/dev/null | grep -c "Memory Device$")
+MEM_USED_SLOTS=$(dmidecode -t memory 2>/dev/null | grep -A5 "Memory Device$" | grep -cE "Size:.*GB|Size:.*MB")
+
+# Physically installed RAM from SPD/DMI (sum of all DIMM Size: lines). Unlike
+# /proc/meminfo this reflects the modules that are actually plugged in, even when
+# a bad boot / memory-training failure leaves the OS seeing only part of the RAM.
+MEM_PHYS_GB=$(dmidecode -t memory 2>/dev/null | awk '
+  $1 == "Size:" {          # only "Memory Device" size lines; leading spaces stripped
+    if ($2 ~ /^[0-9]+$/) {
+      if      ($3 == "GB") total += $2 * 1024
+      else if ($3 == "MB") total += $2
+    }
+  }
+  END { printf "%.1f", total/1024 }')
+
+# Cross-check: the OS should see most of the installed RAM (minus firmware/iGPU
+# reserve, normally <5%). A large shortfall means a DIMM was not trained/detected
+# this boot — a reseat/hardware fault, not a script miscalculation.
+# Flag on EITHER condition (whichever trips first):
+#   - OS sees < 75% of installed RAM  → catches small-RAM machines (e.g. 2.5/4 GB)
+#   - absolute shortfall  > 4 GB      → catches large-RAM machines (e.g. missing DIMM)
+MEM_STATUS="PASS"
+if [[ -n "$MEM_PHYS_GB" ]] && (( $(echo "$MEM_PHYS_GB > 0" | bc -l) )); then
+  if (( $(echo "$MEM_TOTAL_GB < $MEM_PHYS_GB * 0.75 || ($MEM_PHYS_GB - $MEM_TOTAL_GB) > 4" | bc -l) )); then
+    MEM_STATUS="FAIL"
+  fi
+fi
+
+if [[ "$MEM_STATUS" == "FAIL" ]]; then
+  err "RAM anomaly: OS sees ${MEM_TOTAL_GB} GB but installed DIMMs total ${MEM_PHYS_GB} GB."
+  warn "  Likely memory training/seating fault — reseat RAM and reboot, then re-test."
+  warn "  Type: ${MEM_TYPE:-unknown} | Speed: ${MEM_SPEED:-unknown} | Slots used: ${MEM_USED_SLOTS}/${MEM_SLOTS}"
+else
+  ok "${MEM_TOTAL_GB} GB (installed ${MEM_PHYS_GB} GB) | Type: ${MEM_TYPE:-unknown} | Speed: ${MEM_SPEED:-unknown} | Slots used: ${MEM_USED_SLOTS}/${MEM_SLOTS}"
+fi
+
+# ============================================================
+# 4. STORAGE (original logic kept)
+# ============================================================
+banner "4. Storage"
+DISK_STATUS=$PASS
+DISK_JSON="["
+first=1
+
+# Pre-collect all USB transport disks — internal storage is always nvme/sata
+USB_DISKS=$(lsblk -d -o NAME,TRAN 2>/dev/null | awk '$2=="usb"{print $1}')
+
+while IFS= read -r disk; do
+  [[ -z "$disk" ]] && continue
+  name=$(basename "$disk")
+
+  # Skip all USB disks (Live USB, external drives) — never internal storage
+  if echo "$USB_DISKS" | grep -q "^${name}$"; then
+    warn "Skipping $name (USB transport) — not internal storage."
+    continue
+  fi
+
+  size=$(lsblk -dn -o SIZE "$disk" 2>/dev/null | xargs)
+  model=$(lsblk -dn -o MODEL "$disk" 2>/dev/null | xargs)
+  [[ -z "$model" ]] && model=$(cat /sys/block/$name/device/model 2>/dev/null | xargs)
+  rotational=$(cat /sys/block/$name/queue/rotational 2>/dev/null)
+  disk_type="HDD"
+  [[ "$rotational" == "0" ]] && disk_type="SSD"
+  [[ "$disk" == *"nvme"* ]] && disk_type="SSD NVMe"
+
+  # Serial number — try lsblk, then sysfs, then smartctl
+  serial=$(lsblk -dn -o SERIAL "$disk" 2>/dev/null | xargs)
+  [[ -z "$serial" ]] && serial=$(cat /sys/block/$name/device/serial 2>/dev/null | xargs)
+  [[ -z "$serial" ]] && serial=$(smartctl -i "$disk" 2>/dev/null | awk -F: '/Serial Number/{print $2; exit}' | xargs)
+  [[ -z "$serial" ]] && serial="unknown"
+
+  # One smartctl -x call covers health, power-on hours, and all SSD metrics.
+  SMART_DETAIL=$(smartctl -x "$disk" 2>/dev/null)
+
+  if echo "$SMART_DETAIL" | grep -qE "PASSED|OK"; then
+    smart="PASSED"
+  elif echo "$SMART_DETAIL" | grep -q "FAILED"; then
+    smart="FAILED"
+    DISK_STATUS=$FAIL
+  else
+    smart="UNKNOWN"
+  fi
+
+  power_hours=$(echo "$SMART_DETAIL" | grep -iE "power.on.hours|Power_On_Hours" \
+    | awk '{print $NF}' | head -1)
+
+  # SSD health: both NVMe and SATA SSD expose "Percentage Used" in -x output.
+  # NVMe: in SMART/Health log.  SATA: in Device Statistics (Endurance Indicator).
+  # HDDs stay "unknown".
+  SSD_HEALTH_PCT="unknown"
+  SSD_GRADE="unknown"
+  SSD_AVAIL_SPARE="unknown"
+  SSD_DATA_WRITTEN="unknown"
+
+  if [[ "$disk_type" == "SSD NVMe" ]]; then
+    PCT_USED=$(echo "$SMART_DETAIL" | grep "Percentage Used" \
+      | grep -oP '\d+(?=%)' | head -1)
+    AVAIL_SPARE=$(echo "$SMART_DETAIL" | grep "Available Spare:" \
+      | grep -oP '\d+(?=%)' | head -1)
+    SSD_DATA_WRITTEN=$(echo "$SMART_DETAIL" | grep "Data Units Written" \
+      | cut -d: -f2 | xargs | cut -d'[' -f2 | tr -d ']' | xargs)
+    [[ -z "$SSD_DATA_WRITTEN" ]] && SSD_DATA_WRITTEN="unknown"
+
+    if [[ -n "$PCT_USED" ]]; then
+      SSD_HEALTH_PCT=$((100 - PCT_USED))
+    fi
+    [[ -n "$AVAIL_SPARE" ]] && SSD_AVAIL_SPARE="${AVAIL_SPARE}%"
+
+  elif [[ "$disk_type" == "SSD" ]]; then
+    # SATA SSD: prefer "Percentage Used Endurance Indicator" from Device Statistics
+    # (present on LITEON, Crucial, Intel, newer Samsung etc.).
+    # Fallback: Wear_Leveling_Count / Media_Wearout_Indicator VALUE column.
+    # Device Statistics line layout:
+    #   0x07  0x008  1               0  ---  Percentage Used Endurance Indicator
+    # Field $4 is the numeric value (percent used); $NF is "Indicator" (wrong).
+    PCT_USED=$(echo "$SMART_DETAIL" | awk '/Percentage Used Endurance Indicator/{print $4; exit}')
+
+    if [[ -n "$PCT_USED" ]] && [[ "$PCT_USED" =~ ^[0-9]+$ ]]; then
+      SSD_HEALTH_PCT=$((100 - PCT_USED))
+    else
+      WLC_VALUE=$(echo "$SMART_DETAIL" | awk '/Wear_Leveling_Count/{print $4}' | head -1)
+      [[ -z "$WLC_VALUE" ]] && \
+        WLC_VALUE=$(echo "$SMART_DETAIL" | awk '/Media_Wearout_Indicator/{print $4}' | head -1)
+      [[ -z "$WLC_VALUE" ]] && \
+        WLC_VALUE=$(echo "$SMART_DETAIL" | awk '/SSD_Life_Left/{print $4}' | head -1)
+      [[ -n "$WLC_VALUE" && "$WLC_VALUE" =~ ^[0-9]+$ ]] && SSD_HEALTH_PCT=$WLC_VALUE
+    fi
+    SSD_AVAIL_SPARE="N/A"
+    SSD_DATA_WRITTEN="N/A"
+  fi
+
+  # Apply grade for SSD types (NVMe and SATA)
+  if [[ "$SSD_HEALTH_PCT" != "unknown" ]] && [[ "$disk_type" != "HDD" ]]; then
+    if   [[ $SSD_HEALTH_PCT -ge 95 ]]; then SSD_GRADE="A"
+    elif [[ $SSD_HEALTH_PCT -ge 80 ]]; then SSD_GRADE="B"
+    elif [[ $SSD_HEALTH_PCT -ge 70 ]]; then SSD_GRADE="C"
+    else SSD_GRADE="D"
+    fi
+  fi
+
+  ok "$name | ${model:-unknown} | SN: $serial | $size | $disk_type | SMART: $smart | Power-on: ${power_hours:-?} hrs"
+  if [[ "$disk_type" != "HDD" && "$SSD_GRADE" != "unknown" ]]; then
+    ok "  SSD Health: ${SSD_HEALTH_PCT}% | Grade: ${SSD_GRADE} | Available Spare: ${SSD_AVAIL_SPARE} | Written: ${SSD_DATA_WRITTEN}"
+  fi
+
+  [[ $first -eq 0 ]] && DISK_JSON+=","
+  DISK_JSON+="{\"device\":\"$(esc "$name")\",\"model\":\"$(esc "${model:-unknown}")\",\"serial\":\"$(esc "$serial")\",\"size\":\"$(esc "${size:-unknown}")\",\"type\":\"$disk_type\",\"smart\":\"$smart\",\"power_on_hours\":\"$(esc "${power_hours:-unknown}")\",\"ssd_health_percent\":\"$(esc "${SSD_HEALTH_PCT}")\",\"ssd_grade\":\"$(esc "${SSD_GRADE}")\",\"ssd_available_spare\":\"$(esc "${SSD_AVAIL_SPARE}")\",\"ssd_data_written\":\"$(esc "${SSD_DATA_WRITTEN}")\"}"
+  first=0
+done < <(lsblk -dpn -o PATH 2>/dev/null | grep -E "^/dev/(sd|nvme|hd)")
+
+# No internal disk scanned — on Dell this is almost always BIOS SATA in RAID/RST
+# mode, which hides the NVMe/SATA device from the Linux kernel. Guide the operator
+# to switch to AHCI rather than letting it look like a missing/dead drive.
+# Runs BEFORE the array is closed so the placeholder entry lands inside DISK_JSON.
+if [[ $first -eq 1 ]]; then
+  # No internal storage detected. NOT a failure — diskless units are still
+  # sellable as long as it's marked in CearTrack. Just warn the operator and
+  # record the reason so the server can flag it.
+  warn "No internal storage detected."
+
+  if echo "$SYS_VENDOR" | grep -qi "dell"; then
+    warn "Dell detected — BIOS storage mode may be set to RAID."
+    warn "If this unit should have a disk: Reboot → F2 → System Configuration → SATA Operation → set to AHCI, then re-run."
+    DISK_FAIL_REASON="DELL_RAID_MODE"
+  else
+    warn "If this unit should have a disk, check BIOS storage mode (set to AHCI)."
+    DISK_FAIL_REASON="NO_STORAGE_DETECTED"
+  fi
+
+  # The later screen-color test clears the terminal, wiping the warning above.
+  # Pause here so the operator actually sees it before the screen is cleared.
+  # Ask whether a disk is physically installed: if yes, this is almost certainly
+  # a BIOS RAID/RST misconfiguration that must be fixed before the unit is sold.
+  echo ""
+  read -rp "$(echo -e "  ${BOLD}Is a disk physically installed in this laptop? [y=yes / n=no disk / Enter=skip]: ${NC}")" _has_disk </dev/tty
+  case "$_has_disk" in
+    y|Y)
+      DISK_FAIL_REASON="DISK_PRESENT_BUT_HIDDEN"
+      err "Disk is installed but NOT detected — this is a BIOS storage-mode issue."
+      warn "Reboot → F2 → System Configuration → SATA Operation → set to AHCI, then re-run this test."
+      echo ""
+      read -rp "$(echo -e "  ${YELLOW}${BOLD}Press Enter to acknowledge and continue...${NC}")" _ </dev/tty
+      ;;
+    n|N)
+      DISK_FAIL_REASON="NO_DISK_CONFIRMED"
+      ok "Confirmed no disk installed — continuing (diskless unit)."
+      ;;
+    *)
+      warn "Skipped — verify storage manually if needed."
+      ;;
+  esac
+
+  # Placeholder entry reflects the operator's confirmed answer so the server can
+  # distinguish a genuine diskless unit from a disk hidden by BIOS RAID mode.
+  DISK_JSON+='{"device":"none","model":"NOT DETECTED","size":"","type":"","smart":"NONE","power_on_hours":"","ssd_health_percent":"unknown","ssd_grade":"unknown","ssd_available_spare":"unknown","ssd_data_written":"unknown","fail_reason":"'"$DISK_FAIL_REASON"'"}'
+fi
+DISK_JSON+="]"
+
+# ============================================================
+# 5. BATTERY
+# ============================================================
+banner "5. Battery"
+BAT_STATUS=$PASS
+BAT_JSON="{}"
+BAT_HEALTH="N/A"
+BAT_CYCLE="N/A"
+BAT_CONDITION="OK"
+
+BAT_DIR=$(ls -d /sys/class/power_supply/BAT* 2>/dev/null | head -1)
+if [[ -n "$BAT_DIR" && -d "$BAT_DIR" ]]; then
+  # Read uevent for richer low-level data
+  BAT_UEVENT="$BAT_DIR/uevent"
+  BAT_VOLTAGE_NOW=$(grep "^POWER_SUPPLY_VOLTAGE_NOW=" "$BAT_UEVENT" 2>/dev/null | cut -d= -f2)
+  BAT_ENERGY_NOW=$(grep "^POWER_SUPPLY_ENERGY_NOW=" "$BAT_UEVENT" 2>/dev/null | cut -d= -f2)
+  BAT_CHARGE_NOW=$(grep "^POWER_SUPPLY_CHARGE_NOW=" "$BAT_UEVENT" 2>/dev/null | cut -d= -f2)
+  BAT_PRESENT=$(cat "$BAT_DIR/present" 2>/dev/null)
+
+  # energy_* is µWh, charge_* is µAh — the two MUST NOT be mixed in the health
+  # ratio. Read DESIGN and FULL from the same namespace: prefer energy_*, and
+  # only fall back to charge_* when energy_* is unavailable for BOTH values.
+  BAT_DESIGN=$(cat "$BAT_DIR/energy_full_design" 2>/dev/null)
+  BAT_FULL=$(cat "$BAT_DIR/energy_full" 2>/dev/null)
+  if [[ -z "$BAT_DESIGN" || -z "$BAT_FULL" ]]; then
+    BAT_DESIGN=$(cat "$BAT_DIR/charge_full_design" 2>/dev/null)
+    BAT_FULL=$(cat "$BAT_DIR/charge_full" 2>/dev/null)
+  fi
+  BAT_CYCLE=$(cat "$BAT_DIR/cycle_count" 2>/dev/null)
+  BAT_MANUF=$(cat "$BAT_DIR/manufacturer" 2>/dev/null | xargs)
+  BAT_MODEL_NAME=$(cat "$BAT_DIR/model_name" 2>/dev/null | xargs)
+  BAT_CAPACITY=$(cat "$BAT_DIR/capacity" 2>/dev/null)
+
+  # Normalize cycle_count: -1 or empty → "unknown"
+  if [[ -z "$BAT_CYCLE" || "$BAT_CYCLE" == "-1" ]]; then
+    BAT_CYCLE="unknown"
+  fi
+
+  # Ensure voltage/energy values are numeric
+  [[ ! "${BAT_VOLTAGE_NOW:-0}" =~ ^[0-9]+$ ]] && BAT_VOLTAGE_NOW=0
+  [[ ! "${BAT_ENERGY_NOW:-0}" =~ ^[0-9]+$ ]] && BAT_ENERGY_NOW=0
+  BAT_VOLTAGE_NOW="${BAT_VOLTAGE_NOW:-0}"
+  BAT_ENERGY_NOW="${BAT_ENERGY_NOW:-0}"
+  [[ ! "${BAT_CHARGE_NOW:-0}" =~ ^[0-9]+$ ]] && BAT_CHARGE_NOW=0
+  BAT_CHARGE_NOW="${BAT_CHARGE_NOW:-0}"
+
+  # Ghost battery: some ECs (e.g. HP) keep BAT0 with present=1 and placeholder
+  # data (full == design, voltage/charge 0) when the pack is removed. A real
+  # pack — even a dead one — always reports some voltage (Case A below).
+  BAT_ABSENT=0
+  if [[ "$BAT_PRESENT" == "0" ]]; then
+    BAT_ABSENT=1
+  elif [[ "$BAT_VOLTAGE_NOW" -eq 0 && "$BAT_ENERGY_NOW" -eq 0 && "$BAT_CHARGE_NOW" -eq 0 \
+          && ( -n "$BAT_MANUF" || -n "$BAT_MODEL_NAME" ) ]]; then
+    BAT_ABSENT=1
+  fi
+
+  # Compute voltage in volts (2dp)
+  if [[ "$BAT_VOLTAGE_NOW" -gt 0 ]]; then
+    BAT_VOLTAGE_V=$(echo "scale=2; $BAT_VOLTAGE_NOW / 1000000" | bc)
+  else
+    BAT_VOLTAGE_V="0"
+  fi
+
+  # Priority order for battery verdict
+  if [[ "$BAT_ABSENT" -eq 1 ]]; then
+    warn "No battery detected (EC reports placeholder ${BAT_DIR##*/} data)."
+  elif [[ "$BAT_VOLTAGE_NOW" -gt 0 && "$BAT_VOLTAGE_NOW" -lt 3000000 && "$BAT_ENERGY_NOW" -eq 0 ]]; then
+    # Case A: physically dead — voltage below 3V and no stored energy
+    BAT_STATUS="WARNING"
+    BAT_CONDITION="DEAD"
+    warn "Battery condition: DEAD (voltage=${BAT_VOLTAGE_V}V, energy=0) — mark note in Cyclelution"
+  elif [[ -z "$BAT_MANUF" && -z "$BAT_MODEL_NAME" && "$BAT_ENERGY_NOW" -eq 0 && "$BAT_VOLTAGE_NOW" -eq 0 ]]; then
+    # Case B: driver cannot read battery data
+    BAT_STATUS="WARNING"
+    BAT_CONDITION="DATA_UNAVAILABLE"
+    warn "Battery data unavailable (driver not supported) — mark note in Cyclelution"
+  else
+    if [[ -n "$BAT_DESIGN" && -n "$BAT_FULL" && "$BAT_DESIGN" -gt 0 ]]; then
+      BAT_HEALTH=$(echo "scale=1; $BAT_FULL * 100 / $BAT_DESIGN" | bc)
+    else
+      BAT_HEALTH="?"
+    fi
+    # Condition must reflect the actual verdict — never hardcode "OK".
+    if [[ "$BAT_HEALTH" == "?" ]]; then
+      # Battery is present but health could not be computed (missing/zero design
+      # capacity). Do not auto-pass or auto-fail — flag for manual review.
+      BAT_CONDITION="HEALTH_UNKNOWN"
+      warn "Battery present but health could not be computed — verify manually."
+    elif (( $(echo "$BAT_HEALTH < 60" | bc -l) )); then
+      # Battery issues are WARNING only — never fail the whole unit.
+      BAT_STATUS="WARNING"
+      BAT_CONDITION="LOW_HEALTH"
+      warn "Battery health low: ${BAT_HEALTH}% — mark note in Cyclelution"
+    else
+      BAT_CONDITION="OK"
+      ok "Battery detected | Health: ${BAT_HEALTH}% | Cycles: ${BAT_CYCLE}"
+    fi
+  fi
+
+  if [[ "$BAT_ABSENT" -eq 1 ]]; then
+    BAT_JSON="{\"status\":\"NOT_FOUND\"}"
+  else
+    BAT_JSON="{\"manufacturer\":\"${BAT_MANUF:-unknown}\",\"model\":\"${BAT_MODEL_NAME:-unknown}\",\"health_percent\":\"${BAT_HEALTH}\",\"current_percent\":\"${BAT_CAPACITY:-unknown}\",\"cycle_count\":\"${BAT_CYCLE}\",\"voltage_v\":\"${BAT_VOLTAGE_V}\",\"battery_condition\":\"$BAT_CONDITION\",\"status\":\"$BAT_STATUS\"}"
+  fi
+else
+  warn "No battery detected."
+  BAT_JSON="{\"status\":\"NOT_FOUND\"}"
+fi
+
+# ============================================================
+# 6. SCREEN
+# ============================================================
+banner "6. Screen"
+SCREEN_RES=$(xrandr 2>/dev/null | grep " connected" | grep -oP '\d+x\d+' | head -1)
+SCREEN_NAME=$(xrandr 2>/dev/null | grep " connected" | awk '{print $1}' | head -1)
+[[ -z "$SCREEN_RES" ]] && SCREEN_RES=$(cat /sys/class/drm/*/modes 2>/dev/null | head -1)
+ok "Interface: ${SCREEN_NAME:-unknown} | Resolution: ${SCREEN_RES:-unknown}"
+
+run_screen_test
+
+run_touchpad_test() {
+  banner "TOUCHPAD — Auto Detection Test"
+  TOUCHPAD_RESULT="NOT_FOUND"
+  TOUCHPAD_NOTE=""
+
+  # On Dell laptops the I2C touchpad driver may not load automatically on Live USB.
+  # Full driver chain: i2c_designware_pci → i2c_hid_acpi → hid_multitouch → evdev.
+  # XPS 9570 / Precision (Coffee Lake/Cannon Lake) need the I2C bus controller first.
+  modprobe i2c_designware_pci      2>/dev/null || true
+  modprobe i2c_designware_platform 2>/dev/null || true
+  modprobe i2c_hid_acpi            2>/dev/null || modprobe i2c_hid 2>/dev/null
+  modprobe hid_multitouch          2>/dev/null || true
+  sleep 2   # give udev time to re-enumerate after driver chain loads
+
+  # Use udevadm to find the best touchpad by kernel property ID_INPUT_TOUCHPAD=1.
+  # Priority: I2C/HID (HP ELAN/Synaptics) > RMI > PS/2 (Dell).
+  # Result exported so Python opens it directly instead of guessing.
+  _tp_scan() {
+  _tp_best="" _tp_pri=0
+  for _tp_dev in /dev/input/event*; do
+    [[ -e "$_tp_dev" ]] || continue
+    _tp_info=$(udevadm info -q property -n "$_tp_dev" 2>/dev/null)
+    echo "$_tp_info" | grep -q "ID_INPUT_TOUCHPAD=1" || continue
+    # Highest priority: the real I2C/HID touchpad. On Dell XPS 9570 the I2C
+    # hid-multitouch node has NO ID_BUS property, so also match the "i2c-" path
+    # in DEVPATH. This must beat the duplicate PS/2 (i8042) node, which exposes
+    # the same physical pad but often reports no events when I2C is active.
+    if echo "$_tp_info" | grep -qE "ID_BUS=(i2c|hid)" || echo "$_tp_info" | grep -qi "i2c-"; then
+      _tp_best="$_tp_dev"; break          # highest priority — take immediately
+    elif echo "$_tp_info" | grep -q "RMI"; then
+      [[ $_tp_pri -lt 2 ]] && { _tp_best="$_tp_dev"; _tp_pri=2; }
+    else
+      [[ $_tp_pri -lt 1 ]] && { _tp_best="$_tp_dev"; _tp_pri=1; }
+    fi
+  done
+  }
+  _tp_scan
+
+  # PS/2 fallback: the test image blacklists psmouse (so I2C machines don't
+  # pick the dead duplicate PS/2 node). PS/2-only pads (e.g. HP ProBook 640 G2
+  # Synaptics) then have no node at all. Load psmouse only when nothing was
+  # found — explicit modprobe ignores the blacklist; I2C machines never get here.
+  if [[ -z "$_tp_best" ]] && ! lsmod | grep -q '^psmouse '; then
+    warn "No touchpad node — loading psmouse (PS/2 fallback)"
+    modprobe psmouse 2>/dev/null || true
+    sleep 2
+    _tp_scan
+  fi
+  export _TP_PREFERRED_DEV="$_tp_best"
+
+  python3 - <<'TPEVDEV_EOF'
+import sys, select, time
+
+tty_out = open('/dev/tty', 'w', buffering=1)
+def w(s): tty_out.write(s); tty_out.flush()
+
+try:
+    import evdev
+    from evdev import ecodes
+except ImportError:
+    w("  ⚠ python3-evdev not installed\n")
+    sys.exit(42)
+
+def find_touchpad():
+    import os
+    # 1. Try the udevadm-selected device (bash ranked I2C/HID > RMI > PS/2).
+    preferred = os.environ.get("_TP_PREFERRED_DEV", "").strip()
+    if preferred:
+        try:
+            dev = evdev.InputDevice(preferred)
+            caps = dev.capabilities()
+            abs_codes = [a[0] if isinstance(a, tuple) else a
+                         for a in caps.get(ecodes.EV_ABS, [])]
+            if ecodes.ABS_X in abs_codes and ecodes.ABS_Y in abs_codes:
+                return dev
+        except Exception:
+            pass
+
+    # 2. Generic evdev scan — capability check + phys bus preference.
+    #    dev.phys contains bus path: "i2c-SYNA.../input0" vs "isa0060/serio.../input0"
+    candidates = []
+    for p in evdev.list_devices():
+        try:
+            dev = evdev.InputDevice(p)
+        except Exception:
+            continue
+        caps = dev.capabilities()
+        keys      = caps.get(ecodes.EV_KEY, [])
+        abs_axes  = caps.get(ecodes.EV_ABS, [])
+        abs_codes = [a[0] if isinstance(a, tuple) else a for a in abs_axes]
+        # Skip touchscreens (INPUT_PROP_DIRECT). On 2-in-1 tablets such as
+        # HP Elite x2 1011 the touchscreen also has ABS_X/ABS_Y+BTN_TOUCH and
+        # would otherwise be picked instead of the keyboard-cover touchpad.
+        try:
+            props = dev.input_props()
+        except Exception:
+            props = []
+        if ecodes.INPUT_PROP_DIRECT in props:
+            continue
+        if (ecodes.ABS_X     in abs_codes and
+                ecodes.ABS_Y     in abs_codes and
+                ecodes.BTN_TOUCH in keys and
+                ecodes.KEY_A     not in keys):
+            candidates.append(dev)
+
+    if not candidates:
+        return None
+    # Prefer real touchpads (finger tool + left button) over pens/tablets
+    candidates.sort(key=lambda d: 0 if (
+        ecodes.BTN_TOOL_FINGER in d.capabilities().get(ecodes.EV_KEY, []) and
+        ecodes.BTN_LEFT in d.capabilities().get(ecodes.EV_KEY, [])) else 1)
+    # Prefer I2C (phys path starts with "i2c-")
+    for dev in candidates:
+        if (dev.phys or "").startswith("i2c-"):
+            return dev
+    return candidates[0]
+
+tp = find_touchpad()
+if tp is None:
+    w("  ⚠ No touchpad device found via evdev\n")
+    sys.exit(43)
+
+w("  Device: " + tp.name + "\n\n")
+
+GRN = '\033[1;32m'; RED = '\033[0;31m'; YEL = '\033[1;33m'; RST = '\033[0m'
+TIMEOUT = 10
+
+def wait_for(label, check_fn):
+    w("  " + YEL + label + RST + "\n")
+    deadline = time.time() + TIMEOUT
+    tp.grab()
+    try:
+        prev = {}
+        while time.time() < deadline:
+            r, _, _ = select.select([tp.fd], [], [], min(0.1, deadline - time.time()))
+            if not r:
+                continue
+            try:
+                events = tp.read()
+            except BlockingIOError:
+                continue
+            for ev in events:
+                msg = check_fn(ev, prev)
+                if msg:
+                    w("      " + GRN + "✓ " + msg + RST + "\n\n")
+                    return True
+    finally:
+        try:
+            tp.ungrab()
+        except Exception:
+            pass
+    w("      " + RED + "✗ No signal detected (timeout " + str(TIMEOUT) + "s)" + RST + "\n\n")
+    return False
+
+# ── Sub-test 1: single finger movement ──────────────────────
+def check_move(ev, prev):
+    if ev.type == ecodes.EV_ABS and ev.code in (ecodes.ABS_X, ecodes.ABS_Y):
+        axis = ev.code
+        last = prev.get(axis)
+        if last is not None and abs(ev.value - last) > 50:
+            return "Movement detected"
+        prev[axis] = ev.value
+    return None
+
+r1 = wait_for("[1/3] Move one finger across the touchpad...", check_move)
+
+# ── Sub-test 2: click ────────────────────────────────────────
+def check_click(ev, prev):
+    if ev.type == ecodes.EV_KEY and ev.code == ecodes.BTN_LEFT and ev.value == 1:
+        return "Click detected"
+    return None
+
+r2 = wait_for("[2/3] Click the touchpad (physical press or tap)...", check_click)
+
+# ── Sub-test 3: two-finger touch ─────────────────────────────
+def check_two_finger(ev, prev):
+    if ev.type == ecodes.EV_ABS:
+        if ev.code == ecodes.ABS_MT_SLOT:
+            prev['slot'] = ev.value
+            if ev.value >= 1:
+                return "Two-finger touch detected"
+        if ev.code == ecodes.ABS_MT_TRACKING_ID and ev.value >= 0:
+            if prev.get('slot', 0) >= 1:
+                return "Two-finger touch detected"
+    return None
+
+r3 = wait_for("[3/3] Place TWO fingers on the touchpad...", check_two_finger)
+
+# ── Overall result ───────────────────────────────────────────
+overall = "PASS" if (r1 and r2 and r3) else "FAIL"
+color   = GRN if overall == "PASS" else RED
+w("  Touchpad result: " + color + overall + RST + "\n")
+tty_out.close()
+# Exit code 0=PASS 1=FAIL — bash maps these to TOUCHPAD_RESULT
+sys.exit(0 if overall == "PASS" else 1)
+TPEVDEV_EOF
+
+  case $? in
+    0)  TOUCHPAD_RESULT="PASS" ;;
+    42) warn "evdev not available / touchpad not found — falling back to manual check"
+        TOUCHPAD_RESULT=$(ask_manual "Touchpad click / scroll" \
+          "Test single click, double click, and two-finger scroll") ;;
+    43) # No touchpad visible to Linux (e.g. HP Elite x2 1011 G1: i8042 MUX,
+        # only a timing-out PS/2 Generic Mouse). Can't be operated here —
+        # operator confirms in BIOS instead.
+        warn "Touchpad not detected in Linux (common on detachable keyboards, e.g. HP Elite x2) — not a device fault by itself"
+        warn "→ Verify the touchpad in BIOS/UEFI setup (HP: F10): move pointer + click"
+        TOUCHPAD_NOTE="not_detected_linux"
+        TOUCHPAD_RESULT=$(ask_manual "Touchpad (verified in BIOS)" \
+          "p = works in BIOS, f = does not work in BIOS, s = not checked / no keyboard cover") ;;
+    *)  # Auto test failed (e.g. 2-in-1 detachable keyboard, unsupported driver,
+        # wrong device picked). Don't auto-FAIL — let the operator verify by hand.
+        warn "Touchpad auto test did not pass — operator please verify manually"
+        TOUCHPAD_RESULT=$(ask_manual "Touchpad click / scroll (manual verify)" \
+          "Move cursor, single/double click, two-finger scroll. Detachable keyboard: make sure it is attached") ;;
+  esac
+}
+
+ask_manual() {
+  local item="$1"
+  local hint="$2"
+  echo -e "  ${BOLD}► $item${NC}" >&2
+  [[ -n "$hint" ]] && echo -e "    ${CYAN}Hint: $hint${NC}" >&2
+  read -rp "    Result [p=pass / f=fail / s=skip]: " ans </dev/tty
+  case "$ans" in
+    p|P) echo "PASS" ;;
+    f|F) echo "FAIL" ;;
+    *)   echo "SKIPPED" ;;
+  esac
+}
+
+SCREEN_CHECK=$(ask_manual "Screen quality (dead pixels & backlight)" "Check for dead/bright pixels and uneven corner brightness")
+SCREEN_DEADPIXEL=$SCREEN_CHECK
+SCREEN_BACKLIGHT=$SCREEN_CHECK
+
+# ============================================================
+# 7. CAMERA
+# ============================================================
+banner "7. Camera"
+
+CAM_STATUS=$FAIL
+CAM_DRIVER_TYPE="unknown"
+CAM_CAPTURE_METHOD="none"
+CAM_CAPTURE_RESULT="SKIPPED"
+CAM_IMAGE_RESULT="SKIPPED"
+CAM_DRIVER_NOTE="ok"
+CAM_COUNT=0
+SNAP=""
+
+REAL_CAMS=()
+REAL_CAM_NAMES=()
+REAL_CAM_DRIVERS=()
+REAL_CAM_IR=()
+REAL_CAM_RES=()
+CAMERAS_JSON=""
+_cam_seen=" "
+IPU_DETECTED=0
+
+# Non-camera v4l2 drivers to skip (GPU, ACPI display, TV tuners)
+_CAM_SKIP_DRIVERS="i915|acpi_video|pvrusb2|cx88|saa7134|em28xx"
+
+for dev in /dev/video*; do
+  [[ -e "$dev" ]] || continue
+
+  dev_info=$(v4l2-ctl --device="$dev" --info 2>/dev/null)
+
+  # Extract driver name (lowercase)
+  cam_driver=$(echo "$dev_info" | grep -i "Driver name" \
+    | cut -d: -f2 | xargs | tr '[:upper:]' '[:lower:]')
+
+  # Detect IPU3/IPU6 before anything else
+  card_lc=$(echo "$dev_info" | grep -i "Card type" | tr '[:upper:]' '[:lower:]')
+  if echo "$cam_driver$card_lc" | grep -qE "ipu3|ipu6"; then
+    IPU_DETECTED=1
+    echo "$cam_driver$card_lc" | grep -q "ipu6" && CAM_DRIVER_TYPE="ipu6" || CAM_DRIVER_TYPE="ipu3"
+    continue
+  fi
+
+  # Skip non-camera drivers (GPU, ACPI display, TV tuners)
+  if [[ -n "$cam_driver" ]] && echo "$cam_driver" | grep -qE "$_CAM_SKIP_DRIVERS"; then
+    warn "Skipping $dev (driver: $cam_driver) — not a camera device"
+    continue
+  fi
+
+  # Must have at least one capture format
+  fmt_count=$(v4l2-ctl --device="$dev" --list-formats 2>/dev/null | grep -c "\[")
+  if [[ $fmt_count -eq 0 ]]; then
+    warn "Skipping $dev — no capture formats available"
+    continue
+  fi
+
+  # One physical camera can expose several nodes — dedupe by sysfs device path
+  _cam_key=$(readlink -f "/sys/class/video4linux/${dev##*/}/device" 2>/dev/null)
+  if [[ -n "$_cam_key" && "$_cam_seen" == *" $_cam_key "* ]]; then
+    continue
+  fi
+  [[ -n "$_cam_key" ]] && _cam_seen+="$_cam_key "
+
+  # Real camera confirmed
+  cam_name=$(echo "$dev_info" | grep "Card type" | cut -d: -f2 | xargs)
+  # IR (Windows Hello) camera: name says IR/Infrared, or GREY is the only format
+  _cam_fmts=$(v4l2-ctl --device="$dev" --list-formats 2>/dev/null | grep "\[" )
+  _cam_ir="No"
+  if echo "$cam_name" | grep -qiE '(^|[^a-z])ir([^a-z]|$)|infrared' || \
+     { echo "$_cam_fmts" | grep -q "GREY" && \
+       [[ $(echo "$_cam_fmts" | grep -vc "GREY") -eq 0 ]]; }; then
+    _cam_ir="Yes"
+  fi
+  REAL_CAMS+=("$dev")
+  REAL_CAM_NAMES+=("${cam_name:-unknown}")
+  REAL_CAM_DRIVERS+=("${cam_driver:-unknown}")
+  REAL_CAM_IR+=("$_cam_ir")
+  ok "Camera found: $dev | ${cam_name:-unknown} | driver: ${cam_driver:-unknown}$([[ $_cam_ir == Yes ]] && echo ' | IR')"
+
+  # Set driver type once
+  if [[ "$CAM_DRIVER_TYPE" == "unknown" ]]; then
+    echo "$cam_driver" | grep -qE "uvcvideo|uvc" && CAM_DRIVER_TYPE="uvc"
+  fi
+done
+
+# IPU3/IPU6 (Surface etc.) can't be read by ffmpeg — ask libcamera which cameras
+# it can drive and add them to REAL_CAMS as "libcamera:<id>". Requires
+# libcamera-ipa; IPU6 on the stock kernel usually lists nothing → unchanged.
+_LIBCAM_LISTED=0
+
+# IPU3 also needs the staging ipu3_imgu driver, which Ubuntu ships unsigned.
+# With Secure Boot ON the kernel rejects it ("Key was rejected by service") →
+# no imgu media device → libcamera silently lists nothing. Tell the operator.
+_IMGU_SB_BLOCKED=0
+if [[ $IPU_DETECTED -eq 1 && "$CAM_DRIVER_TYPE" == "ipu3" ]] && ! lsmod | grep -q '^ipu3_imgu'; then
+  _imgu_err=$(modprobe ipu3_imgu 2>&1)
+  if lsmod | grep -q '^ipu3_imgu'; then
+    sleep 2   # let the imgu media device appear before cam -l
+  elif echo "$_imgu_err" | grep -qi "key was rejected"; then
+    _IMGU_SB_BLOCKED=1
+    case "$(echo "$SYS_VENDOR" | tr '[:upper:]' '[:lower:]')" in
+      *microsoft*) _uefi_key="hold Vol+ & press Power → Security → Secure Boot" ;;
+      *hp*|*hewlett*) _uefi_key="press F10 at power-on → Advanced/Security → Secure Boot" ;;
+      *dell*)      _uefi_key="press F2 at power-on → Boot Configuration/Secure Boot" ;;
+      *lenovo*)    _uefi_key="press F1 (or Enter → F1) at power-on → Security → Secure Boot" ;;
+      *)           _uefi_key="enter BIOS/UEFI setup at power-on → Secure Boot" ;;
+    esac
+    warn "Camera cannot be tested: Secure Boot is ON and blocks the unsigned ipu3_imgu camera driver"
+    warn "→ Disable Secure Boot in UEFI (${_uefi_key}) and re-run the test"
+  fi
+fi
+
+if [[ $IPU_DETECTED -eq 1 ]] && command -v cam &>/dev/null; then
+  while IFS= read -r _line; do
+    _id=$(echo "${_line%%:*}" | xargs)
+    _nm=$(echo "${_line#*: }" | sed "s/ *(.*)$//" | xargs)
+    REAL_CAMS+=("libcamera:$_id")
+    REAL_CAM_NAMES+=("${_nm:-unknown}")
+    REAL_CAM_DRIVERS+=("$CAM_DRIVER_TYPE")
+    echo "$_nm" | grep -qiE '(^|[^a-z])ir([^a-z]|$)|infrared' && REAL_CAM_IR+=("Yes") || REAL_CAM_IR+=("No")
+    _LIBCAM_LISTED=$((_LIBCAM_LISTED+1))
+    ok "Camera found: libcamera #$_id | ${_nm:-unknown} | driver: $CAM_DRIVER_TYPE"
+  done < <(timeout 20 cam -l 2>/dev/null | grep -E '^[[:space:]]*[0-9]+: ')
+  (( _LIBCAM_LISTED == 0 && _IMGU_SB_BLOCKED == 0 )) && \
+    warn "libcamera lists no ${CAM_DRIVER_TYPE} cameras (missing libcamera-ipa or unsupported sensor)"
+fi
+
+# Capture one frame from a libcamera camera → JPEG. $1=cam id, $2=out file.
+# Grabs 10 frames so auto-exposure settles; keeps the last one.
+_libcam_capture() {
+  local _tmpd _out _f _w=1280 _h=720 _sz
+  _tmpd=$(mktemp -d /tmp/libcam_XXXXXX) || return 1
+  _out=$(timeout 30 cam -c "$1" --capture=10 \
+           --stream width=1280,height=720,pixelformat=NV12 \
+           --file="$_tmpd/f-#.bin" 2>&1)
+  _f=$(ls "$_tmpd"/f-*.bin 2>/dev/null | sort -V | tail -1)
+  # libcamera may adjust the size — use the one it reports, if any
+  _sz=$(echo "$_out" | grep -oE '[0-9]+x[0-9]+-NV12' | tail -1)
+  if [[ -n "$_sz" ]]; then _w=${_sz%%x*}; _h=${_sz#*x}; _h=${_h%%-*}; fi
+  # Raw NV12 frame must be exactly w*h*1.5 bytes, otherwise decoding gives garbage
+  if [[ -s "$_f" ]] && (( $(stat -c %s "$_f") == _w * _h * 3 / 2 )); then
+    ffmpeg -f rawvideo -pix_fmt nv12 -s "${_w}x${_h}" -i "$_f" \
+           -frames:v 1 -y "$2" &>/dev/null
+  fi
+  rm -rf "$_tmpd"
+  [[ -s "$2" ]]
+}
+
+if [[ ${#REAL_CAMS[@]} -eq 0 && $IPU_DETECTED -eq 1 ]]; then
+  (( _IMGU_SB_BLOCKED )) || \
+    warn "${CAM_DRIVER_TYPE} camera hardware detected — capture not supported without IPA binary."
+  CAM_STATUS="HARDWARE_DETECTED"
+  CAM_CAPTURE_RESULT="NOT_SUPPORTED"
+  CAM_DRIVER_NOTE="driver_init_failed"
+  CAM_COUNT=$(ls /dev/video* 2>/dev/null | wc -l)
+elif [[ ${#REAL_CAMS[@]} -eq 0 ]]; then
+  # All /dev/video* were filtered out or none exist — check dmesg for real camera hardware.
+  # Only match real camera sensor/driver keywords; exclude GPU/ACPI display terms.
+  DMESG_CAM=$(dmesg 2>/dev/null | grep -iE \
+    "ipu[36]|cio2|imgu|ov[0-9]+|hi[0-9]+|imx[0-9]+|uvcvideo|OVTID" \
+    | grep -viE "acpi.video|GFX0|display|shadowed ROM" \
+    | head -5)
+
+  if [[ -n "$DMESG_CAM" ]]; then
+    CAM_STATUS="HARDWARE_DETECTED"
+    warn "Camera hardware in kernel log but no working device node:"
+    echo "$DMESG_CAM" | while read -r line; do warn "  $line"; done
+    warn "Driver failed to initialize — verify camera in Windows/OEM OS."
+    CAM_DRIVER_NOTE="driver_init_failed"
+  else
+    CAM_STATUS="NOT_FOUND"
+    ok "No camera hardware detected (confirmed)."
+    CAM_DRIVER_NOTE="no_hardware"
+  fi
+else
+  CAM_COUNT=${#REAL_CAMS[@]}
+  CAM_STATUS=$PASS
+  CAM_IMAGE_B64=""
+  _cam_ok=0; _cam_methods=""
+
+  # Capture from every camera (RGB, IR, front/rear), one image each.
+  for _i in "${!REAL_CAMS[@]}"; do
+    _cam="${REAL_CAMS[$_i]}"
+    _drv="${REAL_CAM_DRIVERS[$_i]}"
+    SNAP="/tmp/cam_test_$$_${_i}.jpg"
+    _res="FAILED"
+    echo "  [$((_i+1))/$CAM_COUNT] $_cam (${REAL_CAM_NAMES[$_i]})"
+
+    if [[ "$_cam" == libcamera:* ]]; then
+      _m="libcamera"
+      echo "      Capturing via libcamera (${_drv})..."
+      _libcam_capture "${_cam#libcamera:}" "$SNAP" && _res="SUCCESS"
+    elif echo "$_drv" | grep -qE "uvcvideo|uvc"; then
+      _m="ffmpeg"
+      echo "      Capturing via ffmpeg (UVC)..."
+      if ffmpeg -f v4l2 -input_format mjpeg -video_size 640x480 -i "$_cam" -frames:v 1 -y "$SNAP" &>/dev/null ||
+         ffmpeg -f v4l2 -input_format yuyv422 -video_size 640x480 -i "$_cam" -frames:v 1 -y "$SNAP" &>/dev/null ||
+         ffmpeg -f v4l2 -i "$_cam" -frames:v 1 -y "$SNAP" &>/dev/null; then
+        [[ -s "$SNAP" ]] && _res="SUCCESS"
+      fi
+    else
+      _m="fswebcam"
+      echo "      Capturing via fswebcam..."
+      if fswebcam -q -d "$_cam" -r 640x480 --no-banner "$SNAP" 2>/dev/null && [[ -s "$SNAP" ]]; then
+        _res="SUCCESS"
+      fi
+    fi
+    [[ "$_cam_methods" == *"$_m"* ]] || _cam_methods+="${_cam_methods:+,}$_m"
+
+    _b64=""; _img_res="CAPTURE_FAILED"
+    if [[ "$_res" == "SUCCESS" ]]; then
+      _b64=$(base64 -w 0 "$SNAP" 2>/dev/null)
+      _img_res="CAPTURED"
+      _cam_ok=$((_cam_ok+1))
+      ok "Image captured + encoded ($(wc -c < "$SNAP") bytes)"
+      # First successful image doubles as legacy camera.image_base64
+      [[ -z "$CAM_IMAGE_B64" ]] && CAM_IMAGE_B64="$_b64"
+    else
+      err "$_m capture failed on $_cam."
+    fi
+    rm -f "$SNAP"
+    REAL_CAM_RES+=("$_img_res")
+
+    CAMERAS_JSON+="${CAMERAS_JSON:+,}{\"index\": $((_i+1)), \"device\": \"$(esc "$_cam")\", \"name\": \"$(esc "${REAL_CAM_NAMES[$_i]}")\", \"driver\": \"$(esc "$_drv")\", \"is_ir\": \"${REAL_CAM_IR[$_i]}\", \"capture_result\": \"$_img_res\", \"image_base64\": \"$(esc "$_b64")\"}"
+  done
+  SNAP=""
+  CAM_CAPTURE_METHOD="${_cam_methods:-none}"
+
+  if (( _cam_ok == CAM_COUNT )); then
+    CAM_CAPTURE_RESULT="SUCCESS"; CAM_IMAGE_RESULT="CAPTURED"
+  elif (( _cam_ok > 0 )); then
+    CAM_CAPTURE_RESULT="PARTIAL"; CAM_IMAGE_RESULT="PARTIAL"
+    warn "Only $_cam_ok of $CAM_COUNT cameras captured an image"
+  else
+    CAM_CAPTURE_RESULT="FAILED"; CAM_IMAGE_RESULT="CAPTURE_FAILED"
+  fi
+  # IPU hardware present but libcamera couldn't drive it (UVC cams still tested)
+  if [[ $IPU_DETECTED -eq 1 && $_LIBCAM_LISTED -eq 0 ]]; then
+    CAM_DRIVER_NOTE="${CAM_DRIVER_TYPE}_not_supported"
+  fi
+fi
+# Always ensure CAM_IMAGE_B64 is defined (empty string when no capture).
+CAM_IMAGE_B64="${CAM_IMAGE_B64:-}"
+
+# HARDWARE_DETECTED with zero video nodes means no real camera hardware
+# (e.g. GPU-only machines where dmesg matched a generic keyword).
+# Reclassify to NOT_FOUND so CearTrack displays correctly.
+if [[ "$CAM_STATUS" == "HARDWARE_DETECTED" && ${CAM_COUNT:-0} -eq 0 ]]; then
+  CAM_STATUS="NOT_FOUND"
+  CAM_DRIVER_NOTE="no_hardware"
+fi
+# Secure Boot blocked the IPU3 driver — record why, so CearTrack shows the cause
+(( _IMGU_SB_BLOCKED )) && CAM_DRIVER_NOTE="secure_boot_blocks_imgu"
+
+# ============================================================
+# 8. AUDIO
+# ============================================================
+banner "8. Audio"
+AUDIO_CARDS=$(aplay -l 2>/dev/null | grep "^card" | wc -l)
+MIC_CARDS=$(arecord -l 2>/dev/null | grep "^card" | wc -l)
+
+[[ $AUDIO_CARDS -gt 0 ]] && ok "Speaker devices found: ${AUDIO_CARDS} card(s)" || err "No audio output device found."
+[[ $MIC_CARDS -gt 0 ]]   && ok "Microphone devices found: ${MIC_CARDS} card(s)" || err "No audio input device found."
+
+run_audio_test
+SPEAKER_QUALITY_CHECK=$SPEAKER_QUALITY_RESULT
+MIC_RECORD_CHECK=$MIC_RECORD_RESULT
+
+# ============================================================
+# 9. KEYBOARD
+# ============================================================
+banner "9. Keyboard"
+KB_DEVICES=$(ls /dev/input/by-path/ 2>/dev/null | grep -ci kbd)
+[[ $KB_DEVICES -gt 0 ]] && ok "Keyboard device(s) found: $KB_DEVICES" || err "No keyboard device found."
+
+run_keyboard_test
+KB_KEYS_CHECK=$KB_TEST_RESULT
+
+run_touchpad_test
+TOUCHPAD=$TOUCHPAD_RESULT
+
+run_touchscreen_test() {
+  TOUCHSCREEN_PRESENT="No"
+  TOUCHSCREEN_RESULT="N/A"
+
+  # Find a touchscreen: udev ID_INPUT_TOUCHSCREEN=1, or fallback INPUT_PROP_DIRECT
+  # + ABS_MT_POSITION_X (bit 53). Prefer multitouch nodes over pen-only digitizers.
+  _ts_dev=""; _ts_fallback=""
+  for _d in /dev/input/event*; do
+    [[ -e "$_d" ]] || continue
+    _sys="/sys/class/input/${_d##*/}/device"
+    _abs=$(cat "$_sys/capabilities/abs" 2>/dev/null); _abs=${_abs##* }
+    _props=$(cat "$_sys/properties" 2>/dev/null)
+    _mt=0; [[ -n "$_abs" ]] && (( (0x$_abs >> 53) & 1 )) && _mt=1
+    _direct=0; [[ -n "$_props" ]] && (( 0x$_props & 2 )) && _direct=1
+    if udevadm info -q property -n "$_d" 2>/dev/null | grep -q "ID_INPUT_TOUCHSCREEN=1" \
+       || (( _direct && _mt )); then
+      if (( _mt )); then _ts_dev="$_d"; break; fi
+      [[ -z "$_ts_fallback" ]] && _ts_fallback="$_d"
+    fi
+  done
+  [[ -z "$_ts_dev" ]] && _ts_dev="$_ts_fallback"
+
+  if [[ -z "$_ts_dev" ]]; then
+    # No input node. If hardware says a touchscreen should exist, flag it
+    # instead of silently reporting "No" (e.g. Surface Pro 4–7 Intel IPTS/THC:
+    # no driver in the stock Live USB kernel → touch untestable here).
+    _ts_reason=""
+    _chassis=$(cat /sys/class/dmi/id/chassis_type 2>/dev/null)
+    if command -v lspci &>/dev/null && \
+       lspci 2>/dev/null | grep -qiE 'iTouch Controller|Touch Host Controller'; then
+      _ts_reason="Intel IPTS/THC touch controller present, no Linux driver on this USB"
+    elif echo "$SYS_MODEL" | grep -qi "surface"; then
+      _ts_reason="Microsoft Surface model, touchscreen not visible to kernel"
+    elif [[ "$_chassis" =~ ^(30|31|32)$ ]]; then
+      _ts_reason="Tablet/convertible chassis (type $_chassis), no touch device found"
+    fi
+    if [[ -n "$_ts_reason" ]]; then
+      TOUCHSCREEN_PRESENT="Expected"
+      TOUCHSCREEN_RESULT="NOT_DETECTED"
+      banner "TOUCHSCREEN — Auto Detection Test"
+      warn "Touchscreen expected but not detected: $_ts_reason"
+      warn "→ Touch cannot be tested on this USB — verify manually (Surface UEFI or Windows)"
+      # Surface UEFI (Vol+ & Power at boot) accepts touch input; else use Windows.
+      TOUCHSCREEN_RESULT=$(ask_manual "Touchscreen (manual verify)" \
+        "Check in Surface UEFI (Vol+ & Power) or Windows: tap corners + center, drag. p = works, f = does not work, s = not checked")
+    fi
+    return 0
+  fi
+
+  TOUCHSCREEN_PRESENT="Yes"
+  banner "TOUCHSCREEN — Auto Detection Test"
+  export _TS_DEV="$_ts_dev"
+
+  python3 - <<'TSEVDEV_EOF'
+import sys, os, select, time
+
+tty_out = open('/dev/tty', 'w', buffering=1)
+def w(s): tty_out.write(s); tty_out.flush()
+
+try:
+    import evdev
+    from evdev import ecodes
+except ImportError:
+    w("  ⚠ python3-evdev not installed\n")
+    sys.exit(42)
+
+try:
+    ts = evdev.InputDevice(os.environ.get("_TS_DEV", ""))
+except Exception:
+    w("  ⚠ Cannot open touchscreen device\n")
+    sys.exit(42)
+
+w("  Device: " + ts.name + "\n\n")
+
+GRN = '\033[1;32m'; RED = '\033[0;31m'; YEL = '\033[1;33m'; RST = '\033[0m'
+
+abs_codes = [a[0] if isinstance(a, tuple) else a
+             for a in ts.capabilities().get(ecodes.EV_ABS, [])]
+if ecodes.ABS_MT_POSITION_X in abs_codes and ecodes.ABS_MT_POSITION_Y in abs_codes:
+    AX, AY = ecodes.ABS_MT_POSITION_X, ecodes.ABS_MT_POSITION_Y
+elif ecodes.ABS_X in abs_codes and ecodes.ABS_Y in abs_codes:
+    AX, AY = ecodes.ABS_X, ecodes.ABS_Y
+else:
+    w("  ⚠ Touchscreen reports no X/Y axes\n")
+    sys.exit(42)
+ix, iy = ts.absinfo(AX), ts.absinfo(AY)
+
+def norm(v, info):
+    span = (info.max - info.min) or 1
+    return (v - info.min) / float(span)
+
+def drain():
+    try:
+        while ts.read_one() is not None:
+            pass
+    except Exception:
+        pass
+
+ts.grab()
+try:
+    # ── Tap 4 corners + center ──
+    TIMEOUT = 10
+    targets = [
+        ("top-left",     lambda x, y: x < 0.25 and y < 0.25),
+        ("top-right",    lambda x, y: x > 0.75 and y < 0.25),
+        ("bottom-left",  lambda x, y: x < 0.25 and y > 0.75),
+        ("bottom-right", lambda x, y: x > 0.75 and y > 0.75),
+        ("center",       lambda x, y: 0.35 < x < 0.65 and 0.35 < y < 0.65),
+    ]
+    w("  " + YEL + "Tap each point when prompted" + RST + "\n")
+    taps_ok = True
+    for label, inside in targets:
+        w("      Tap " + YEL + label.upper() + RST + " ... ")
+        drain()
+        hit = False
+        x = y = None
+        deadline = time.time() + TIMEOUT
+        while time.time() < deadline and not hit:
+            r, _, _ = select.select([ts.fd], [], [], min(0.1, max(0, deadline - time.time())))
+            if not r:
+                continue
+            try:
+                events = ts.read()
+            except BlockingIOError:
+                continue
+            for ev in events:
+                if ev.type == ecodes.EV_ABS and ev.code == AX:
+                    x = norm(ev.value, ix)
+                elif ev.type == ecodes.EV_ABS and ev.code == AY:
+                    y = norm(ev.value, iy)
+                elif ev.type == ecodes.EV_SYN and x is not None and y is not None:
+                    if inside(x, y):
+                        hit = True
+                        break
+        if hit:
+            w(GRN + "✓" + RST + "\n")
+        else:
+            w(RED + "✗ timeout" + RST + "\n")
+            taps_ok = False
+finally:
+    try:
+        ts.ungrab()
+    except Exception:
+        pass
+
+overall = "PASS" if taps_ok else "FAIL"
+w("\n  Touchscreen result: " + (GRN if overall == "PASS" else RED) + overall + RST + "\n")
+tty_out.close()
+sys.exit(0 if overall == "PASS" else 1)
+TSEVDEV_EOF
+
+  case $? in
+    0)  TOUCHSCREEN_RESULT="PASS" ;;
+    *)  # Auto test failed / unavailable — never auto-FAIL, operator verifies.
+        warn "Touchscreen auto test did not pass — operator please verify manually"
+        TOUCHSCREEN_RESULT=$(ask_manual "Touchscreen (manual verify)" \
+          "Tap all four corners + center, drag across screen, check for ghost touches") ;;
+  esac
+}
+
+run_touchscreen_test
+
+# ============================================================
+# 10. NETWORK
+# ============================================================
+banner "10. Network"
+# WiFi is often slow/flaky to appear on a Live USB: rfkill soft-block, asynchronous
+# firmware load, or a failed first driver probe (fixed by a reboot / re-probe).
+# Since every laptop has WiFi, if no interface shows up we actively repair through
+# an escalating ladder — clear blocks, rebind, full driver reload — polling after
+# each step (firmware can take several seconds to load).
+
+# Return the wifi interface name, or empty if none is up yet.
+detect_wifi_dev() {
+  local d
+  d=$(nmcli -t -f DEVICE,TYPE device 2>/dev/null | awk -F: '$2=="wifi"{print $1; exit}')
+  [[ -z "$d" ]] && d=$(iw dev 2>/dev/null | awk '/Interface/{print $2; exit}')
+  [[ -z "$d" ]] && d=$(ip -o link 2>/dev/null | awk -F': ' '$2~/^wl/{print $2; exit}')
+  echo "$d"
+}
+
+# Poll detect_wifi_dev once per second up to <timeout> s; echo dev as soon as found.
+wait_for_wifi() {
+  local timeout="$1" d
+  for ((_w=0; _w<timeout; _w++)); do
+    d=$(detect_wifi_dev)
+    [[ -n "$d" ]] && { echo "$d"; return 0; }
+    sleep 1
+  done
+  return 1
+}
+
+# True if a WiFi radio is HARD-blocked (physical switch / BIOS) — unfixable in software.
+wifi_hard_blocked() {
+  rfkill list 2>/dev/null | awk '
+    /[Ww]ireless LAN|[Ww]i[Ff]i|wlan/ {inwifi=1}
+    /^[0-9]+:/ && !/[Ww]ireless LAN|[Ww]i[Ff]i|wlan/ {inwifi=0}
+    inwifi && /Hard blocked: yes/ {found=1}
+    END{exit found?0:1}'
+}
+
+# True if the kernel logged a WiFi firmware load failure — unfixable without the blob.
+wifi_fw_failed() {
+  dmesg 2>/dev/null | grep -iE "iwlwifi|ath1?0?k|ath11k|rtw|mt7[69]" \
+    | grep -iqE "firmware.*(failed|not found|error)|failed to load firmware|Direct firmware load.*failed"
+}
+
+# True if the RF failed its firmware INIT / secure-boot handshake. Seen on Intel
+# CNVi cards (e.g. Wireless-AC 9560): the firmware loads and the card IS detected,
+# but the RF's CPU2 hangs in secure boot and INIT ucode times out (-110):
+#   SecBoot CPU1 Status: 0x3, CPU2 Status: 0x2365
+#   0x00002365 | IML/ROM error/state
+#   Failed to run INIT ucode: -110
+# NO software repair can clear this — rebind/reload never power-cycle the RF, so
+# the chip stays wedged. Only a real cold power-cycle gives it another chance.
+wifi_rf_init_failed() {
+  dmesg 2>/dev/null | grep -qE "Failed to (run|start) INIT ucode|IML/ROM error/state|SecBoot CPU2 Status"
+}
+
+# The WiFi PCI slot (class 0280 = network controller / wireless), empty if none.
+wifi_pci_slot() { lspci -Dn 2>/dev/null | awk '$2 ~ /^0280/ {print $1; exit}'; }
+
+# Soft repair: reset rfkill (toggle to clear a stuck soft-block), radio on, kick NM.
+wifi_soft_repair() {
+  rfkill unblock all  2>/dev/null || true
+  rfkill block wifi   2>/dev/null || true   # toggle resets a stuck soft-block state
+  sleep 1
+  rfkill unblock wifi 2>/dev/null || true
+  rfkill unblock all  2>/dev/null || true
+  nmcli radio wifi on 2>/dev/null || true
+  systemctl restart NetworkManager 2>/dev/null || true
+}
+
+# Rebind the WiFi PCI device via sysfs — re-probes and reloads firmware, no reboot.
+wifi_rebind_pci() {
+  local slot drv; slot=$(wifi_pci_slot)
+  [[ -z "$slot" ]] && return 1
+  drv=$(basename "$(readlink -f "/sys/bus/pci/devices/$slot/driver" 2>/dev/null)" 2>/dev/null)
+  [[ -n "$drv" && -d "/sys/bus/pci/drivers/$drv" ]] || return 1
+  echo "  Rebinding WiFi PCI device $slot (driver $drv)..."
+  echo -n "$slot" > "/sys/bus/pci/drivers/$drv/unbind" 2>/dev/null || true
+  sleep 1
+  echo -n "$slot" > "/sys/bus/pci/drivers/$drv/bind"   2>/dev/null || true
+}
+
+# Full driver reload — the strongest reset short of a reboot; clears a wedged
+# firmware state that a plain rebind can't. Removes the bound driver + reloads.
+wifi_reload_driver() {
+  local slot drv; slot=$(wifi_pci_slot)
+  drv=$(basename "$(readlink -f "/sys/bus/pci/devices/$slot/driver" 2>/dev/null)" 2>/dev/null)
+  if [[ -n "$drv" ]]; then
+    echo "  Reloading WiFi driver module: $drv ..."
+    # Remove Intel op-mode holders first — iwlwifi can't be unloaded while
+    # iwlmvm/iwldvm are bound to it — then remove the driver itself.
+    modprobe -r iwlmvm iwldvm 2>/dev/null || true
+    modprobe -r "$drv"        2>/dev/null || true
+    sleep 1
+  fi
+  # (Re)load common PCI + USB wifi modules. iwlmvm/iwldvm are REQUIRED for Intel:
+  # iwlwifi alone does NOT create a wlanX netdev without its op-mode module.
+  for _m in iwlwifi iwlmvm iwldvm ath10k_pci ath11k_pci rtw88_pci rtw89_pci mt7921e mt76x2u ath9k rtl8xxxu; do
+    modprobe "$_m" 2>/dev/null || true
+  done
+}
+
+echo "  Detecting WiFi (auto-repair if missing)..."
+WIFI_FAIL_REASON=""
+wifi_soft_repair
+WIFI_DEV=$(wait_for_wifi 4)
+
+if [[ -z "$WIFI_DEV" ]] && wifi_hard_blocked; then
+  # Physical WLAN switch or BIOS block — no software repair can bring it up.
+  WIFI_FAIL_REASON="HARD_BLOCKED"
+  err "WiFi is HARD-blocked (physical WLAN switch or BIOS setting)."
+  warn "  Enable the wireless switch / BIOS WLAN, then re-test. Skipping software repair."
+elif [[ -z "$WIFI_DEV" ]] && wifi_rf_init_failed; then
+  # RF wedged in secure boot (INIT ucode -110). Rebind/reload never power-cycle the
+  # RF, so retrying is guaranteed to fail — fail fast instead of burning ~35s.
+  WIFI_FAIL_REASON="RF_INIT_FAILED"
+  err "WiFi RF init failed — firmware loaded but the RF hung in secure boot (INIT ucode timeout)."
+  warn "  Software repair CANNOT fix this — skipping repair attempts."
+  warn "  Fix: full COLD power cycle — shut down, unplug AC + battery, hold power 30s, reboot, re-test."
+  warn "  If it repeats across cold boots, the M.2 WiFi card is faulty — replace it."
+else
+  # Escalating repair ladder, polling after each step. Laptops always have WiFi.
+  _wifi_try=0
+  while [[ -z "$WIFI_DEV" && $_wifi_try -lt 4 ]]; do
+    _wifi_try=$((_wifi_try + 1))
+    warn "  WiFi not detected — repair attempt ${_wifi_try}/4..."
+    case $_wifi_try in
+      1) wifi_soft_repair;   WIFI_DEV=$(wait_for_wifi 5)  ;;
+      2) wifi_rebind_pci;    WIFI_DEV=$(wait_for_wifi 8)  ;;
+      3) wifi_reload_driver; WIFI_DEV=$(wait_for_wifi 12) ;;   # firmware load can be slow
+      4) wifi_soft_repair; wifi_reload_driver; WIFI_DEV=$(wait_for_wifi 12) ;;
+    esac
+    # A repair can wedge the RF mid-ladder — stop early, further retries can't help.
+    if [[ -z "$WIFI_DEV" ]] && wifi_rf_init_failed; then
+      WIFI_FAIL_REASON="RF_INIT_FAILED"
+      err "  WiFi RF hung in secure boot (INIT ucode timeout) — aborting further repair."
+      warn "  Fix: full COLD power cycle (unplug AC + battery, hold power 30s), then re-test."
+      break
+    fi
+  done
+fi
+
+if [[ -n "$WIFI_DEV" ]]; then
+  ip link set "$WIFI_DEV" up 2>/dev/null || true
+  WIFI_FAIL_REASON=""
+  ok "WiFi: $WIFI_DEV${_wifi_try:+ (recovered after ${_wifi_try} repair attempt(s))}"
+else
+  err "No WiFi device found."
+  # Classify the failure so the operator knows the next step.
+  if [[ "$WIFI_FAIL_REASON" == "RF_INIT_FAILED" ]]; then
+    :   # already reported above with the cold-power-cycle instructions
+  elif wifi_hard_blocked; then
+    WIFI_FAIL_REASON="HARD_BLOCKED"
+    warn "  Cause: HARD-blocked — enable the physical WLAN switch / BIOS WLAN."
+  elif wifi_fw_failed; then
+    WIFI_FAIL_REASON="FIRMWARE_MISSING"
+    warn "  Cause: driver firmware failed to load (missing/incompatible firmware on this USB)."
+    warn "  This is a Live-USB firmware gap, not necessarily a bad card — verify on the OS."
+  else
+    _wifi_hw=$(lspci 2>/dev/null | grep -iE "network|wireless|wi-?fi" | head -1)
+    if [[ -n "$_wifi_hw" ]]; then
+      WIFI_FAIL_REASON="DRIVER_NOT_UP"
+      warn "  HW present but driver not up: $_wifi_hw"
+    else
+      _wifi_usb=$(lsusb 2>/dev/null | grep -iE "wlan|wireless|802\.11|wi-?fi" | head -1)
+      if [[ -n "$_wifi_usb" ]]; then
+        WIFI_FAIL_REASON="DRIVER_NOT_UP"
+        warn "  USB wireless present but driver not up: $_wifi_usb"
+      else
+        WIFI_FAIL_REASON="NO_DEVICE"
+        warn "  No wireless device seen in lspci/lsusb — check BIOS WLAN enable."
+      fi
+    fi
+  fi
+fi
+# --- Ethernet: the test bench is ALWAYS wired to the CearTrack server (built-in
+# RJ45, or a USB-RJ45 adapter when the laptop has no port). So a wired NIC is
+# always expected — a missing link means a cable/adapter problem, not "no NIC".
+# Detect the DEVICE separately from the LINK/carrier so we don't mislabel an
+# unplugged cable or pending DHCP as "no ethernet device".
+
+# Find a wired NIC (built-in or USB dongle). Prefer one that currently has link.
+detect_eth_dev() {
+  local ifc name best=""
+  for ifc in /sys/class/net/*; do
+    name=$(basename "$ifc")
+    [[ "$name" == "lo" ]] && continue
+    [[ -e "$ifc/wireless" || -e "$ifc/phy80211" ]] && continue   # skip WiFi
+    [[ -e "$ifc/device" ]] || continue                            # real HW (covers USB-RJ45)
+    case "$name" in docker*|veth*|virbr*|br-*|tun*|tap*|bond*|dummy*) continue ;; esac
+    if [[ "$(cat "$ifc/carrier" 2>/dev/null)" == "1" ]]; then echo "$name"; return 0; fi
+    [[ -z "$best" ]] && best="$name"
+  done
+  [[ -n "$best" ]] && { echo "$best"; return 0; }
+  return 1
+}
+
+# carrier == 1 means cable connected + link up (port LED on). Bring the iface up
+# first — an admin-down interface reports no carrier even with the cable plugged.
+eth_has_link() {
+  local dev="$1"
+  [[ -n "$dev" ]] || return 1
+  ip link set "$dev" up 2>/dev/null || true
+  [[ "$(cat "/sys/class/net/$dev/carrier" 2>/dev/null)" == "1" ]]
+}
+
+# Auto-settle: bring the NIC up and give link/DHCP a few seconds before prompting.
+ETH_DEV=$(detect_eth_dev)
+[[ -n "$ETH_DEV" ]] && ip link set "$ETH_DEV" up 2>/dev/null || true
+for ((_e=0; _e<5; _e++)); do
+  ETH_DEV=$(detect_eth_dev)
+  eth_has_link "$ETH_DEV" && break
+  sleep 1
+done
+
+# Interactive wait — a wired link is MANDATORY: the report is uploaded to CearTrack
+# over this wire, so without link the test is INVALID (nothing can be uploaded).
+# The operator must either restore the link (fix cable / USB-RJ45 adapter) or mark
+# the machine as bad — there is no "skip and continue" that produces a valid test.
+ETH_STATUS="FAIL"
+while true; do
+  ETH_DEV=$(detect_eth_dev)                 # re-detect (a USB-RJ45 may be plugged mid-wait)
+  if eth_has_link "$ETH_DEV"; then
+    ok "Ethernet: $ETH_DEV (link up)"
+    ETH_STATUS="PASS"
+    break
+  fi
+  if [[ -n "$ETH_DEV" ]]; then
+    warn "Ethernet $ETH_DEV present but NO LINK — cable unplugged, port LED off, or bad port."
+  else
+    warn "No wired NIC detected — plug the network cable / USB-RJ45 adapter."
+  fi
+  echo -e "  ${RED}${BOLD}A wired link is REQUIRED — results cannot upload to CearTrack without it.${NC}"
+  echo -e "  Fix the cable / USB-RJ45 adapter, wait for the port LED, then press ${BOLD}Enter${NC} to re-check."
+  echo -e "  Or type ${BOLD}b${NC}+Enter to mark this laptop as BAD ethernet (cannot be tested)."
+  read -r _ans < /dev/tty
+  if [[ "${_ans,,}" == "b" ]]; then
+    ETH_STATUS="FAIL"
+    err "Marked BAD ethernet — no wired link; report cannot be uploaded. Set machine aside."
+    break
+  fi
+done
+
+# ============================================================
+# 10b. INTERNET CONNECTIVITY
+# ============================================================
+banner "10b. Internet Connectivity"
+INTERNET_STATUS="NO_ETH_DEVICE"
+INTERNET_VIA="${ETH_DEV:-none}"
+
+_inet_check() {
+  local dev="$1"
+  HTTP_CODE_INET=$(curl -s -o /dev/null -w "%{http_code}" \
+    --max-time 5 \
+    http://connectivitycheck.gstatic.com/generate_204 2>/dev/null)
+  if [[ "$HTTP_CODE_INET" =~ ^2[0-9][0-9]$ ]]; then
+    return 0
+  elif ping -c 3 -W 3 8.8.8.8 &>/dev/null; then
+    return 0
+  fi
+  return 1
+}
+
+if [[ -n "$ETH_DEV" ]]; then
+  if _inet_check "$ETH_DEV"; then
+    INTERNET_STATUS="PASS"
+    ok "Internet reachable via $ETH_DEV"
+  else
+    INTERNET_STATUS="FAIL"
+    _retry=1
+    while true; do
+      warn "Internet unreachable (attempt ${_retry}) — via $ETH_DEV  [curl HTTP code: ${HTTP_CODE_INET:-none}]"
+      echo ""
+      echo -e "  ${YELLOW}${BOLD}Please check the ethernet cable and network connection.${NC}"
+      echo -e "  Press ${BOLD}Enter${NC} to retry, or type ${BOLD}s${NC} + Enter to skip and mark as FAIL:"
+      read -r _ans < /dev/tty
+      if [[ "${_ans,,}" == "s" ]]; then
+        err "Operator skipped — internet marked as FAIL"
+        break
+      fi
+      (( _retry++ ))
+      echo -e "  Retrying..."
+      if _inet_check "$ETH_DEV"; then
+        INTERNET_STATUS="PASS"
+        ok "Internet reachable via $ETH_DEV (passed on attempt ${_retry})"
+        break
+      fi
+    done
+  fi
+else
+  warn "No ethernet device — skipping internet connectivity test"
+fi
+
+# ============================================================
+# 11. USB PORTS
+# ============================================================
+banner "11. USB Ports"
+USB_DEVICE_COUNT=$(lsusb 2>/dev/null | wc -l)
+USB3_COUNT=$(lsusb 2>/dev/null | grep -ciE "3\.0|3\.1|3\.2")
+ok "USB devices detected: ${USB_DEVICE_COUNT} | USB 3.x controllers: ${USB3_COUNT}"
+
+PORTS_PHYSICAL=$(ask_manual "Physical port condition (USB/HDMI/audio)" "Check for bent pins or physical damage")
+
+# ============================================================
+# 12. APPEARANCE
+# ============================================================
+banner "12. Appearance"
+APPEARANCE_CHECK=$(ask_manual "Appearance (hinge & exterior)" "Open/close lid for hinge check, inspect all sides for scratches/damage")
+HINGE=$APPEARANCE_CHECK
+APPEARANCE=$APPEARANCE_CHECK
+
+# ============================================================
+# 13. KERNEL HEALTH SCAN
+# ============================================================
+banner "13. Kernel Health Scan"
+echo "  Scanning dmesg for hardware error signals..."
+
+# Driver noise to ignore — these are driver bugs, not hardware failures
+# igen6_edac "HANDLING IBECC MEMORY ERROR" at boot: known kernel driver bug on
+# Intel client SoCs with IBECC — ECC_ERROR_LOG register reads back invalid ~0
+# and the driver misreports it as a correctable error. Fires every boot on
+# affected chipsets regardless of actual memory health; upstream fix not yet
+# in most Live USB kernels. Not a real hardware signal — always ignore.
+KH_IGNORE='nouveau|nvkm_|g84_bar_flush|gp102_acr_wpr_patch|ov[0-9]+.*probe.*failed|DMAR.*Passthrough|Bluetooth: hci.*command.*tx timeout|i915.*GPU HANG|WARNING: CPU.*at drivers/|Call Trace:| \? |RIP:|RSP:| Code:|Modules linked in:|end trace|Tainted:|irq/.*pciehp|rewind_stack_and_make_dead|EDAC igen6 MC[0-9]+: HANDLING IBECC MEMORY ERROR'
+
+# Real hardware error signals — only uncorrectable / fatal conditions
+# EDAC CE (correctable) is intentionally excluded here; it goes to WARN below.
+KH_FAIL_RE='mce:|Machine Check|Hardware Error|EDAC.*(UE|[Uu]ncorrectable)|BadRAM|I/O error|Buffer I/O error|Medium Error|end_request: critical|ata[0-9]+: .*failed command|nvme.*IO timeout|blk_update_request: I/O error|critical medium error|AER:.*Uncorrected|AER:.*Fatal|PCIe Bus Error:.*severity=Fatal|thermal .*critical|Core temperature above threshold|Package temperature above threshold'
+
+# Warning signals — marginal or correctable hardware events, not conclusive failures.
+# EDAC HANDLING / CE = ECC correctable error (hardware already fixed the bit flip).
+KH_WARN_RE='EDAC.*(HANDLING|\bCE\b|[Cc]orrected)|device descriptor read/64, error -|device not accepting address|usb.*disabled by hub|ata[0-9]+.*SError|link is slow to respond'
+
+DMESG_FILTERED=$(dmesg 2>/dev/null | grep -vE "$KH_IGNORE")
+
+KH_FAIL_LINES=$(echo "$DMESG_FILTERED" | grep -iE "$KH_FAIL_RE" | head -10)
+KH_WARN_LINES=$(echo "$DMESG_FILTERED" | grep -iE "$KH_WARN_RE" | head -10)
+
+if [[ -n "$KH_FAIL_LINES" ]]; then
+  KH_FAIL_COUNT=$(echo "$KH_FAIL_LINES" | wc -l)
+else
+  KH_FAIL_COUNT=0
+fi
+if [[ -n "$KH_WARN_LINES" ]]; then
+  KH_WARN_COUNT=$(echo "$KH_WARN_LINES" | wc -l)
+else
+  KH_WARN_COUNT=0
+fi
+
+if [[ $KH_FAIL_COUNT -gt 0 ]]; then
+  # Kernel hardware-error signals are advisory only — flag as WARN, never FAIL,
+  # so they don't fail the overall result (many are transient driver/HW hiccups).
+  KERNEL_HEALTH="WARN"
+  warn "$KH_FAIL_COUNT hardware error signal(s) detected (review recommended, not an auto-fail):"
+  echo "$KH_FAIL_LINES" | while read -r l; do warn "  $l"; done
+  warn "This laptop reported kernel hardware errors — investigate before refurbish."
+elif [[ $KH_WARN_COUNT -gt 0 ]]; then
+  KERNEL_HEALTH="WARN"
+  warn "$KH_WARN_COUNT warning signal(s) detected (may indicate marginal hardware):"
+  echo "$KH_WARN_LINES" | while read -r l; do warn "  $l"; done
+else
+  KERNEL_HEALTH="PASS"
+  ok "No hardware error signals detected."
+fi
+
+# Build JSON array of matched signals (truncate each line to 120 chars)
+KH_SIGNALS_JSON="["
+kh_first=1
+while IFS= read -r l; do
+  [[ -z "$l" ]] && continue
+  trunc="${l:0:120}"
+  [[ $kh_first -eq 0 ]] && KH_SIGNALS_JSON+=","
+  KH_SIGNALS_JSON+="\"$(esc "$trunc")\""
+  kh_first=0
+done < <(printf "%s\n%s\n" "$KH_FAIL_LINES" "$KH_WARN_LINES" | grep -v '^$')
+KH_SIGNALS_JSON+="]"
+
+# ============================================================
+# 14. BIOS LOCK CHECK
+# ============================================================
+banner "14. BIOS Lock Check"
+# The kernel firmware-attributes class reports whether a BIOS password is set
+# WITHOUT needing the password. Match on the `role` field, NOT the directory
+# name: role is the kernel-standard key and is identical across vendors, while
+# the directory differs ("Setup Password" on HP hp-bioscfg vs "Admin" on Dell
+# dell-wmi-sysman / Lenovo think-lmi). One loop covers all three.
+#   role=bios-admin -> admin/setup password (unit can't be reconfigured = blocked)
+#   role=power-on   -> boot password
+# Vendors without a driver expose nothing -> stays "unsupported". Never collapse
+# unsupported into "no", or an undetectable model would silently look clean.
+BIOS_ADMIN_LOCKED="unknown"       # yes | no | unknown
+BIOS_LOCK_SOURCE="unsupported"    # auto | manual | unsupported
+BIOS_POWERON_LOCKED="unknown"
+BIOS_MARK_AUTO="no"               # yes -> "Bios Blocked" is auto-added to Mark
+
+for _d in /sys/class/firmware-attributes/*/authentication/*/; do
+  [[ -r "$_d/role" ]] || continue
+  _role=$(cat "$_d/role" 2>/dev/null)
+  _en=$(cat "$_d/is_enabled" 2>/dev/null)
+  case "$_role" in
+    bios-admin)
+      BIOS_LOCK_SOURCE="auto"
+      [[ "$BIOS_ADMIN_LOCKED" == "unknown" ]] && BIOS_ADMIN_LOCKED="no"
+      [[ "$_en" == "1" ]] && BIOS_ADMIN_LOCKED="yes" ;;
+    power-on)
+      [[ "$BIOS_POWERON_LOCKED" == "unknown" ]] && BIOS_POWERON_LOCKED="no"
+      [[ "$_en" == "1" ]] && BIOS_POWERON_LOCKED="yes" ;;
+  esac
+done
+
+if [[ "$BIOS_LOCK_SOURCE" == "auto" ]]; then
+  if [[ "$BIOS_ADMIN_LOCKED" == "yes" ]]; then
+    echo -e "  ${RED}${BOLD}*** BIOS IS LOCKED — admin/setup password is set ***${NC}"
+    echo -e "  ${RED}${BOLD}This unit cannot be reconfigured in BIOS.${NC}"
+    echo -e "  ${RED}'Bios Blocked' will be added to Mark automatically.${NC}"
+    BIOS_MARK_AUTO="yes"
+  else
+    ok "BIOS not locked (no admin password set)."
+  fi
+  [[ "$BIOS_POWERON_LOCKED" == "yes" ]] && warn "Power-on (boot) password is also set."
+else
+  # No vendor driver for this model — the operator must judge it.
+  warn "Cannot auto-detect BIOS lock on this model (no vendor firmware-attributes driver)."
+  while :; do
+    read -rp "$(echo -e "  ${BOLD}Is the BIOS locked? [y=yes / n=no / u=unknown]: ${NC}")" _bl </dev/tty
+    _bl=$(echo "$_bl" | xargs | tr '[:upper:]' '[:lower:]')
+    case "$_bl" in
+      y) BIOS_ADMIN_LOCKED="yes"; BIOS_LOCK_SOURCE="manual"; BIOS_MARK_AUTO="yes"
+         warn "  Operator marked BIOS as LOCKED — 'Bios Blocked' will be added to Mark."
+         break ;;
+      n) BIOS_ADMIN_LOCKED="no";      BIOS_LOCK_SOURCE="manual"; break ;;
+      u) BIOS_ADMIN_LOCKED="unknown"; BIOS_LOCK_SOURCE="manual"; break ;;
+      *) warn "  Enter y, n, or u." ;;
+    esac
+  done
+fi
+
+# ============================================================
+# 15. MANUAL INPUT — Appearance & Grading
+# ============================================================
+# Operator-entered fields for CearTrack↔Cyclelution integration. These require
+# looking at the physical machine, so they must be captured here (not after the
+# fact on the web). Field names/format are a fixed contract with CearTrack.
+banner "15. Manual Input — Appearance & Grading"
+
+# (1) Weight — required positive number (lbs)
+WEIGHT_LBS=""
+while :; do
+  read -rp "$(echo -e "  ${BOLD}Enter weight in lbs (e.g. 4.5): ${NC}")" WEIGHT_LBS </dev/tty
+  WEIGHT_LBS=$(echo "$WEIGHT_LBS" | xargs)
+  [[ "$WEIGHT_LBS" =~ ^[0-9]+(\.[0-9]+)?$ ]] && (( $(echo "$WEIGHT_LBS > 0" | bc -l) )) && break
+  warn "  Weight must be a positive number (integer or decimal)."
+done
+
+# (2) Grade — required A/B/C/D
+GRADE=""
+while :; do
+  read -rp "$(echo -e "  ${BOLD}Enter Grade [A/B/C/D]: ${NC}")" GRADE </dev/tty
+  GRADE=$(echo "$GRADE" | xargs | tr '[:lower:]' '[:upper:]')
+  [[ "$GRADE" =~ ^[ABCD]$ ]] && break
+  warn "  Grade must be one of A, B, C, D."
+done
+
+# (3) Condition — 0-9 (maps to CycleLution C0-C9), default 4
+CONDITION_LABELS=("Not categorized" "Damaged" "Used Poor" "Used Fair" "Used Good" \
+                  "Used Very Good" "Used Excellent" "Certified Pre-Owned" "Unused" "New Open box")
+echo -e "  ${BOLD}Condition codes:${NC}"
+for _i in 0 1 2 3 4 5 6 7 8 9; do
+  printf "    %d) C%d - %s\n" "$_i" "$_i" "${CONDITION_LABELS[$_i]}"
+done
+CONDITION=""
+while :; do
+  read -rp "$(echo -e "  ${BOLD}Enter Condition [0-9, Enter=4 (C4-Used Good)]: ${NC}")" CONDITION </dev/tty
+  CONDITION=$(echo "$CONDITION" | xargs)
+  [[ -z "$CONDITION" ]] && { CONDITION="4"; break; }
+  [[ "$CONDITION" =~ ^[0-9]$ ]] && break
+  warn "  Condition must be a single digit 0-9 (or Enter for 4)."
+done
+
+# (4) Color — numbered pick from the CycleLution color list (avoids typos), s=skip
+COLOR_OPTIONS=(Black Blue Gold Gray Green Purple Red Silver White Yellow)
+echo -e "  ${BOLD}Color options:${NC}"
+_i=1
+for _opt in "${COLOR_OPTIONS[@]}"; do
+  printf "    %2d) %s\n" "$_i" "$_opt"
+  _i=$((_i + 1))
+done
+COLOR=""
+while :; do
+  read -rp "$(echo -e "  ${BOLD}Select color number [1-${#COLOR_OPTIONS[@]}, s=skip]: ${NC}")" _c </dev/tty
+  _c=$(echo "$_c" | xargs)
+  [[ -z "$_c" || "$_c" =~ ^[sS]$ ]] && { COLOR=""; break; }
+  if [[ "$_c" =~ ^[0-9]+$ ]] && (( _c >= 1 && _c <= ${#COLOR_OPTIONS[@]} )); then
+    COLOR="${COLOR_OPTIONS[$((_c - 1))]}"; break
+  fi
+  warn "  Enter a list number 1-${#COLOR_OPTIONS[@]}, or s to skip."
+done
+
+# (5) Size — screen diagonal (inch). Must be a value from the CycleLution list
+# (laptop range 10-17.3 inch). EDID max-image-size (bytes 0x15/0x16, in cm) is an
+# advisory auto-detect — only moderately reliable on laptop panels — so it is
+# offered as the Enter-default only when it exactly matches a list value.
+SIZE_OPTIONS=(10 10.2 10.5 10.9 11 11.6 12 12.3 12.5 13 13.3 13.5 14 15 15.6 16 16.4 17 17.1 17.3)
+_edid_size=""
+for _edid in /sys/class/drm/*eDP*/edid /sys/class/drm/*LVDS*/edid; do
+  [[ -s "$_edid" ]] || continue
+  _edid_size=$(python3 - "$_edid" <<'EDID_EOF' 2>/dev/null
+import sys, math
+try:
+    data = open(sys.argv[1], 'rb').read()
+    w_cm = data[0x15]; h_cm = data[0x16]     # horizontal/vertical image size in cm
+    if w_cm > 0 and h_cm > 0:
+        print(round(math.hypot(w_cm, h_cm) / 2.54, 1))
+except Exception:
+    pass
+EDID_EOF
+)
+  [[ -n "$_edid_size" ]] && break
+done
+# Only use EDID as the Enter-default if it exactly matches an allowed list value.
+_size_default=""
+if [[ -n "$_edid_size" ]]; then
+  for _opt in "${SIZE_OPTIONS[@]}"; do
+    [[ "$_opt" == "$_edid_size" ]] && { _size_default="$_edid_size"; break; }
+  done
+fi
+echo -e "  ${BOLD}Screen size options (inch):${NC}"
+_i=1
+for _opt in "${SIZE_OPTIONS[@]}"; do
+  printf "    %2d) %s inch\n" "$_i" "$_opt"
+  _i=$((_i + 1))
+done
+if [[ -n "$_edid_size" ]]; then
+  if [[ -n "$_size_default" ]]; then
+    ok "  EDID detected ${_edid_size} inch — press Enter to accept, or pick a number."
+  else
+    warn "  EDID detected ~${_edid_size} inch (not in list) — pick the closest number."
+  fi
+fi
+SCREEN_SIZE_INCH=""
+while :; do
+  _prompt="  Select size number [1-${#SIZE_OPTIONS[@]}"
+  [[ -n "$_size_default" ]] && _prompt+=", Enter=${_size_default}"
+  _prompt+=", s=skip]: "
+  read -rp "$(echo -e "  ${BOLD}${_prompt}${NC}")" _sz </dev/tty
+  _sz=$(echo "$_sz" | xargs)
+  if [[ -z "$_sz" ]]; then
+    [[ -n "$_size_default" ]] && { SCREEN_SIZE_INCH="$_size_default"; break; }
+    warn "  Pick a number 1-${#SIZE_OPTIONS[@]}, or s to skip."
+    continue
+  fi
+  [[ "$_sz" =~ ^[sS]$ ]] && { SCREEN_SIZE_INCH=""; break; }
+  if [[ "$_sz" =~ ^[0-9]+$ ]] && (( _sz >= 1 && _sz <= ${#SIZE_OPTIONS[@]} )); then
+    SCREEN_SIZE_INCH="${SIZE_OPTIONS[$((_sz - 1))]}"; break
+  fi
+  warn "  Enter a list number 1-${#SIZE_OPTIONS[@]}, or s to skip."
+done
+
+# (6) Mark — numbered menu + custom text + multi-select + skip
+MARK_OPTIONS=(
+  "Minor scratches/blemishes"
+  "Scratches on lid"
+  "Dent on corner"
+  "Worn keyboard/palmrest"
+  "Screen blemish"
+  "Bios Blocked"
+)
+
+echo -e "  ${BOLD}Mark [Enter=none]:${NC}"
+_i=1
+for _opt in "${MARK_OPTIONS[@]}"; do
+  printf "    %d) %s\n" "$_i" "$_opt"
+  _i=$((_i + 1))
+done
+echo "    0) Type custom text"
+
+MARK=""
+while :; do
+  read -rp "$(echo -e "  ${BOLD}Select (multiple with comma, e.g. 1,3,5 or 0) [Enter=none]: ${NC}")" _input </dev/tty
+  _input=$(echo "$_input" | xargs)
+
+  if [[ -z "$_input" ]]; then
+    MARK=""
+    break
+  fi
+
+  # 处理输入
+  IFS=',' read -ra selections <<< "$_input"
+  temp_marks=()
+
+  for sel in "${selections[@]}"; do
+    sel=$(echo "$sel" | xargs)  # 清理空格
+    if [[ "$sel" == "0" ]]; then
+      read -rp "$(echo -e "  ${BOLD}Enter custom mark text: ${NC}")" custom </dev/tty
+      custom=$(echo "$custom" | xargs)
+      if [[ -n "$custom" ]]; then
+        temp_marks+=("$custom")
+      fi
+    elif [[ "$sel" =~ ^[0-9]+$ ]] && (( sel >= 1 && sel <= ${#MARK_OPTIONS[@]} )); then
+      temp_marks+=("${MARK_OPTIONS[$((sel - 1))]}")
+    else
+      warn "  Invalid choice: $sel (ignored)"
+    fi
+  done
+
+  if [[ ${#temp_marks[@]} -gt 0 ]]; then
+    # 用 ; 连接多个描述
+    MARK=$(IFS=';'; echo "${temp_marks[*]}")
+    break
+  else
+    warn "  No valid selection. Please try again or press Enter to skip."
+  fi
+done
+
+# A locked BIOS (auto-detected or operator-confirmed) always gets marked, on top
+# of whatever the operator picked — don't rely on them remembering it.
+if [[ "$BIOS_MARK_AUTO" == "yes" && "$MARK" != *"Bios Blocked"* ]]; then
+  MARK="Bios Blocked${MARK:+;$MARK}"
+  warn "  Auto-added 'Bios Blocked' to Mark (BIOS admin password detected)."
+fi
+
+echo -e "  Selected Mark: ${MARK:-<none>}"
+
+# (7) CD/DVD Drive — fully automatic, no operator input
+if lsblk -dno TYPE 2>/dev/null | grep -qi "rom" || ls /dev/sr* >/dev/null 2>&1; then
+  CDDVD_PRESENT="Yes"
+else
+  CDDVD_PRESENT="No"
+fi
+ok "CD/DVD drive: $CDDVD_PRESENT (auto-detected)"
+
+# Derived full-label strings for the JSON report (match CycleLution dropdowns):
+#   grade "B"          -> "Grade B"
+#   condition "4"      -> "C4 - Used Good"
+#   screen_size "14"   -> "14 inch"   (empty stays empty when skipped)
+GRADE_FULL="Grade $GRADE"
+CONDITION_FULL="C${CONDITION} - ${CONDITION_LABELS[$CONDITION]}"
+if [[ -n "$SCREEN_SIZE_INCH" ]]; then
+  SCREEN_SIZE_FULL="${SCREEN_SIZE_INCH} inch"
+else
+  SCREEN_SIZE_FULL=""
+fi
+
+# ============================================================
+# BUILD JSON REPORT
+# ============================================================
+banner "Generating Report"
+
+WIFI_STATUS=$([[ -n "$WIFI_DEV" ]] && echo "PASS" || echo "FAIL")
+# ETH_STATUS is set during the ethernet link check (PASS = link up, FAIL = marked bad).
+
+
+JSON=$(cat <<EOF
+{
+  "test_info": {
+    "test_time": "$(esc "$TEST_TIME")",
+    "hostname": "$(esc "$HOSTNAME")",
+    "operator_id": "$(esc "$OPERATOR_ID")",
+    "duration_seconds": ${TEST_ELAPSED:-0},
+    "script_version": "$(esc "$SCRIPT_VERSION")"
+  },
+  "system": {
+    "vendor": "$(esc "$SYS_VENDOR")",
+    "model": "$(esc "$SYS_MODEL")",
+    "serial_number": "$(esc "$SYS_SERIAL")",
+    "bios_version": "$(esc "$BIOS_VER")"
+  },
+  "bios": {
+    "admin_password_locked": "$(esc "$BIOS_ADMIN_LOCKED")",
+    "poweron_password_locked": "$(esc "$BIOS_POWERON_LOCKED")",
+    "lock_detection": "$(esc "$BIOS_LOCK_SOURCE")"
+  },
+  "cpu": {
+    "model": "$(esc "$CPU_MODEL")",
+    "cores": ${CPU_CORES:-0},
+    "threads": ${CPU_THREADS:-0},
+    "max_mhz": "${CPU_MAX_MHZ:-0}",
+    "architecture": "$(esc "$CPU_ARCH")"
+  },
+  "memory": {
+    "total_gb": "$(esc "$MEM_TOTAL_GB")",
+    "physical_gb": "$(esc "${MEM_PHYS_GB:-0}")",
+    "status": "$(esc "$MEM_STATUS")",
+    "type": "$(esc "${MEM_TYPE:-unknown}")",
+    "speed": "$(esc "${MEM_SPEED:-unknown}")",
+    "slots_total": ${MEM_SLOTS:-0},
+    "slots_used": ${MEM_USED_SLOTS:-0}
+  },
+  "storage": ${DISK_JSON},
+  "battery": ${BAT_JSON},
+  "screen": {
+    "resolution": "$(esc "${SCREEN_RES:-unknown}")",
+    "interface": "$(esc "${SCREEN_NAME:-unknown}")",
+    "dead_pixel_check": "$(esc "$SCREEN_DEADPIXEL")",
+    "backlight_check": "$(esc "$SCREEN_BACKLIGHT")",
+    "touchscreen_present": "$(esc "$TOUCHSCREEN_PRESENT")",
+    "touchscreen_check": "$(esc "$TOUCHSCREEN_RESULT")"
+  },
+  "camera": {
+    "device_status": "$(esc "$CAM_STATUS")",
+    "device_count": ${CAM_COUNT:-0},
+    "driver_type": "$(esc "$CAM_DRIVER_TYPE")",
+    "capture_method": "$(esc "$CAM_CAPTURE_METHOD")",
+    "capture_result": "$(esc "$CAM_IMAGE_RESULT")",
+    "driver_note": "$(esc "$CAM_DRIVER_NOTE")",
+    "image_base64": "$(esc "$CAM_IMAGE_B64")",
+    "cameras": [${CAMERAS_JSON}]
+  },
+  "audio": {
+    "speaker_device_status": "$(esc "${AUDIO_CARDS:-0}")",
+    "mic_device_status": "$(esc "${MIC_CARDS:-0}")",
+    "speaker_quality_check": "$(esc "$SPEAKER_QUALITY_CHECK")",
+    "mic_record_check": "$(esc "$MIC_RECORD_CHECK")",
+    "speaker_card_used": "$(esc "${AUDIO_CARD_USED:-}")",
+    "mic_card_used": "$(esc "${MIC_CARD_USED:-}")"
+  },
+  "keyboard": {
+    "device_status": "$(esc "${KB_DEVICES:-0}")",
+    "keys_check": "$(esc "$KB_KEYS_CHECK")",
+    "touchpad_check": "$(esc "$TOUCHPAD")",
+    "touchpad_note": "$(esc "$TOUCHPAD_NOTE")"
+  },
+  "network": {
+    "wifi_status": "$(esc "$WIFI_STATUS")",
+    "wifi_device": "$(esc "${WIFI_DEV:-none}")",
+    "wifi_fail_reason": "$(esc "${WIFI_FAIL_REASON:-}")",
+    "ethernet_status": "$(esc "$ETH_STATUS")",
+    "ethernet_device": "$(esc "${ETH_DEV:-none}")",
+    "internet_test": "__INTERNET_TEST__",
+    "internet_test_via": "__INTERNET_VIA__"
+  },
+  "ports": {
+    "usb_device_count": ${USB_DEVICE_COUNT:-0},
+    "usb3_count": ${USB3_COUNT:-0},
+    "physical_check": "$(esc "$PORTS_PHYSICAL")"
+  },
+  "appearance": {
+    "hinge_check": "$(esc "$HINGE")",
+    "scratch_check": "$(esc "$APPEARANCE")"
+  },
+  "kernel_health": {
+    "status": "$(esc "$KERNEL_HEALTH")",
+    "fail_count": ${KH_FAIL_COUNT:-0},
+    "warn_count": ${KH_WARN_COUNT:-0},
+    "matched_signals": ${KH_SIGNALS_JSON}
+  },
+  "manual_input": {
+    "weight_lbs": "$(esc "$WEIGHT_LBS")",
+    "grade": "$(esc "$GRADE_FULL")",
+    "condition": "$(esc "$CONDITION_FULL")",
+    "color": "$(esc "$COLOR")",
+    "screen_size_inch": "$(esc "$SCREEN_SIZE_FULL")",
+    "mark": "$(esc "$MARK")",
+    "cddvd_present": "$(esc "$CDDVD_PRESENT")"
+  },
+  "overall_result": "PENDING"
+}
+EOF
+)
+
+# Determine overall result directly from status variables — more reliable
+# than grepping the JSON string (avoids encoding / quoting edge cases).
+#
+# FAIL policy: ONLY the four critical sub-tests below can fail the whole device
+# (screen, keyboard, touchpad, internet). A FAIL anywhere else (storage, battery,
+# camera, audio, ports, appearance, kernel health, …) is NOT a device failure —
+# it only downgrades the result to WARN for operator review.
+OVERALL="PASS"
+
+# --- Critical sub-tests: a FAIL here fails the whole device ---
+# ETH_STATUS is critical: no wired link = invalid test (report can't upload).
+for _s in "$SCREEN_CHECK" "$KB_KEYS_CHECK" "$TOUCHPAD_RESULT" "$INTERNET_STATUS" "$ETH_STATUS"; do
+  if [[ "$_s" == "FAIL" ]]; then
+    OVERALL="FAIL"
+    break
+  fi
+done
+
+# --- Everything else: a FAIL/WARN here only downgrades to WARN, never FAIL ---
+if [[ "$OVERALL" != "FAIL" ]]; then
+  for _s in "$SCREEN_CHECK" "$KB_KEYS_CHECK" "$TOUCHPAD_RESULT" "$INTERNET_STATUS" \
+            "$DISK_STATUS" "$BAT_STATUS" "$CAM_STATUS" "$MEM_STATUS" \
+            "$SPEAKER_QUALITY_RESULT" "$MIC_RECORD_RESULT" "$TOUCHSCREEN_RESULT" \
+            "$PORTS_PHYSICAL" "$HINGE" "$APPEARANCE" "$KERNEL_HEALTH"; do
+    if [[ "$_s" == "FAIL" || "$_s" == "WARN" || "$_s" == "WARNING" ]]; then
+      OVERALL="WARN"
+      break
+    fi
+  done
+fi
+JSON=$(echo "$JSON" | sed 's/"PENDING"/"'"$OVERALL"'"/')
+# Replace internet placeholders after OVERALL is computed so internet FAIL doesn't affect overall_result
+JSON=$(echo "$JSON" | sed "s/__INTERNET_TEST__/$INTERNET_STATUS/; s/__INTERNET_VIA__/$INTERNET_VIA/")
+
+if command -v jq &>/dev/null; then
+  if echo "$JSON" | jq . &>/dev/null; then
+    echo "$JSON" | jq . > "$REPORT_FILE"
+    ok "Report saved (validated): $REPORT_FILE"
+  else
+    echo "$JSON" > "$REPORT_FILE"
+    err "JSON validation failed — saved raw version."
+  fi
+else
+  echo "$JSON" > "$REPORT_FILE"
+  ok "Report saved: $REPORT_FILE"
+fi
+
+# ============================================================
+# UPLOAD REPORT
+# ============================================================
+banner "Uploading Report"
+HTTP_CODE=$(curl -s -o /tmp/upload_response.txt -w "%{http_code}" \
+  -X POST "$UPLOAD_URL" \
+  -H "Content-Type: application/json" \
+  -d @"$REPORT_FILE" \
+  --connect-timeout 10 --max-time 30)
+
+if [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "201" ]]; then
+  ok "Upload successful (HTTP $HTTP_CODE)"
+else
+  err "Upload failed (HTTP ${HTTP_CODE:-no response})"
+  warn "Report kept locally: $REPORT_FILE"
+fi
+
+# ── Stop test timer ───────────────────────────────────────────
+TEST_ELAPSED=$(( SECONDS - TEST_TIMER_START ))
+TEST_ELAPSED_MIN=$(( TEST_ELAPSED / 60 ))
+TEST_ELAPSED_SEC=$(( TEST_ELAPSED % 60 ))
+TEST_DURATION_STR=$(printf "%dm %02ds" "$TEST_ELAPSED_MIN" "$TEST_ELAPSED_SEC")
+
+# ============================================================
+# TEST SUMMARY
+# ============================================================
+banner "TEST SUMMARY"
+echo ""
+printf "  %-20s %s\n" "Operator:"         "$OPERATOR_ID"
+printf "  %-20s %s\n" "Test Duration:"    "$TEST_DURATION_STR"
+printf "  %-20s %s\n" "Vendor/Model:"     "$SYS_VENDOR $SYS_MODEL"
+printf "  %-20s %s\n" "Serial:"           "$SYS_SERIAL"
+printf "  %-20s %s\n" "CPU:"              "$CPU_MODEL"
+if [[ "$BIOS_ADMIN_LOCKED" == "yes" ]]; then
+  printf "  ${RED}%-20s %s${NC}\n" "BIOS:" "LOCKED — admin password set (${BIOS_LOCK_SOURCE}) → Bios Blocked"
+elif [[ "$BIOS_ADMIN_LOCKED" == "unknown" ]]; then
+  printf "  ${YELLOW}%-20s %s${NC}\n" "BIOS:" "UNKNOWN — not auto-detectable on this model"
+else
+  printf "  %-20s %s\n" "BIOS:" "Not locked (${BIOS_LOCK_SOURCE})"
+fi
+if [[ "$MEM_STATUS" == "FAIL" ]]; then
+  printf "  ${RED}%-20s %s${NC}\n" "Memory:" "⚠ OS ${MEM_TOTAL_GB} GB vs installed ${MEM_PHYS_GB} GB — reseat RAM & re-test"
+else
+  printf "  %-20s %s\n" "Memory:"           "${MEM_TOTAL_GB} GB"
+fi
+if [[ -n "$DISK_FAIL_REASON" ]]; then
+  case "$DISK_FAIL_REASON" in
+    DISK_PRESENT_BUT_HIDDEN)
+      printf "  ${RED}%-20s %s${NC}\n" "Storage:" "⚠ DISK PRESENT BUT HIDDEN — fix BIOS SATA → AHCI, then re-test" ;;
+    NO_DISK_CONFIRMED)
+      printf "  ${YELLOW}%-20s %s${NC}\n" "Storage:" "No disk installed (confirmed by operator)" ;;
+    DELL_RAID_MODE)
+      printf "  ${YELLOW}%-20s %s${NC}\n" "Storage:" "⚠ NONE DETECTED — Dell RAID mode? Set BIOS SATA → AHCI" ;;
+    *)
+      printf "  ${YELLOW}%-20s %s${NC}\n" "Storage:" "⚠ NONE DETECTED — check BIOS SATA mode (AHCI)" ;;
+  esac
+fi
+if [[ "$BAT_JSON" == *'"status":"NOT_FOUND"'* ]]; then
+  printf "  ${YELLOW}%-20s %s${NC}\n" "Battery:" "NOT FOUND — no battery installed"
+elif [[ "$BAT_STATUS" == "WARNING" ]]; then
+  printf "  ${YELLOW}%-20s %s${NC}\n" "Battery:" "WARNING ${BAT_HEALTH}% — ⚠ Mark note in Cyclelution"
+else
+  printf "  %-20s %s\n" "Battery:" "${BAT_STATUS} | Health: ${BAT_HEALTH}% | Cycles: ${BAT_CYCLE:-?}"
+fi
+printf "  %-20s %s\n" "Screen:"           "Dead pixel: $SCREEN_DEADPIXEL | Backlight: $SCREEN_BACKLIGHT"
+if [[ "$CAM_DRIVER_NOTE" == "secure_boot_blocks_imgu" ]]; then
+  printf "  %-20s %s\n" "Camera:"         "NOT TESTED — Secure Boot ON blocks camera driver; disable it in UEFI and re-run"
+elif [[ "$CAM_STATUS" == "HARDWARE_DETECTED" ]]; then
+  printf "  %-20s %s\n" "Camera:"         "HARDWARE DETECTED — verify in CearTrack"
+elif (( ${#REAL_CAMS[@]} > 1 )); then
+  printf "  %-20s %s\n" "Camera:"         "$CAM_STATUS | $CAM_IMAGE_RESULT (${#REAL_CAMS[@]} cameras)"
+  for _i in "${!REAL_CAMS[@]}"; do
+    _ir=""; [[ "${REAL_CAM_IR[$_i]}" == "Yes" ]] && _ir=", IR"
+    printf "  %-20s %s\n" "" "Camera $((_i+1)) (${REAL_CAMS[$_i]}, ${REAL_CAM_NAMES[$_i]}${_ir}): ${REAL_CAM_RES[$_i]:-?}"
+  done
+elif [[ "$CAM_IMAGE_RESULT" == "CAPTURED" ]]; then
+  printf "  %-20s %s\n" "Camera:"         "PASS — image uploaded to CearTrack"
+else
+  printf "  %-20s %s\n" "Camera:"         "$CAM_STATUS | $CAM_IMAGE_RESULT"
+fi
+printf "  %-20s %s\n" "Speaker:"          "Quality: $SPEAKER_QUALITY_CHECK"
+printf "  %-20s %s\n" "Microphone:"       "Record: $MIC_RECORD_CHECK"
+printf "  %-20s %s\n" "Keyboard:"         "Keys: $KB_KEYS_CHECK | Touchpad: $TOUCHPAD${TOUCHPAD_NOTE:+ (not detected in Linux — BIOS check)}"
+printf "  %-20s %s\n" "Touchscreen:"      "${TOUCHSCREEN_RESULT:-N/A} (present: ${TOUCHSCREEN_PRESENT:-No})"
+if [[ -n "$WIFI_DEV" ]]; then
+  printf "  %-20s %s\n" "WiFi:"           "PASS ($WIFI_DEV)"
+elif [[ "$WIFI_FAIL_REASON" == "RF_INIT_FAILED" ]]; then
+  printf "  ${RED}%-20s %s${NC}\n" "WiFi:" "FAIL — RF init hang; COLD power cycle & re-test (replace card if it repeats)"
+else
+  printf "  ${YELLOW}%-20s %s${NC}\n" "WiFi:" "FAIL — ${WIFI_FAIL_REASON:-unknown}"
+fi
+printf "  %-20s %s\n" "Internet:"         "$INTERNET_STATUS (via $INTERNET_VIA)"
+printf "  %-20s %s\n" "Ports:"            "$PORTS_PHYSICAL"
+printf "  %-20s %s\n" "Appearance:"       "Hinge: $HINGE | Scratches: $APPEARANCE"
+if [[ "$KERNEL_HEALTH" == "WARN" ]]; then
+  printf "  %-20s %s\n" "Kernel Health:"  "WARN ($((KH_FAIL_COUNT + KH_WARN_COUNT)) signals — see report)"
+else
+  printf "  %-20s %s\n" "Kernel Health:"  "PASS"
+fi
+printf "  %-20s %s\n" "Grading:"          "Grade $GRADE | Cond $CONDITION | ${WEIGHT_LBS} lbs${COLOR:+ | $COLOR}${SCREEN_SIZE_INCH:+ | ${SCREEN_SIZE_INCH}\"}"
+printf "  %-20s %s\n" "CD/DVD:"           "$CDDVD_PRESENT${MARK:+  | Mark: $MARK}"
+echo ""
+
+if [[ "$OVERALL" == "PASS" ]]; then
+  echo -e "  ${GREEN}${BOLD}RESULT: ✓ PASS — Ready for resale${NC}"
+elif [[ "$OVERALL" == "WARN" ]]; then
+  echo -e "  ${YELLOW}${BOLD}RESULT: ⚠ WARNING — See report for details${NC}"
+else
+  echo -e "  ${RED}${BOLD}RESULT: ✗ FAIL — Needs repair${NC}"
+fi
+
+echo -e "\n  Report file: $REPORT_FILE"
+echo ""
+
+# ============================================================
+# SHUTDOWN PROMPT
+# ============================================================
+_shutdown_exit_code=0
+[[ "$OVERALL" == "FAIL" ]] && _shutdown_exit_code=1
+
+echo -e "  ${BOLD}Press  ENTER  →  shutdown now${NC}"
+echo -e "  ${BOLD}Press  Ctrl+C →  cancel shutdown${NC}"
+echo ""
+
+trap '
+    echo ""
+    echo -e "  ${YELLOW}Shutdown cancelled.  Run: sudo poweroff${NC}"
+    echo ""
+    trap - INT
+    exit '"$_shutdown_exit_code"'
+' INT
+
+read -r -s
+
+trap - INT
+
+echo -e "  ${BOLD}Shutting down...${NC}"
+sleep 1
+poweroff

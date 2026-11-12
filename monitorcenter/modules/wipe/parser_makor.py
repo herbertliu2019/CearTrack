@@ -140,7 +140,11 @@ def parse_makor_xml(xml_path: Path) -> dict | None:
     duration_min = _parse_duration(_find(root, "ErasureDuration", "Duration"))
 
     # ── Drive info ────────────────────────────────────────────────
-    drive_sn     = _find(root, "SerialNumber", "DriveSerial", "HddSerial", "Serial")
+    # SerialNumber_Alt first: for NVMe drives seen via SCSI translation (e.g.
+    # Surface "M.2 SAS SSD"), <SerialNumber> is truncated to 8 chars
+    # ("S3VDNY1M") while _Alt holds the full serial that Linux/laptop_test.sh
+    # reports ("S3VDNY1M304927") — the T-Laptop gate exact-matches on it.
+    drive_sn     = _find(root, "SerialNumber_Alt", "SerialNumber", "DriveSerial", "HddSerial", "Serial")
     manufacturer = _find(root, "Manufacturer", "DriveManufacturer", "HddManufacturer")
     drive_model  = _find(root, "Model", "DriveModel", "HddModel")
     capacity     = _find(root, "Capacity", "DriveCapacity", "Size")

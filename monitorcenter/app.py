@@ -225,6 +225,66 @@ def _search_mem_sqlite(sn: str) -> list[dict]:
         return []
 
 
+def _search_monitor_sqlite(sn: str) -> list[dict]:
+    """Search monitor SQLite DB by SN / traveler / model. Skips silently if DB not found."""
+    from pathlib import Path
+    from modules.monitor import db as monitor_db
+    db_path_str = app.config.get("MONITOR_DB_PATH")
+    if not db_path_str or not Path(db_path_str).exists():
+        return []
+    try:
+        results = []
+        for r in monitor_db.search(db_path_str, sn):
+            parts = [f"{r['manufacturer']} {r['model']}"]
+            if r.get("size"):
+                parts.append(r["size"])
+            parts.append(f"Dead pixels {r['dead_pixels']}")
+            if r.get("marks"):
+                parts.append(r["marks"])
+            results.append({
+                "module":         "monitor",
+                "sn":             r["serial_no"],
+                "system_sn":      r["serial_no"],
+                "timestamp":      r["tested_at"],
+                "overall_result": r["result"].upper(),
+                "summary":        " | ".join(parts),
+                "payload":        r,
+            })
+        return results
+    except Exception as e:
+        print(f"Monitor SQLite search error: {e}")
+        return []
+
+
+def _search_console_sqlite(sn: str) -> list[dict]:
+    """Search console SQLite DB by SN / traveler ID / HDD SN. Skips silently if DB not found."""
+    from pathlib import Path
+    from modules.console import db as console_db
+    db_path_str = app.config.get("CONSOLE_DB_PATH")
+    if not db_path_str or not Path(db_path_str).exists():
+        return []
+    try:
+        results = []
+        for r in console_db.search(db_path_str, sn):
+            parts = [f"{r['manufacturer']} {r['model']}", r["marks"]]
+            if r.get("superseded_by"):
+                parts.append("superseded")
+            results.append({
+                "module":         "console",
+                "module_label":   "Game Console",
+                "sn":             r["serial_no"],
+                "system_sn":      r["serial_no"],
+                "timestamp":      r["tested_at"],
+                "overall_result": r["result"].upper(),
+                "summary":        " | ".join(parts),
+                "payload":        {"id": r["id"], "traveler_id": r["traveler_id"], "marks": r["marks"]},
+            })
+        return results
+    except Exception as e:
+        print(f"Console SQLite search error: {e}")
+        return []
+
+
 @app.route("/api/search")
 def api_search():
     """Cross-module SN search — returns a flat list of envelopes.
@@ -251,6 +311,12 @@ def api_search():
 
     # Mem also uses SQLite — query separately
     results.extend(_search_mem_sqlite(sn))
+
+    # Monitor also uses SQLite — query separately
+    results.extend(_search_monitor_sqlite(sn))
+
+    # Console also uses SQLite — query separately
+    results.extend(_search_console_sqlite(sn))
 
     results.sort(key=lambda r: r.get("timestamp", ""), reverse=True)
     resp = jsonify(results)
@@ -335,10 +401,13 @@ def api_summary():
         if mp and Path(mp).exists():
             c = sqlite3.connect(mp, timeout=30.0)
             c.execute("PRAGMA busy_timeout=30000")
+            # Unique DIMM SNs (retests not double-counted), excluded reports skipped
+            mem_q = ("SELECT COUNT(DISTINCT module_sn) FROM mem_module_tests WHERE test_date BETWEEN ? AND ? "
+                     "AND report_uid IN (SELECT report_uid FROM mem_reports WHERE excluded = 0)")
             out["mem"] = {
-                "today": c.execute("SELECT COUNT(*) FROM mem_module_tests WHERE test_date=?", (str(today),)).fetchone()[0],
-                "week":  c.execute("SELECT COUNT(*) FROM mem_module_tests WHERE test_date BETWEEN ? AND ?", (str(week_start), str(week_end))).fetchone()[0],
-                "month": c.execute("SELECT COUNT(*) FROM mem_module_tests WHERE test_date BETWEEN ? AND ?", (str(month_start), str(month_end))).fetchone()[0],
+                "today": c.execute(mem_q, (str(today), str(today))).fetchone()[0],
+                "week":  c.execute(mem_q, (str(week_start), str(week_end))).fetchone()[0],
+                "month": c.execute(mem_q, (str(month_start), str(month_end))).fetchone()[0],
             }
             c.close()
         else:
@@ -368,6 +437,36 @@ def api_summary():
     except Exception:
         out["gpu"] = {"today": 0, "week": 0, "month": 0}
 
+    # ── Monitor (SQLite, unique SNs) ─────────────────────────────────
+    try:
+        from modules.monitor import db as monitor_db
+        mop = app.config.get("MONITOR_DB_PATH")
+        if mop and Path(mop).exists():
+            out["monitor"] = {
+                "today": monitor_db.count_unique_sn(mop, str(today), str(today)),
+                "week":  monitor_db.count_unique_sn(mop, str(week_start), str(week_end)),
+                "month": monitor_db.count_unique_sn(mop, str(month_start), str(month_end)),
+            }
+        else:
+            out["monitor"] = {"today": 0, "week": 0, "month": 0}
+    except Exception:
+        out["monitor"] = {"today": 0, "week": 0, "month": 0}
+
+    # ── Console (SQLite, unique SNs) ─────────────────────────────────
+    try:
+        from modules.console import db as console_db
+        cop = app.config.get("CONSOLE_DB_PATH")
+        if cop and Path(cop).exists():
+            out["console"] = {
+                "today": console_db.count_unique_sn(cop, str(today), str(today)),
+                "week":  console_db.count_unique_sn(cop, str(week_start), str(week_end)),
+                "month": console_db.count_unique_sn(cop, str(month_start), str(month_end)),
+            }
+        else:
+            out["console"] = {"today": 0, "week": 0, "month": 0}
+    except Exception:
+        out["console"] = {"today": 0, "week": 0, "month": 0}
+
     return jsonify(out)
 
 
@@ -386,6 +485,12 @@ register_cpu_module(app)
 
 from modules.mem.integration import register_mem_module
 register_mem_module(app)
+
+from modules.monitor.integration import register_monitor_module
+register_monitor_module(app)
+
+from modules.console.integration import register_console_module
+register_console_module(app)
 
 from cyclelution.integration import register_cyclelution_module
 register_cyclelution_module(app)

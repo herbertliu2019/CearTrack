@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Game Console Models — CEARTrack{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/console.css') }}">
+<div class="con-wide" x-data="{ operator: localStorage.getItem('con_operator') || '' }">
+  {% include "console/_nav.html" %}
+  {% if msg %}<div class="{{ 'con-warn' if msg == 'Saved' else 'con-err' }}">{{ msg }}</div>{% endif %}
+
+  <div style="display:grid;grid-template-columns:minmax(220px,300px) 1fr;gap:16px;align-items:start;">
+    <div class="con-sec">
+      <h3>Models</h3>
+      {% for m in models %}
+      <div style="padding:6px 0;{{ 'opacity:.5;' if not m.active }}">
+        <a href="/console/admin/models?id={{ m.id }}" style="color:{{ 'var(--accent)' if sel and sel.id == m.id else 'var(--text-primary)' }};text-decoration:none;">
+          {{ m.manufacturer }} {{ m.model }}</a>
+      </div>
+      {% endfor %}
+      <div style="margin-top:12px;"><a class="con-btn ghost" href="/console/admin/models" style="text-decoration:none;display:inline-flex;align-items:center;">+ New model</a></div>
+    </div>
+
+    <form method="post" action="/console/admin/models" class="con-sec">
+      <h3>{{ 'Edit ' ~ sel.model if sel else 'New model' }}</h3>
+      {% if sel %}<input type="hidden" name="model_id" value="{{ sel.id }}">{% endif %}
+      <input type="hidden" name="operator" :value="operator">
+      <div class="con-row">
+        <div><label class="con-lbl">Manufacturer</label><input type="text" name="manufacturer" value="{{ sel.manufacturer if sel else '' }}" required></div>
+        <div><label class="con-lbl">Model</label><input type="text" name="model" value="{{ sel.model if sel else '' }}" required></div>
+        <div><label class="con-lbl">Storage</label>
+          <select name="storage_kind">
+            {% for k in ['removable', 'fixed', 'none'] %}<option {{ 'selected' if sel and sel.storage_kind == k }}>{{ k }}</option>{% endfor %}
+          </select></div>
+      </div>
+      <div style="display:flex;gap:24px;margin:12px 0;">
+        <label><input type="checkbox" name="has_data" value="1" {{ 'checked' if not sel or sel.has_data }}> May hold user data</label>
+        <label><input type="checkbox" name="active" value="1" {{ 'checked' if not sel or sel.active }}> Active</label>
+      </div>
+
+      <table class="con-table">
+        <thead><tr><th>Use</th><th>Item</th><th>Type</th><th>Label override</th><th>Sort</th></tr></thead>
+        <tbody>
+        {% for it in check_items %}
+          {% set c = cfg.get(it.id) %}
+          <tr>
+            <td><input type="checkbox" name="use_{{ it.id }}" value="1" {{ 'checked' if c }}></td>
+            <td>{{ it.label }} <span style="color:var(--text-secondary);font-size:.8em;">{{ it.code }}</span></td>
+            <td><select name="type_{{ it.id }}">
+              {% for k in ['key', 'secondary'] %}<option {{ 'selected' if (c.type if c else it.default_type) == k }}>{{ k }}</option>{% endfor %}
+            </select></td>
+            <td><input type="text" name="label_{{ it.id }}" value="{{ c.label_override or '' if c else '' }}"></td>
+            <td><input type="text" name="sort_{{ it.id }}" value="{{ c.sort if c else 0 }}" style="width:70px;"></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <button class="con-btn" type="submit" style="margin-top:14px;">Save model</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

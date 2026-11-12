@@ -19,19 +19,23 @@ def _cfg() -> dict:
     return current_app.config["MEM_CFG"]
 
 
-def _period_range():
-    period = request.args.get("range", request.args.get("period", "week"))
+def _resolve_range(period: str, frm: str | None, to: str | None) -> tuple[str, str]:
     today = date.today()
     if period == "week":
         days_since_sunday = (today.weekday() + 1) % 7
-        start = str(today - timedelta(days=days_since_sunday))
-        end = str(today)
-    elif period == "month":
-        start = today.replace(day=1).isoformat()
-        end = str(today)
-    else:
-        start = request.args.get("from", request.args.get("start", str(today)))
-        end = request.args.get("to", request.args.get("end", str(today)))
+        return str(today - timedelta(days=days_since_sunday)), str(today)
+    if period == "month":
+        return today.replace(day=1).isoformat(), str(today)
+    return frm or str(today), to or str(today)
+
+
+def _period_range():
+    period = request.args.get("range", request.args.get("period", "week"))
+    start, end = _resolve_range(
+        period,
+        request.args.get("from", request.args.get("start")),
+        request.args.get("to", request.args.get("end")),
+    )
     return period, start, end
 
 
@@ -55,7 +59,6 @@ def api_summary():
         "by_capacity": db.by_capacity(db_path, start, end),
         "by_type": db.by_type(db_path, start, end),
         "by_vendor": db.by_vendor(db_path, start, end),
-        "top_part_numbers": db.top_part_numbers(db_path, start, end),
         "daily": db.daily_counts(db_path, start, end),
     })
 
@@ -71,6 +74,13 @@ def api_modules():
         page, per_page = 1, 50
 
     size_gb = request.args.get("size")
+    # "Last Tested" filter — independent of the dashboard Week/Month range; default all time
+    last = request.args.get("last", "all")
+    last_from = last_to = None
+    if last in ("week", "month") or (last == "custom" and request.args.get("last_from")
+                                     and request.args.get("last_to")):
+        last_from, last_to = _resolve_range(
+            last, request.args.get("last_from"), request.args.get("last_to"))
     rows, total = db.query_modules(
         _db_path(),
         status=request.args.get("status") or None,
@@ -79,6 +89,7 @@ def api_modules():
         mem_type=request.args.get("type") or None,
         vendor=request.args.get("vendor") or None,
         q=request.args.get("q") or None,
+        last_from=last_from, last_to=last_to,
         page=page, per_page=per_page,
     )
     return jsonify({"modules": rows, "total": total, "page": page, "per_page": per_page})

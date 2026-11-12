@@ -1,0 +1,12 @@
+<div class="marks-row" x-data="{ copied: false }">
+  <input type="text" readonly id="marks-text" value="{{ marks }}">
+  <button type="button" class="con-btn ghost"
+          @click="copied = window.copyMarks(); setTimeout(() => copied = false, 1500)"
+          x-text="copied ? 'Copied' : 'Copy'">Copy</button>
+  <span class="res-badge {{ result|lower }}"><i></i>{{ result }}</span>
+  {% if result == 'Fail' %}
+  <span class="ce-sticker" style="color:var(--fail);">Apply RED dot — keep separate</span>
+  {% else %}
+  <span class="ce-sticker" style="color:#3b82f6;">Apply BLUE dot</span>
+  {% endif %}
+</div>

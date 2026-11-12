@@ -1,4 +1,5 @@
 import re
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
 
@@ -9,6 +10,51 @@ def _search(pattern, text, group=1, flags=0):
         return None
     val = m.group(group).strip()
     return val if val else None
+
+
+def _full_sn_from_sysinfo(log_path: Path, text: str, short_sn: str | None) -> str | None:
+    """XERASwin truncates NVMe-behind-SCSI serials to 8 chars in the .log
+    ("S3VENY0K"); the companion sysinfo_<SYS>.xml (named on the
+    "System Info File" line) has <Storage><SerialNumber>S3VENY0K</...>
+    <SerialNumber_Alt>S3VENY0K123456</...>. Return the Alt serial of the
+    matching <Storage>, or None if not found / not readable."""
+    if not short_sn:
+        return None
+    name = _search(r"System Info File\s*:\s*(\S+\.xml)", text)
+    if not name:
+        return None
+    for d in (log_path.parent, log_path.parent.parent):
+        xml_path = d / name
+        try:
+            if not xml_path.is_file():
+                continue
+            root = ET.fromstring(xml_path.read_bytes())
+        except (OSError, ET.ParseError):
+            continue
+        cands = []
+        for st in root.iter("Storage"):
+            sn  = (st.findtext("SerialNumber") or "").strip()
+            alt = (st.findtext("SerialNumber_Alt") or "").strip()
+            if sn == short_sn and alt and alt != sn:
+                cands.append(st)
+        # Same-batch drives share the 8-char prefix — narrow by other drive
+        # fields the .log and XML both carry; never guess if still ambiguous.
+        for log_pat, xml_tag in (
+            (r"^\s{4}Max LBA\s*:\s*(\S+)",   "MaxLBA"),
+            (r"^\s{4}Capacity\s*:\s*(\S+)",  "Size"),
+            (r"^\s{4}Microcode\s*:\s*(\S+)", "Code"),
+        ):
+            if len(cands) <= 1:
+                break
+            log_val = _search(log_pat, text, flags=re.MULTILINE)
+            if not log_val:
+                continue
+            cands = [st for st in cands
+                     if (st.findtext(xml_tag) or "").strip().upper() == log_val.upper()]
+        if len(cands) == 1:
+            return cands[0].findtext("SerialNumber_Alt").strip()
+        return None
+    return None
 
 
 def parse_log(log_path: Path) -> dict | None:
@@ -76,8 +122,11 @@ def parse_log(log_path: Path) -> dict | None:
         except ValueError:
             return None
 
+    drive_sn = _search(r"^\s{4}Serial Number\s*:\s*(\S+)", text, flags=re.MULTILINE)
+    drive_sn = _full_sn_from_sysinfo(log_path, text, drive_sn) or drive_sn
+
     return {
-        "drive_sn":         _search(r"^\s{4}Serial Number\s*:\s*(\S+)", text, flags=re.MULTILINE),
+        "drive_sn":         drive_sn,
         "system_sn":        _search(r"System Serial Number\s*:\s*(\S+)", text),
         "wipe_date":        wipe_date,
         "wipe_datetime":    wipe_datetime,

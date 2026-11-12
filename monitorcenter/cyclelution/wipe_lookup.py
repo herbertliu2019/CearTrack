@@ -27,9 +27,15 @@ def _ro_connect(p: Path) -> sqlite3.Connection:
     locked" immediately instead of just waiting the moment it takes to clear.
     wipe_sync.py now issues far more reads against this file per scan than
     before (one query per drive_sn), which raised the odds of that collision
-    enough to matter in practice."""
-    conn = sqlite3.connect(f"file:{p.as_posix()}?mode=ro", uri=True, timeout=30.0)
+    enough to matter in practice.
+
+    Not `mode=ro`: wipe_index.db is in WAL mode, and a read-only URI
+    connection can't (re)create the -shm/-wal files the wipe scanner removes
+    on its last close — that race surfaces as "disk I/O error". A normal
+    connection with query_only=ON still refuses every write."""
+    conn = sqlite3.connect(str(p), timeout=30.0)
     conn.execute("PRAGMA busy_timeout=30000")
+    conn.execute("PRAGMA query_only=ON")
     return conn
 
 

@@ -1,0 +1,18 @@
+{% macro row(it) %}
+<div class="item-row">
+  <div class="item-name">{{ it.label }}</div>
+  <div class="seg">
+    <input type="radio" id="i{{ it.id }}p" name="item_{{ it.id }}" value="Pass" checked><label class="p" for="i{{ it.id }}p">Pass</label>
+    <input type="radio" id="i{{ it.id }}f" name="item_{{ it.id }}" value="Fail"><label class="f" for="i{{ it.id }}f">Fail</label>
+    <input type="radio" id="i{{ it.id }}n" name="item_{{ it.id }}" value="N/A"><label class="n" for="i{{ it.id }}n">N/A</label>
+  </div>
+</div>
+{% endmacro %}
+{% if not model %}
+<div style="color:var(--text-secondary);">Select a model to load check items.</div>
+{% else %}
+<div class="ce-grp">Key functions <span class="ce-sub">— a Fail makes the unit Fail</span></div>
+{% for it in items if it.type == 'key' %}{{ row(it) }}{% else %}<div style="color:var(--text-secondary);">None</div>{% endfor %}
+<div class="ce-grp">Secondary functions <span class="ce-sub">— a Fail is noted in Marks only</span></div>
+{% for it in items if it.type != 'key' %}{{ row(it) }}{% else %}<div style="color:var(--text-secondary);">None</div>{% endfor %}
+{% endif %}

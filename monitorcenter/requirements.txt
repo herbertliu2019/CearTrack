@@ -1,3 +1,4 @@
 Flask>=3.0.0
 PyYAML>=6.0        # cyclelution: mapping config (Phase 2 normalizer)
 openpyxl>=3.1      # cyclelution: Adjust-template xlsx export (Phase 3)
+Pillow>=10.0      # console: reset-photo resize (optional; raw save fallback)

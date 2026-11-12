@@ -42,6 +42,14 @@
 .subtabs .cnt { color:var(--text-secondary); font-weight:400; margin-left:4px; }
 
 .filters { display:flex; gap:8px; flex-wrap:wrap; padding:12px 0; }
+.pager { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; padding:12px 0 0; font-size:0.8em; color:var(--text-secondary); }
+.pager .pages { display:flex; gap:4px; flex-wrap:wrap; }
+.pager button { min-width:30px; padding:4px 9px; border-radius:5px; border:1px solid var(--border); background:transparent; color:var(--text-secondary); cursor:pointer; font-size:1em; }
+.pager button:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); }
+.pager button.active { border-color:var(--accent); color:var(--accent); background:rgba(0,210,255,0.08); font-weight:700; }
+.pager button:disabled { opacity:0.35; cursor:default; }
+.pager .gap { padding:4px 4px; }
+.pager select { background:var(--bg-secondary); border:1px solid var(--border); border-radius:5px; color:var(--text-primary); padding:3px 6px; font-size:1em; }
 .filters select, .filters input { background:var(--bg-secondary); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); padding:6px 10px; font-size:11.5px; outline:none; }
 
 /* ── Records table ───────────────────────────────────────────────────────── */
@@ -236,7 +244,7 @@
     <div class="kpi-strip" style="grid-template-columns:repeat(4,1fr) 1px 1.1fr;">
       <div class="kpi-card">
         <div class="kpi-value" x-text="stats.summary?.total?.toLocaleString() ?? '…'"></div>
-        <div class="kpi-label" x-text="periodLabel + ' DIMMs'"></div>
+        <div class="kpi-label">DIMMs Tested</div>
         <div class="kpi-sub" x-text="stats.start ? stats.start + ' – ' + stats.end : ''"></div>
       </div>
       <div class="kpi-card">
@@ -257,7 +265,8 @@
       <div style="background:rgba(0,210,255,0.2);border-radius:1px;margin:12px 0;"></div>
       <div class="kpi-card" style="background:rgba(0,210,255,0.10);border-right:3px solid var(--accent);">
         <div class="kpi-value" x-text="stats.total_all_time?.toLocaleString() ?? '…'"></div>
-        <div class="kpi-label">All Time</div>
+        <div class="kpi-label">Total DIMMs</div>
+        <div class="kpi-sub">all time</div>
       </div>
     </div>
 
@@ -301,21 +310,6 @@
             </div>
           </template>
         </div>
-      </div>
-    </div>
-
-    <!-- Top 15 Part Numbers -->
-    <div class="chart-panel" style="margin-bottom:18px;">
-      <div class="chart-title">Top 15 Part Numbers</div>
-      <template x-if="(stats.top_part_numbers ?? []).length === 0"><div style="color:var(--text-secondary);font-size:0.8em;">No data</div></template>
-      <div class="hbar-list">
-        <template x-for="item in (stats.top_part_numbers ?? [])" :key="item.part_number">
-          <div class="hbar-row">
-            <span class="hbar-label mono" :title="item.part_number" x-text="item.part_number"></span>
-            <div class="hbar-track"><div class="hbar-fill" :style="'width:' + pct(item.count, maxVal(stats.top_part_numbers,'count')) + '%;background:var(--accent)'"></div></div>
-            <span class="hbar-val" x-text="item.count"></span>
-          </div>
-        </template>
       </div>
     </div>
 
@@ -412,6 +406,18 @@
           </select>
           <input placeholder="Vendor" x-model="modFilters.vendor" @change="loadModules(1)" style="width:110px;">
           <input placeholder="Type (e.g. DDR4)" x-model="modFilters.type" @change="loadModules(1)" style="width:130px;">
+          <select x-model="modFilters.last" @change="modFilters.last !== 'custom' && loadModules(1)">
+            <option value="all">Last Tested: All time</option><option value="week">This Week</option>
+            <option value="month">This Month</option><option value="custom">Custom</option>
+          </select>
+          <template x-if="modFilters.last === 'custom'">
+            <span style="display:inline-flex;gap:6px;align-items:center;">
+              <input type="date" x-model="modFilters.lastFrom">
+              <span style="color:var(--text-secondary);">–</span>
+              <input type="date" x-model="modFilters.lastTo">
+              <button class="tab-btn2 active" @click="modFilters.lastFrom && modFilters.lastTo && loadModules(1)">Apply</button>
+            </span>
+          </template>
         </div>
         <template x-if="modules.length === 0"><div class="empty-state">No DIMMs recorded yet.</div></template>
         <template x-if="modules.length > 0">
@@ -443,10 +449,25 @@
             </table>
           </div>
         </template>
-        <div style="padding:10px 0;text-align:center;font-size:0.8em;color:var(--text-secondary);" x-show="modulesTotal > modules.length">
-          Showing <span x-text="modules.length"></span> of <span x-text="modulesTotal"></span>.
-          <a href="#" @click.prevent="loadModules(modulesPage+1)" style="color:var(--accent);">Load more →</a>
+        <div class="pager" x-show="modulesTotal > 0">
+          <span x-text="rangeLabel(modulesPage, modulesPerPage, modulesTotal)"></span>
+          <div class="pages">
+            <button :disabled="modulesPage <= 1" @click="loadModules(modulesPage-1)">‹ Prev</button>
+            <template x-for="(p, i) in pageList(modulesPage, pageCount(modulesTotal, modulesPerPage))" :key="'mp'+i">
+              <span>
+                <template x-if="p === '…'"><span class="gap">…</span></template>
+                <template x-if="p !== '…'"><button :class="{active: p === modulesPage}" @click="loadModules(p)" x-text="p"></button></template>
+              </span>
+            </template>
+            <button :disabled="modulesPage >= pageCount(modulesTotal, modulesPerPage)" @click="loadModules(modulesPage+1)">Next ›</button>
+          </div>
+          <label>Per page
+            <select x-model.number="modulesPerPage" @change="loadModules(1)">
+              <option>25</option><option>50</option><option>100</option>
+            </select>
+          </label>
         </div>
+        <div style="margin-top:6px;font-size:0.75em;color:var(--text-secondary);opacity:0.75;">not affected by the Week/Month range above — this is the full inventory</div>
       </div>
 
       <!-- REPORTS -->
@@ -477,9 +498,23 @@
             </table>
           </div>
         </template>
-        <div style="padding:10px 0;text-align:center;font-size:0.8em;color:var(--text-secondary);" x-show="reportsTotal > reports.length">
-          Showing <span x-text="reports.length"></span> of <span x-text="reportsTotal"></span>.
-          <a href="#" @click.prevent="loadReports(reportsPage+1)" style="color:var(--accent);">Load more →</a>
+        <div class="pager" x-show="reportsTotal > 0">
+          <span x-text="rangeLabel(reportsPage, reportsPerPage, reportsTotal)"></span>
+          <div class="pages">
+            <button :disabled="reportsPage <= 1" @click="loadReports(reportsPage-1)">‹ Prev</button>
+            <template x-for="(p, i) in pageList(reportsPage, pageCount(reportsTotal, reportsPerPage))" :key="'rp'+i">
+              <span>
+                <template x-if="p === '…'"><span class="gap">…</span></template>
+                <template x-if="p !== '…'"><button :class="{active: p === reportsPage}" @click="loadReports(p)" x-text="p"></button></template>
+              </span>
+            </template>
+            <button :disabled="reportsPage >= pageCount(reportsTotal, reportsPerPage)" @click="loadReports(reportsPage+1)">Next ›</button>
+          </div>
+          <label>Per page
+            <select x-model.number="reportsPerPage" @change="loadReports(1)">
+              <option>25</option><option>50</option><option>100</option>
+            </select>
+          </label>
         </div>
       </div>
 
@@ -527,11 +562,11 @@ function memApp() {
     customStart: '', customEnd: '',
     activeTab: 'dimms',
 
-    modules: [], modulesTotal: 0, modulesPage: 1,
-    modFilters: { status: '', ever_err: '', vendor: '', type: '' },
+    modules: [], modulesTotal: 0, modulesPage: 1, modulesPerPage: 25,
+    modFilters: { status: '', ever_err: '', vendor: '', type: '', last: 'all', lastFrom: '', lastTo: '' },
     expandedSn: null, moduleDetails: {},
 
-    reports: [], reportsTotal: 0, reportsPage: 1,
+    reports: [], reportsTotal: 0, reportsPage: 1, reportsPerPage: 25,
     expandedReportUid: null, reportDetails: {},
 
     searchQuery: '', searched: false,
@@ -543,9 +578,8 @@ function memApp() {
 
     async init() {
       await Promise.all([
-        this.loadStats('week'),
+        this.loadStats('week').then(() => this.loadReports(1)),
         this.loadModules(1),
-        this.loadReports(1),
         this.fetchParseIssues(),
         this.fetchPkgStats(),
       ]);
@@ -561,35 +595,65 @@ function memApp() {
       this.period = p;
       this.periodLabel = p === 'week' ? 'This Week' : p === 'month' ? 'This Month' : 'Custom';
       this.dailyOpenDate = null; this.dailyRecords = [];
-      if (p !== 'custom') await this.loadStats(p);
+      if (p !== 'custom') { await this.loadStats(p); await this.loadReports(1); }
     },
 
     async loadCustom() {
       if (!this.customStart || !this.customEnd) return;
       this.periodLabel = 'Custom';
       await this.loadStats('custom', this.customStart, this.customEnd);
+      await this.loadReports(1);
     },
 
     setTab(t) { this.activeTab = t; },
 
+    pageCount(total, perPage) { return Math.max(1, Math.ceil(total / perPage)); },
+
+    // 1 … 4 5 [6] 7 8 … 20
+    pageList(cur, last) {
+      if (last <= 9) return Array.from({ length: last }, (_, i) => i + 1);
+      const out = [1];
+      const lo = Math.max(2, cur - 2), hi = Math.min(last - 1, cur + 2);
+      if (lo > 2) out.push('…');
+      for (let i = lo; i <= hi; i++) out.push(i);
+      if (hi < last - 1) out.push('…');
+      out.push(last);
+      return out;
+    },
+
+    rangeLabel(page, perPage, total) {
+      const from = (page - 1) * perPage + 1, to = Math.min(page * perPage, total);
+      return `Showing ${from.toLocaleString()}–${to.toLocaleString()} of ${total.toLocaleString()}`;
+    },
+
     async loadModules(page) {
-      this.modulesPage = page;
-      const p = new URLSearchParams({ page, per_page: 50 });
+      const p = new URLSearchParams({ page, per_page: this.modulesPerPage });
       if (this.modFilters.status) p.set('status', this.modFilters.status);
       if (this.modFilters.ever_err) p.set('ever_err', this.modFilters.ever_err);
       if (this.modFilters.vendor) p.set('vendor', this.modFilters.vendor);
       if (this.modFilters.type) p.set('type', this.modFilters.type);
+      if (this.modFilters.last !== 'all') {
+        p.set('last', this.modFilters.last);
+        if (this.modFilters.last === 'custom') {
+          p.set('last_from', this.modFilters.lastFrom); p.set('last_to', this.modFilters.lastTo);
+        }
+      }
       const r = await fetch('/mem/api/modules?' + p.toString()).then(r => r.json());
-      this.modules = page === 1 ? r.modules : this.modules.concat(r.modules);
+      this.modulesPage = page;
+      this.modules = r.modules;
       this.modulesTotal = r.total;
+      this.expandedSn = null;
     },
 
     async loadReports(page) {
-      this.reportsPage = page;
-      const p = new URLSearchParams({ page, per_page: 50 });
+      const p = new URLSearchParams({ page, per_page: this.reportsPerPage });
+      // Follows the top Week/Month/Custom range (C3); out-of-range reports reachable via search
+      if (this.stats.start && this.stats.end) { p.set('from', this.stats.start); p.set('to', this.stats.end); }
       const r = await fetch('/mem/api/reports?' + p.toString()).then(r => r.json());
-      this.reports = page === 1 ? r.reports : this.reports.concat(r.reports);
+      this.reportsPage = page;
+      this.reports = r.reports;
       this.reportsTotal = r.total;
+      this.expandedReportUid = null;
     },
 
     async toggleModule(sn) {

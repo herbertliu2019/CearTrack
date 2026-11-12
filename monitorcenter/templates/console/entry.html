@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+{% block title %}Game Console Entry — CEARTrack{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/console.css') }}">
+<style>
+/* Entry page layout (inline so a stale console.css can't break it). A/B/C/D = SOP 8.6.2.3-OP sections. */
+.ce-wrap { max-width: 1320px; margin: 0 auto; padding-bottom: 8px; }
+.ce-idbar { display: grid; grid-template-columns: 1fr 1.1fr 1.2fr 1.6fr; gap: 12px; align-items: end; }
+.ce-idbar .con-lbl { margin-top: 0; }
+.ce-cols { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.ce-cols .con-sec { margin-bottom: 14px; }
+.ce-h { display: flex; align-items: center; gap: 10px; }
+.ce-step { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--accent); color: #0b1020; font-weight: 700; font-size: .85em; letter-spacing: 0; }
+.ce-h .ce-tools { margin-left: auto; }
+.ce-sub { color: var(--text-secondary); font-size: .78em; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.ce-wrap .item-row { padding: 6px 8px; border-radius: 6px; }
+.ce-wrap .item-row:has(input[value="Fail"]:checked) { background: rgba(231,76,60,.14); }
+.ce-wrap .item-row:has(input[value="N/A"]:checked) .item-name { color: var(--text-secondary); }
+.ce-wrap .seg label { min-width: 84px; min-height: 48px; font-weight: 600; }
+.ce-wrap .item-name { font-size: 1.05em; }
+.ce-grp { color: var(--text-secondary); font-size: .72em; text-transform: uppercase; letter-spacing: .08em; margin: 10px 0 4px; }
+.ce-grp:first-of-type { margin-top: 0; }
+.ce-footer { position: sticky; bottom: 0; z-index: 20; display: flex; gap: 14px; align-items: center;
+  background: var(--bg-card); border: 1px solid var(--border); border-top: 2px solid var(--accent);
+  border-radius: 10px; padding: 10px 14px; box-shadow: 0 -6px 18px rgba(0,0,0,.35); }
+.ce-footer #marks-box { flex: 1; min-width: 0; }
+.ce-footer .con-save { width: auto; min-width: 200px; min-height: 56px; }
+.ce-footer .marks-row { flex-wrap: nowrap; }
+.ce-footer .marks-row input { min-width: 0; }
+.ce-sticker { font-weight: 700; white-space: nowrap; }
+.ce-hint { color: var(--warn); font-size: .85em; margin-top: 6px; }
+@media (max-width: 1050px) {
+  .ce-idbar { grid-template-columns: 1fr 1fr; }
+  .ce-cols { grid-template-columns: 1fr; }
+  .ce-footer { flex-wrap: wrap; }
+  .ce-footer .marks-row { flex-wrap: wrap; }
+  .ce-footer .con-save { width: 100%; }
+}
+</style>
+<div class="con-wide ce-wrap" x-data="consoleEntry()" x-init="init()">
+  {% include "console/_nav.html" %}
+
+  <div class="con-err" x-show="errors.length" x-cloak>
+    <template x-for="e in errors" :key="e"><div x-text="e"></div></template>
+  </div>
+
+  <form x-ref="form" @submit.prevent="save()" autocomplete="off" enctype="multipart/form-data"
+        @change="preview()" @input="preview()">
+
+    <!-- Identify the unit -->
+    <div class="con-sec">
+      <div class="ce-idbar">
+        <div><label class="con-lbl">Operator ID *</label>
+          <input type="text" name="operator" x-model="operator" @change="persist()" required></div>
+        <div><label class="con-lbl">Traveler ID (optional)</label>
+          <input type="text" name="traveler_id" x-ref="traveler" autofocus
+                 @keydown.enter.prevent="$refs.sn.focus()"></div>
+        <div><label class="con-lbl">Serial Number *</label>
+          <input type="text" name="serial_no" x-ref="sn"
+                 hx-get="/console/sn-check" hx-trigger="check" hx-target="#sn-warn" hx-include="this"
+                 @keydown.enter.prevent="htmx.trigger($refs.sn, 'check'); $refs.model.focus()"
+                 @blur="htmx.trigger($refs.sn, 'check')"></div>
+        <div><label class="con-lbl">Manufacturer / Model *</label>
+          <select name="model_id" x-ref="model" x-model="modelId" @change="onModel($event)">
+            <option value="">— select —</option>
+            {% for mfr, grp in models|groupby('manufacturer') %}
+            <optgroup label="{{ mfr }}">
+              {% for m in grp %}
+              <option value="{{ m.id }}" data-has-data="{{ m.has_data }}" data-kind="{{ m.storage_kind }}">{{ m.model }}</option>
+              {% endfor %}
+            </optgroup>
+            {% endfor %}
+            <option value="__new__" data-has-data="1" data-kind="fixed">＋ Other (type manually)…</option>
+          </select></div>
+      </div>
+      <div id="sn-warn"></div>
+
+      <div x-show="isNew" x-cloak style="margin-top:12px;">
+        <div class="con-row">
+          <div><label class="con-lbl">Manufacturer *</label>
+            <input type="text" name="new_manufacturer" list="mfr-list"></div>
+          <div><label class="con-lbl">Model *</label>
+            <input type="text" name="new_model"></div>
+          <div><label class="con-lbl">Storage</label>
+            <select name="new_storage_kind" x-model="newKind" @change="storageKind = newKind">
+              <option value="fixed">fixed</option><option value="removable">removable</option><option value="none">none</option>
+            </select></div>
+          <div><label class="con-lbl">May hold user data</label>
+            <select name="new_has_data" x-model="newHasData" @change="onNewData()">
+              <option value="1">Yes</option><option value="0">No</option>
+            </select></div>
+        </div>
+        <datalist id="mfr-list">
+          {% for mfr, grp in models|groupby('manufacturer') %}<option value="{{ mfr }}">{% endfor %}
+        </datalist>
+        <div class="con-warn">New model is saved with a basic item set (Power / Video / Disc drive / Controller / Memory card / Wi-Fi / HDD bay / USB / Ethernet — set N/A for any that do not apply). Admin can refine it under Models.</div>
+      </div>
+
+      {% if show_sales_fields %}
+      <div class="con-row" style="margin-top:12px;">
+        <div><label class="con-lbl">Model No. / Part No. (optional)</label>
+          <input type="text" name="part_no" placeholder="e.g. HAC-001"></div>
+        <div><label class="con-lbl">Color (optional)</label>
+          <input type="text" name="color"></div>
+        <div><label class="con-lbl">Weight, lb (optional)</label>
+          <input type="number" name="weight" step="0.01" min="0" inputmode="decimal"></div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="ce-cols">
+      <!-- LEFT: A Cosmetic → B Functionality -->
+      <div>
+        <div class="con-sec">
+          <h3 class="ce-h"><span class="ce-step">A</span> Cosmetic condition</h3>
+          <div class="chips">
+            {% for c in cosmetic_options %}
+            <label class="chip"><input type="checkbox" name="cosmetic" value="{{ c }}"><span>{{ c }}</span></label>
+            {% endfor %}
+          </div>
+          <label class="con-lbl">Other cosmetic (optional)</label>
+          <input type="text" name="cosmetic_other">
+        </div>
+
+        <div class="con-sec">
+          <h3 class="ce-h"><span class="ce-step">B</span> Functionality
+            <span class="ce-sub">all default to Pass — change only the exceptions</span>
+            <span class="ce-tools"><button type="button" class="con-btn ghost" style="min-height:36px;padding:4px 12px;"
+                    @click="allPass()">Reset all to Pass</button></span>
+          </h3>
+          <div id="items-box">
+            <div style="color:var(--text-secondary);">Select a model to load check items.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: C Data sanitization → D Notes -->
+      <div>
+        <div class="con-sec">
+          <h3 class="ce-h"><span class="ce-step">C</span> Data sanitization</h3>
+          <div class="con-row">
+            <div><label class="con-lbl">Method</label>
+              <select name="sanitize_method" x-model="method" @change="onMethod()">
+                {% for m in methods %}<option>{{ m }}</option>{% endfor %}
+              </select></div>
+            <div><label class="con-lbl">Result</label>
+              <select name="sanitize_result" x-model="sResult">
+                <option>Pass</option><option>Fail</option><option>N/A</option>
+              </select></div>
+          </div>
+
+          <div x-show="method === 'EPS' || method === 'Manual Delete' || method === 'Factory Reset'">
+            <label class="con-lbl" x-text="method === 'EPS' ? 'Erase date *' : 'Erase date (optional)'">Erase date</label>
+            <input type="date" name="sanitize_date" value="{{ today }}">
+          </div>
+
+          <div x-show="method === 'EPS'">
+            <div class="con-row">
+              <div><label class="con-lbl">HDD SN *</label><input type="text" name="hdd_sn"></div>
+              <div><label class="con-lbl">HDD Traveler ID *</label><input type="text" name="hdd_traveler_id"></div>
+            </div>
+            <div class="ce-hint">Erased with software (EPS): print and apply a separate label to the removable storage.</div>
+          </div>
+
+          <div x-show="method === 'Factory Reset'">
+            <label class="con-lbl">Reset photo — initial setup screen (optional)</label>
+            <input type="file" name="reset_photo" accept="image/*" capture="environment"
+                   style="min-height:44px;color:var(--text-primary);">
+          </div>
+
+          <div x-show="method !== 'No data' && method !== 'Locked'">
+            <label class="con-lbl">Storage type (recorded in Marks)</label>
+            <input type="text" name="storage_type" list="stype-list" placeholder='e.g. HDD, SSD, Flash Storage'>
+            <datalist id="stype-list">{% for s in storage_types %}<option value="{{ s }}">{% endfor %}</datalist>
+          </div>
+
+          {% if show_sales_fields %}
+          <div x-show="storageKind !== 'none'">
+            <label class="con-lbl">Storage size (optional)</label>
+            <input type="text" name="storage_size" placeholder="e.g. 250 GB">
+          </div>
+          {% endif %}
+        </div>
+
+        {% if show_sales_fields %}
+        <div class="con-sec">
+          <h3>Grade / Condition</h3>
+          <div class="con-row">
+            <div><label class="con-lbl">Grade</label>
+              <select name="grade" x-model="grade" @change="onGrade()">
+                <option value="">— none —</option>
+                {% for g, lab in grade_labels.items() %}<option value="{{ g }}">{{ lab }}</option>{% endfor %}
+              </select></div>
+            <div><label class="con-lbl">Condition</label>
+              <select name="condition" x-model="condition">
+                <option value="">— select —</option>
+                <template x-for="c in condOptions()" :key="c"><option :value="c" x-text="c"></option></template>
+              </select></div>
+          </div>
+          <div class="con-warn" x-show="gradeWarn()" x-text="gradeWarn()" x-cloak></div>
+          <label class="con-lbl">Functionality</label>
+          <select name="functionality" x-model="func">
+            <option value="">— none —</option>
+            {% for f in functionality %}<option>{{ f }}</option>{% endfor %}
+          </select>
+          <label class="con-lbl">CD/DVD Drive</label>
+          <select name="cd_dvd">
+            <option value="">—</option>
+            {% for o in cd_dvd_options %}<option>{{ o }}</option>{% endfor %}
+          </select>
+        </div>
+        {% endif %}
+
+        <div class="con-sec">
+          <h3 class="ce-h"><span class="ce-step">D</span> Notes</h3>
+          <textarea name="notes" rows="3" placeholder="Optional"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- E: result + label sticker + save (always visible) -->
+    <div class="ce-footer">
+      <div id="marks-box">
+        <div class="marks-row"><input type="text" readonly value="" placeholder="ERP Marks"><span class="res-badge pass"><i></i>Pass</span></div>
+      </div>
+      <button type="submit" class="con-btn con-save" :disabled="saving" x-text="saving ? 'Saving…' : 'Save'">Save</button>
+    </div>
+  </form>
+
+  <div class="con-toast" :class="toast.ok ? 'ok' : 'bad'" x-show="toast.msg" x-text="toast.msg" x-cloak></div>
+</div>
+
+<script>
+// Clipboard works only on https/localhost; fall back to execCommand for plain-http LAN access.
+window.copyMarks = function () {
+  const el = document.getElementById('marks-text');
+  if (!el) return false;
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(el.value);
+    return true;
+  }
+  el.select();
+  try { return document.execCommand('copy'); } catch (e) { return false; }
+};
+
+function consoleEntry() {
+  return {
+    operator: '', modelId: '', isNew: false, newKind: 'fixed', newHasData: '1', method: 'Factory Reset', sResult: 'Pass',
+    storageKind: 'none', saving: false, errors: [], toast: { msg: '', ok: true },
+    grade: '', condition: '', func: '', allConditions: {{ conditions|tojson }},
+    previewSeq: 0, previewTimer: null,
+    gradeRules: {{ grade_rules|tojson }},
+    // Grade limits the selectable Condition range; an already-picked value that falls outside is kept
+    // (so nothing is silently cleared) and flagged by gradeWarn(). Warning only — saving is not blocked.
+    condOptions() {
+      const all = Object.values(this.allConditions);
+      const allowed = this.grade ? (this.gradeRules[this.grade] || all) : all;
+      return (this.condition && !allowed.includes(this.condition)) ? [this.condition, ...allowed] : allowed;
+    },
+    gradeWarn() {
+      if (!this.grade || !this.condition) return '';
+      const allowed = this.gradeRules[this.grade] || [];
+      if (allowed.includes(this.condition)) return '';
+      return 'Grade ' + this.grade + ' allows ' + allowed[0].slice(0, 2) + '–' + allowed[allowed.length - 1].slice(0, 2) +
+             ' — ' + this.condition.slice(0, 2) + ' is outside that range.';
+    },
+    onGrade() {},
+
+    init() {
+      this.operator = localStorage.getItem('con_operator') || '';
+      const last = localStorage.getItem('con_model') || '';
+      if (last) { this.modelId = last; this.$nextTick(() => this.onModel()); }
+      this.$refs.traveler.focus();
+    },
+    persist() {
+      localStorage.setItem('con_operator', this.operator);
+    },
+    // Live result + ERP Marks. Explicit fetch (not htmx triggers) so a failure is visible, not silent.
+    preview() {
+      clearTimeout(this.previewTimer);
+      this.previewTimer = setTimeout(() => this._preview(), 150);
+    },
+    async _preview() {
+      const seq = ++this.previewSeq;
+      const fd = new FormData(this.$refs.form);
+      fd.delete('reset_photo');          // don't upload the photo on every preview
+      const box = document.getElementById('marks-box');
+      try {
+        const r = await fetch('/console/marks-preview', { method: 'POST', body: fd });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const html = await r.text();
+        if (seq === this.previewSeq) box.innerHTML = html;
+      } catch (e) {
+        if (seq === this.previewSeq)
+          box.innerHTML = '<div class="con-err" style="margin:0;">Result preview failed (' + e.message +
+                          ') — the result is still calculated when you Save.</div>';
+      }
+    },
+    allPass() {
+      document.querySelectorAll('#items-box input[type=radio][value="Pass"]').forEach(r => { r.checked = true; });
+      this.preview();
+    },
+    loadItems() {
+      if (!this.modelId) {
+        document.getElementById('items-box').innerHTML = '';
+        this.preview();
+        return Promise.resolve();
+      }
+      return htmx.ajax('GET', '/console/items?model_id=' + this.modelId, { target: '#items-box', swap: 'innerHTML' })
+        .then(() => this.preview());
+    },
+    onModel(ev) {
+      const opt = this.$refs.model.selectedOptions[0];
+      if (!opt || !opt.value) { this.loadItems(); return; }
+      this.isNew = opt.value === '__new__';
+      if (!this.isNew) localStorage.setItem('con_model', this.modelId);
+      this.storageKind = this.isNew ? this.newKind : (opt.dataset.kind || 'none');
+      const hasData = this.isNew ? this.newHasData : opt.dataset.hasData;
+      if (hasData === '0') this.method = 'No data';
+      else if (this.method === 'No data') this.method = 'Factory Reset';
+      this.onMethod();
+      this.loadItems();
+    },
+    onNewData() {
+      if (this.newHasData === '0') this.method = 'No data';
+      else if (this.method === 'No data') this.method = 'Factory Reset';
+      this.onMethod();
+    },
+    onMethod() {
+      this.sResult = { 'Locked': 'Fail', 'No data': 'N/A' }[this.method] || 'Pass';
+      this.$nextTick(() => this.preview());
+    },
+    flash(msg, ok) {
+      this.toast = { msg, ok };
+      setTimeout(() => this.toast.msg = '', 3000);
+    },
+    async save(confirmed = false) {
+      this.errors = [];
+      this.saving = true;
+      try {
+        const fd = new FormData(this.$refs.form);
+        if (confirmed) fd.append('confirm_retest', '1');
+        const r = await fetch('/console/tests', { method: 'POST', body: fd });
+        const j = await r.json();
+        if (r.status === 409 && j.needs_confirm) {
+          this.saving = false;
+          if (window.confirm(j.message)) return this.save(true);
+          return;
+        }
+        if (!j.ok) { this.errors = j.errors || ['Save failed']; window.scrollTo(0, 0); return; }
+        this.flash('Saved — ' + j.result + (j.result === 'Fail' ? ' · apply RED dot' : ' · apply BLUE dot'), true);
+        if (j.new_model) {          // new model now exists: reload so the dropdown lists it
+          localStorage.setItem('con_model', j.model_id);
+          setTimeout(() => location.reload(), 900);
+          return;
+        }
+        this.resetForm();
+      } catch (e) {
+        this.errors = ['Network error: ' + e];
+      } finally {
+        this.saving = false;
+      }
+    },
+    resetForm() {
+      // form.reset() bypasses Alpine x-model, so re-apply bound values by hand.
+      const f = this.$refs.form;
+      f.reset();
+      f.operator.value = this.operator;
+      f.model_id.value = this.modelId;
+      this.grade = ''; this.condition = ''; this.func = '';
+      document.getElementById('sn-warn').innerHTML = '';
+      this.onModel();
+      f.sanitize_method.value = this.method;
+      f.sanitize_result.value = this.sResult;
+      this.$refs.traveler.focus();
+    },
+  };
+}
+</script>
+{% endblock %}

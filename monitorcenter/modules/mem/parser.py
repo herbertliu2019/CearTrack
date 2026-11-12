@@ -338,6 +338,11 @@ def parse_report(html_text: str) -> dict:
         nonlocal cur_dimm
         if cur_dimm is None:
             return
+        # Partially populated boards are normal on the test bench — an empty
+        # slot is not a parse issue, just drop it.
+        if "EMPTY" in (cur_dimm.get("spec_raw") or "").upper():
+            cur_dimm = None
+            return
         sn = (cur_dimm.get("module_sn") or "").strip().upper()
         if not sn or sn == "N/A" or not cur_dimm.get("vendor"):
             cur_dimm["parse_ok"] = False

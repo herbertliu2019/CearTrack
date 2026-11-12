@@ -20,6 +20,7 @@ from . import sync_state, wipe_lookup, gate as _gate
 from . import normalizer as _normalizer
 
 _TEMPLATE = Path(__file__).parent / "templates" / "Adjust_Template.xlsx"
+_TEXT_COLUMNS = {"SerialNumber"}
 
 
 class ExportError(ValueError):
@@ -45,7 +46,10 @@ def _build_workbook(history_paths, cfg, wipe_fn, context_builder, template_path,
 
     rows = []
     for hp in history_paths:
-        envelope = json.loads(Path(hp).read_text(encoding="utf-8"))
+        try:
+            envelope = json.loads(Path(hp).read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            raise ExportError(f"record file missing (re-uploaded?), remove it and Rescan: {hp}")
         norm = _normalizer.normalize(envelope, config=cfg, wipe_fn=wipe_fn, context_builder=context_builder)
         if gate_fn is not None:
             # A `ready` record may still carry non-blocking normalizer
@@ -59,9 +63,16 @@ def _build_workbook(history_paths, cfg, wipe_fn, context_builder, template_path,
                 raise ExportError(f"{hp} is no longer ready: {result.note}")
         rows.append([norm.values.get(h, "") or "" for h in headers])
 
+    # Columns that must stay text: an all-digit SN like "037348392953" in a
+    # General-format cell gets re-typed as a number by Cyclelution's importer
+    # and loses its leading zero. '@' (Text) + quotePrefix pins it as text.
+    text_cols = {j for j, h in enumerate(headers, start=1) if h in _TEXT_COLUMNS}
     for i, row in enumerate(rows):
         for j, val in enumerate(row, start=1):
-            ws.cell(row=2 + i, column=j, value=val)
+            cell = ws.cell(row=2 + i, column=j, value=val)
+            if j in text_cols:
+                cell.number_format = "@"
+                cell.quotePrefix = True
     return wb
 
 

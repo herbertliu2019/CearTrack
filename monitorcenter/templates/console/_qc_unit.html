@@ -1,0 +1,25 @@
+{% if not sn %}
+{% elif not t %}
+<div class="con-err">No active test found for SN {{ sn }}.</div>
+{% else %}
+<div class="con-sec" style="margin-top:12px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+    <div>
+      <div class="card-sn" style="font-size:1.2em;">{{ t.serial_no }}
+        <a href="/console/tests/{{ t.id }}" target="_blank" style="color:var(--accent);font-size:.7em;">details</a></div>
+      <div style="color:var(--text-secondary);">{{ t.manufacturer }} {{ t.model }}
+        · tested {{ t.tested_at.replace('T', ' ')[:16] }} by {{ t.tested_by or '—' }}</div>
+    </div>
+    <span class="res-badge {{ t.result|lower }}"><i></i>{{ t.result }}</span>
+  </div>
+  <div class="kv-grid" style="margin-top:10px;">
+    <div class="kv-label">Marks</div><div class="kv-value" style="font-family:monospace;">{{ t.marks or '—' }}</div>
+    <div class="kv-label">Sanitize</div><div class="kv-value">{{ t.sanitize_method }} · {{ t.sanitize_result }}</div>
+    {% if t.grade or t.condition %}<div class="kv-label">Grade / Condition</div><div class="kv-value">{{ t.grade or '—' }} · {{ t.condition or '—' }}</div>{% endif %}
+  </div>
+  {% if qc and qc.status != 'Pending' %}
+  <div class="con-warn" style="margin-top:10px;">Already QC'd: <b>{{ qc.status }}</b> by {{ qc.qc_by }}
+    ({{ (qc.qc_at or '').replace('T', ' ')[:16] }}){% if qc.note %} — {{ qc.note }}{% endif %}. Submitting again replaces this result.</div>
+  {% endif %}
+</div>
+{% endif %}

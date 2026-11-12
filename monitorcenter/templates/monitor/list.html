@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Monitor Test Results — CEARTrack{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/console.css') }}">
+<div class="con-wide">
+  {% include "monitor/_nav.html" %}
+
+  <form method="get" action="/monitor/tests" class="con-sec">
+    <div class="con-row">
+      <div><label class="con-lbl">From</label><input type="date" name="date_from" value="{{ f.date_from }}"></div>
+      <div><label class="con-lbl">To</label><input type="date" name="date_to" value="{{ f.date_to }}"></div>
+      <div><label class="con-lbl">Result</label>
+        <select name="result"><option value="">All</option>
+          <option {{ 'selected' if f.result == 'Pass' }}>Pass</option>
+          <option {{ 'selected' if f.result == 'Fail' }}>Fail</option></select></div>
+      <div><label class="con-lbl">SN / Traveler / Model</label><input type="text" name="q" value="{{ f.q }}"></div>
+      <div><label class="con-lbl"><input type="checkbox" name="all" value="1" {{ 'checked' if f.include_superseded }}> Show superseded</label></div>
+      <div style="align-self:end;display:flex;gap:8px;">
+        <button class="con-btn" type="submit">Filter</button>
+        <button class="con-btn ghost" type="submit" name="format" value="csv">CSV</button>
+      </div>
+    </div>
+  </form>
+
+  <div class="con-sec" style="overflow-x:auto;">
+    <div style="color:var(--text-secondary);margin-bottom:8px;">{{ rows|length }} record(s){% if truncated %} <span style="color:var(--warn);">— showing only the first {{ limit }}; narrow the date range or export CSV for all</span>{% endif %}</div>
+    <table class="con-table">
+      <thead><tr><th>Time</th><th>Traveler</th><th>SN</th><th>Model</th><th>Size</th><th>Color</th><th>Weight</th>
+        <th>Grade</th><th>Condition</th><th>Functionality</th><th>Dead px</th><th>Notes</th>
+        <th>Result</th><th>Mark</th><th>Operator ID</th><th>QC</th></tr></thead>
+      <tbody>
+      {% for r in rows %}
+        <tr class="{{ 'sup' if r.superseded_by }}">
+          <td style="white-space:nowrap;">{{ r.tested_at.replace('T', ' ') }}</td>
+          <td style="white-space:nowrap;">{{ r.traveler_id or '' }}</td>
+          <td><a href="/monitor/tests/{{ r.id }}">{{ r.serial_no }}</a></td>
+          <td>{{ r.manufacturer }} {{ r.model }}</td>
+          <td style="white-space:nowrap;">{{ r.size or '' }}</td>
+          <td>{{ r.color or '' }}</td>
+          <td>{{ r.weight if r.weight is not none else '' }}</td>
+          <td>{{ r.grade or '' }}</td>
+          <td style="white-space:nowrap;">{{ r.condition or '' }}</td>
+          <td>{{ r.functionality or '' }}</td>
+          <td>{{ r.dead_pixels }}</td>
+          <td>{{ r.inv_notes or '' }}{% if r.notes %} {{ r.notes }}{% endif %}</td>
+          <td><span class="badge {{ 'pass' if r.result == 'Pass' else 'fail' }}">{{ r.result }}</span></td>
+          <td>{{ r.marks }}</td>
+          <td>{{ r.tested_by or '' }}</td>
+          <td>{% if r.qc_status == 'Rejected' %}<span class="badge fail">Rejected</span>{% else %}{{ r.qc_status or '' }}{% endif %}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="16" style="color:var(--text-secondary);">No records.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

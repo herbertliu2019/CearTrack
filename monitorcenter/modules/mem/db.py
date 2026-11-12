@@ -453,42 +453,60 @@ def delete_report_and_recompute(conn: sqlite3.Connection, report_uid: str) -> li
 # Queries — DIMMS tab
 # ---------------------------------------------------------------------------
 
-def query_modules(db_path: str, status: str | None = None, ever_err: str | None = None,
+def _modules_where(status: str | None = None, ever_err: str | None = None,
                    size_gb: int | None = None, mem_type: str | None = None,
                    vendor: str | None = None, q: str | None = None,
-                   page: int = 1, per_page: int = 50) -> tuple[list[dict], int]:
+                   last_from: str | None = None, last_to: str | None = None) -> tuple[str, list]:
+    where = []
+    params: list = []
+    if status:
+        where.append("current_status = ?")
+        params.append(status)
+    if ever_err == "yes":
+        where.append("(ever_fail = 1 OR ever_warn = 1)")
+    elif ever_err == "no":
+        where.append("(ever_fail = 0 AND ever_warn = 0)")
+    if size_gb:
+        where.append("size_gb = ?")
+        params.append(size_gb)
+    if mem_type:
+        where.append("mem_type = ?")
+        params.append(mem_type)
+    if vendor:
+        where.append("vendor = ?")
+        params.append(vendor)
+    if q:
+        where.append("(UPPER(module_sn) LIKE UPPER(?) OR UPPER(part_number) LIKE UPPER(?))")
+        params.extend([f"%{q}%", f"%{q}%"])
+    if last_from and last_to:
+        # last_tested_at is 'YYYY-MM-DD HH:MM…' text; range form keeps idx_mod_last usable
+        where.append("last_tested_at >= ? AND last_tested_at < date(?, '+1 day')")
+        params.extend([last_from, last_to])
+    clause = f"WHERE {' AND '.join(where)}" if where else ""
+    return clause, params
+
+
+def count_modules(db_path: str, **filters) -> int:
+    """DIMM inventory count — shared by the DIMMS tab and the Total DIMMs KPI."""
+    clause, params = _modules_where(**filters)
     conn = get_conn(db_path)
     try:
-        where = []
-        params: list = []
-        if status:
-            where.append("current_status = ?")
-            params.append(status)
-        if ever_err == "yes":
-            where.append("(ever_fail = 1 OR ever_warn = 1)")
-        elif ever_err == "no":
-            where.append("(ever_fail = 0 AND ever_warn = 0)")
-        if size_gb:
-            where.append("size_gb = ?")
-            params.append(size_gb)
-        if mem_type:
-            where.append("mem_type = ?")
-            params.append(mem_type)
-        if vendor:
-            where.append("vendor = ?")
-            params.append(vendor)
-        if q:
-            where.append("(UPPER(module_sn) LIKE UPPER(?) OR UPPER(part_number) LIKE UPPER(?))")
-            params.extend([f"%{q}%", f"%{q}%"])
+        return conn.execute(f"SELECT COUNT(*) FROM mem_modules {clause}", params).fetchone()[0]
+    finally:
+        conn.close()
 
-        clause = f"WHERE {' AND '.join(where)}" if where else ""
-        total = conn.execute(f"SELECT COUNT(*) FROM mem_modules {clause}", params).fetchone()[0]
 
+def query_modules(db_path: str, page: int = 1, per_page: int = 50,
+                  **filters) -> tuple[list[dict], int]:
+    clause, params = _modules_where(**filters)
+    total = count_modules(db_path, **filters)
+    conn = get_conn(db_path)
+    try:
         per_page = min(500, max(1, per_page))
         offset = (max(1, page) - 1) * per_page
         rows = conn.execute(
             f"""SELECT * FROM mem_modules {clause}
-                ORDER BY last_tested_at DESC
+                ORDER BY last_tested_at DESC, module_sn
                 LIMIT ? OFFSET ?""",
             [*params, per_page, offset],
         ).fetchall()
@@ -578,7 +596,8 @@ def query_report_detail(db_path: str, report_uid: str) -> dict | None:
             "SELECT * FROM mem_errors WHERE report_uid = ? ORDER BY err_time", (report_uid,)
         ).fetchall()
         issues = conn.execute(
-            "SELECT * FROM mem_dimm_issues WHERE report_uid = ?", (report_uid,)
+            "SELECT * FROM mem_dimm_issues WHERE report_uid = ? "
+            "AND UPPER(COALESCE(spec_raw, '')) NOT LIKE '%EMPTY%'", (report_uid,)
         ).fetchall()
         return {
             "report": dict(report),
@@ -599,16 +618,14 @@ def stats_summary(db_path: str, start: str, end: str) -> dict:
     conn = get_conn(db_path)
     try:
         row = conn.execute(
-            """SELECT
+            f"""SELECT
                 COUNT(*)                                                AS total,
                 SUM(CASE WHEN module_status='PASS' THEN 1 ELSE 0 END)    AS pass_count,
                 SUM(CASE WHEN module_status='WARN' THEN 1 ELSE 0 END)    AS warn_count,
                 SUM(CASE WHEN module_status='FAIL' THEN 1 ELSE 0 END)    AS fail_count,
                 SUM(CASE WHEN module_status='SUSPECT' THEN 1 ELSE 0 END) AS suspect_count,
                 SUM(COALESCE(size_gb,0))                                 AS total_capacity_gb
-               FROM mem_module_tests
-               WHERE test_date BETWEEN ? AND ?
-                 AND report_uid IN (SELECT report_uid FROM mem_reports WHERE excluded = 0)""",
+               FROM {_LATEST_PER_SN}""",
             (start, end),
         ).fetchone()
         return {
@@ -624,24 +641,29 @@ def stats_summary(db_path: str, start: str, end: str) -> dict:
 
 
 def total_all_time(db_path: str) -> int:
-    conn = get_conn(db_path)
-    try:
-        return conn.execute(
-            f"SELECT COUNT(*) FROM mem_module_tests WHERE {_NOT_EXCLUDED}"
-        ).fetchone()[0] or 0
-    finally:
-        conn.close()
+    # Same query as the unfiltered DIMMS tab count, so the two always match.
+    return count_modules(db_path)
 
 
 _NOT_EXCLUDED = "report_uid IN (SELECT report_uid FROM mem_reports WHERE excluded = 0)"
+
+# One row per module_sn (its latest test in the range) so retests aren't double-counted.
+_LATEST_PER_SN = f"""(
+    SELECT * FROM (
+        SELECT mt.*, ROW_NUMBER() OVER (
+                   PARTITION BY module_sn ORDER BY test_start DESC, id DESC) AS rn
+        FROM mem_module_tests mt
+        WHERE test_date BETWEEN ? AND ? AND {_NOT_EXCLUDED}
+    ) WHERE rn = 1
+)"""
 
 
 def by_capacity(db_path: str, start: str, end: str) -> list[dict]:
     conn = get_conn(db_path)
     try:
         rows = conn.execute(
-            f"""SELECT size_gb, COUNT(*) AS count FROM mem_module_tests
-               WHERE test_date BETWEEN ? AND ? AND size_gb IS NOT NULL AND {_NOT_EXCLUDED}
+            f"""SELECT size_gb, COUNT(*) AS count FROM {_LATEST_PER_SN}
+               WHERE size_gb IS NOT NULL
                GROUP BY size_gb ORDER BY count DESC""",
             (start, end),
         ).fetchall()
@@ -654,8 +676,8 @@ def by_type(db_path: str, start: str, end: str) -> list[dict]:
     conn = get_conn(db_path)
     try:
         rows = conn.execute(
-            f"""SELECT mem_type, is_ecc, COUNT(*) AS count FROM mem_module_tests
-               WHERE test_date BETWEEN ? AND ? AND mem_type IS NOT NULL AND {_NOT_EXCLUDED}
+            f"""SELECT mem_type, is_ecc, COUNT(*) AS count FROM {_LATEST_PER_SN}
+               WHERE mem_type IS NOT NULL
                GROUP BY mem_type, is_ecc ORDER BY count DESC""",
             (start, end),
         ).fetchall()
@@ -668,23 +690,9 @@ def by_vendor(db_path: str, start: str, end: str) -> list[dict]:
     conn = get_conn(db_path)
     try:
         rows = conn.execute(
-            f"""SELECT vendor, COUNT(*) AS count FROM mem_module_tests
-               WHERE test_date BETWEEN ? AND ? AND vendor IS NOT NULL AND {_NOT_EXCLUDED}
+            f"""SELECT vendor, COUNT(*) AS count FROM {_LATEST_PER_SN}
+               WHERE vendor IS NOT NULL
                GROUP BY vendor ORDER BY count DESC""",
-            (start, end),
-        ).fetchall()
-        return _rows_to_dicts(rows)
-    finally:
-        conn.close()
-
-
-def top_part_numbers(db_path: str, start: str, end: str) -> list[dict]:
-    conn = get_conn(db_path)
-    try:
-        rows = conn.execute(
-            f"""SELECT part_number, COUNT(*) AS count FROM mem_module_tests
-               WHERE test_date BETWEEN ? AND ? AND part_number IS NOT NULL AND {_NOT_EXCLUDED}
-               GROUP BY part_number ORDER BY count DESC LIMIT 15""",
             (start, end),
         ).fetchall()
         return _rows_to_dicts(rows)
@@ -697,13 +705,23 @@ def daily_counts(db_path: str, start: str, end: str) -> list[dict]:
     try:
         rows = conn.execute(
             f"""SELECT test_date AS date,
-                      COUNT(DISTINCT report_uid) AS reports,
+                      MAX(day_reports) AS reports,
                       COUNT(*) AS dimms,
                       SUM(CASE WHEN module_status='PASS' THEN 1 ELSE 0 END) AS passed,
                       SUM(CASE WHEN module_status='WARN' THEN 1 ELSE 0 END) AS warn,
                       SUM(CASE WHEN module_status IN ('FAIL','SUSPECT') THEN 1 ELSE 0 END) AS failed
-               FROM mem_module_tests
-               WHERE test_date BETWEEN ? AND ? AND {_NOT_EXCLUDED}
+               FROM (
+                   SELECT * FROM (
+                       SELECT mt.*, ROW_NUMBER() OVER (
+                                  PARTITION BY module_sn, test_date
+                                  ORDER BY test_start DESC, id DESC) AS rn,
+                              (SELECT COUNT(DISTINCT x.report_uid) FROM mem_module_tests x
+                                WHERE x.test_date = mt.test_date
+                                  AND x.{_NOT_EXCLUDED}) AS day_reports
+                       FROM mem_module_tests mt
+                       WHERE test_date BETWEEN ? AND ? AND {_NOT_EXCLUDED}
+                   ) WHERE rn = 1
+               )
                GROUP BY test_date ORDER BY test_date ASC""",
             (start, end),
         ).fetchall()
@@ -713,15 +731,19 @@ def daily_counts(db_path: str, start: str, end: str) -> list[dict]:
 
 
 def query_day(db_path: str, date_str: str) -> list[dict]:
-    """Used by the Daily Breakdown expand — every DIMM tested on one date."""
+    """Used by the Daily Breakdown expand — each DIMM SN tested on one date (latest test that day)."""
     conn = get_conn(db_path)
     try:
         rows = conn.execute(
-            """SELECT mt.*, r.source_dir, r.source_file, r.system_sn
-               FROM mem_module_tests mt
-               JOIN mem_reports r ON r.report_uid = mt.report_uid
-               WHERE mt.test_date = ? AND r.excluded = 0
-               ORDER BY mt.test_start DESC, mt.dimm_slot""",
+            """SELECT * FROM (
+                   SELECT mt.*, r.source_dir, r.source_file, r.system_sn,
+                          ROW_NUMBER() OVER (PARTITION BY mt.module_sn
+                                             ORDER BY mt.test_start DESC, mt.id DESC) AS rn
+                   FROM mem_module_tests mt
+                   JOIN mem_reports r ON r.report_uid = mt.report_uid
+                   WHERE mt.test_date = ? AND r.excluded = 0
+               ) WHERE rn = 1
+               ORDER BY test_start DESC, dimm_slot""",
             (date_str,),
         ).fetchall()
         return _rows_to_dicts(rows)
@@ -760,7 +782,8 @@ def parse_issues(db_path: str) -> dict:
         dimm_issues = conn.execute(
             """SELECT di.*, r.source_file, r.source_dir
                FROM mem_dimm_issues di
-               JOIN mem_reports r ON r.report_uid = di.report_uid"""
+               JOIN mem_reports r ON r.report_uid = di.report_uid
+               WHERE UPPER(COALESCE(di.spec_raw, '')) NOT LIKE '%EMPTY%'"""
         ).fetchall()
         return {
             "bad_reports": _rows_to_dicts(bad_reports),

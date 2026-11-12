@@ -219,6 +219,18 @@
 .daily-label { position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--text-secondary);white-space:nowrap; }
 .daily-total { position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--text-secondary);white-space:nowrap; }
 .daily-tooltip { display:none;position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--bg-primary,#1a1a1a);border:1px solid var(--border);border-radius:5px;padding:6px 10px;font-size:0.75em;white-space:nowrap;z-index:5;pointer-events:none;margin-bottom:4px; }
+
+/* CPUS inventory list — filters + pager (same as mem DIMMS tab) */
+.filters { display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:0 0 12px; }
+.filters select, .filters input { background:var(--bg-secondary); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); padding:6px 10px; font-size:11.5px; outline:none; }
+.pager { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; padding:12px 0 0; font-size:0.8em; color:var(--text-secondary); }
+.pager .pages { display:flex; gap:4px; flex-wrap:wrap; }
+.pager button { min-width:30px; padding:4px 9px; border-radius:5px; border:1px solid var(--border); background:transparent; color:var(--text-secondary); cursor:pointer; font-size:1em; }
+.pager button:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); }
+.pager button.active { border-color:var(--accent); color:var(--accent); background:rgba(99,102,241,0.08); font-weight:700; }
+.pager button:disabled { opacity:0.35; cursor:default; }
+.pager .gap { padding:4px 4px; }
+.pager select { background:var(--bg-secondary); border:1px solid var(--border); border-radius:5px; color:var(--text-primary); padding:3px 6px; font-size:1em; }
 </style>
 
 <div x-data="cpuApp()" x-init="init()">
@@ -652,28 +664,42 @@
       </table>
     </div>
 
-    <!-- Today's Tests -->
+    <!-- CPUS inventory (one row per SN; independent of the Week/Month range) -->
     <div>
       <div class="section-header">
         <span class="section-title"
-              x-text="'Today\'s Tests (' + todayRecords.length + ')'"></span>
-        <a class="view-all-link" href="/cpu/all">View All Tests →</a>
+              x-text="'CPUs (' + recordsTotal.toLocaleString() + ')'"></span>
       </div>
 
-      <template x-if="todayRecords.length === 0">
-        <div class="empty-state">No tests recorded today.</div>
+      <div class="filters">
+        <select x-model="recFilters.last" @change="recFilters.last !== 'custom' && loadRecords(1)">
+          <option value="all">Last Tested: All time</option><option value="week">This Week</option>
+          <option value="month">This Month</option><option value="custom">Custom</option>
+        </select>
+        <template x-if="recFilters.last === 'custom'">
+          <span style="display:inline-flex;gap:6px;align-items:center;">
+            <input type="date" x-model="recFilters.lastFrom">
+            <span style="color:var(--text-secondary);">–</span>
+            <input type="date" x-model="recFilters.lastTo">
+            <button class="tab-btn active" @click="recFilters.lastFrom && recFilters.lastTo && loadRecords(1)">Apply</button>
+          </span>
+        </template>
+      </div>
+
+      <template x-if="records.length === 0">
+        <div class="empty-state">No CPUs recorded.</div>
       </template>
 
-      <template x-if="todayRecords.length > 0">
+      <template x-if="records.length > 0">
         <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
           <table class="cpu-table">
             <thead>
               <tr>
                 <th>SN</th><th>Series</th><th>Model</th>
-                <th>Cores</th><th>Duration</th><th>Time</th><th>Result</th>
+                <th>Cores</th><th>Duration</th><th>Last Tested</th><th>Result</th>
               </tr>
             </thead>
-              <template x-for="r in todayRecords.slice(0,15)" :key="r.id">
+              <template x-for="r in records" :key="r.id">
                 <tbody>
                   <tr class="data-row" @click="toggleExpand(r.id)">
                     <td x-text="r.sn"></td>
@@ -681,7 +707,7 @@
                     <td x-text="r.cpu_full_name ?? r.processor_name?.substring(0,28) ?? '—'"></td>
                     <td x-text="r.physical_cores ?? '—'"></td>
                     <td x-text="r.duration_sec ? fmtDuration(r.duration_sec) : '—'"></td>
-                    <td x-text="(r.start_time ?? '').substring(11,16)"></td>
+                    <td x-text="(r.start_time ?? '—').substring(0,16)"></td>
                     <td :class="r.overall_result==='Pass' ? 'result-pass' : 'result-fail'"
                         x-text="r.overall_result ?? '—'"></td>
                   </tr>
@@ -693,14 +719,28 @@
                 </tbody>
               </template>
           </table>
-          <div x-show="todayRecords.length > 15"
-               style="padding:10px 16px;text-align:center;font-size:0.8em;color:var(--text-secondary);
-                      border-top:1px solid var(--border);">
-            Showing 15 of <span x-text="todayRecords.length"></span> today.
-            <a href="/cpu/all" style="color:var(--accent);">View All Tests →</a>
-          </div>
         </div>
       </template>
+
+      <div class="pager" x-show="recordsTotal > 0">
+        <span x-text="rangeLabel(recordsPage, recordsPerPage, recordsTotal)"></span>
+        <div class="pages">
+          <button :disabled="recordsPage <= 1" @click="loadRecords(recordsPage-1)">‹ Prev</button>
+          <template x-for="(p, i) in pageList(recordsPage, pageCount(recordsTotal, recordsPerPage))" :key="'rp'+i">
+            <span>
+              <template x-if="p === '…'"><span class="gap">…</span></template>
+              <template x-if="p !== '…'"><button :class="{active: p === recordsPage}" @click="loadRecords(p)" x-text="p"></button></template>
+            </span>
+          </template>
+          <button :disabled="recordsPage >= pageCount(recordsTotal, recordsPerPage)" @click="loadRecords(recordsPage+1)">Next ›</button>
+        </div>
+        <label>Per page
+          <select x-model.number="recordsPerPage" @change="loadRecords(1)">
+            <option>25</option><option>50</option><option>100</option>
+          </select>
+        </label>
+      </div>
+      <div style="margin-top:6px;font-size:0.75em;color:var(--text-secondary);opacity:0.75;">not affected by the Week/Month range above — this is the full inventory</div>
     </div>
 
   </div><!-- /!searched -->
@@ -723,7 +763,11 @@ function cpuApp() {
     period:        'week',
     periodLabel:   'This Week',
     stats:         {},
-    todayRecords:  [],
+    records:        [],
+    recordsTotal:   0,
+    recordsPage:    1,
+    recordsPerPage: 25,
+    recFilters:     { last: 'all', lastFrom: '', lastTo: '' },
     searchQuery:   '',
     searchResults: [],
     searched:      false,
@@ -743,7 +787,7 @@ function cpuApp() {
     async init() {
       await Promise.all([
         this.loadStats('week'),
-        this.loadToday(),
+        this.loadRecords(1),
         this.fetchScanStatus(),
         this.fetchPollState(),
       ]);
@@ -751,9 +795,38 @@ function cpuApp() {
       setInterval(() => this.fetchPollState(), 30000);
     },
 
-    async loadToday() {
-      const r = await fetch('/cpu/api/today').then(r => r.json());
-      this.todayRecords = r.records ?? [];
+    async loadRecords(page) {
+      const p = new URLSearchParams({ page, per_page: this.recordsPerPage });
+      if (this.recFilters.last !== 'all') {
+        p.set('last', this.recFilters.last);
+        if (this.recFilters.last === 'custom') {
+          p.set('last_from', this.recFilters.lastFrom); p.set('last_to', this.recFilters.lastTo);
+        }
+      }
+      const r = await fetch('/cpu/api/records?' + p.toString()).then(r => r.json());
+      this.recordsPage  = page;
+      this.records      = r.records ?? [];
+      this.recordsTotal = r.total ?? 0;
+      this.expandedId   = null;
+    },
+
+    pageCount(total, perPage) { return Math.max(1, Math.ceil(total / perPage)); },
+
+    // 1 … 4 5 [6] 7 8 … 20
+    pageList(cur, last) {
+      if (last <= 9) return Array.from({ length: last }, (_, i) => i + 1);
+      const out = [1];
+      const lo = Math.max(2, cur - 2), hi = Math.min(last - 1, cur + 2);
+      if (lo > 2) out.push('…');
+      for (let i = lo; i <= hi; i++) out.push(i);
+      if (hi < last - 1) out.push('…');
+      out.push(last);
+      return out;
+    },
+
+    rangeLabel(page, perPage, total) {
+      const from = (page - 1) * perPage + 1, to = Math.min(page * perPage, total);
+      return `Showing ${from.toLocaleString()}–${to.toLocaleString()} of ${total.toLocaleString()}`;
     },
 
     async loadStats(period, start, end) {
@@ -824,7 +897,7 @@ function cpuApp() {
         this.scanStatus = await fetch('/cpu/api/scan/status').then(r => r.json());
         if (this.scanStatus?.status !== 'running') {
           clearInterval(this._scanPoll); this._scanPoll = null; this.scanning = false;
-          await Promise.all([this.loadToday(), this.loadStats(this.period)]);
+          await Promise.all([this.loadRecords(this.recordsPage), this.loadStats(this.period)]);
         }
       }, 2000);
     },
