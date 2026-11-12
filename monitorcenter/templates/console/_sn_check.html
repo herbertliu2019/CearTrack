@@ -1,0 +1,6 @@
+{% if existing %}
+<div class="con-warn">Already tested: {{ existing.manufacturer }} {{ existing.model }} &middot;
+  {{ existing.result }} &middot; {{ existing.tested_at.replace('T', ' ') }}.
+  Saving will create a retest and supersede the old record.
+  <a href="/console/tests/{{ existing.id }}" target="_blank" style="color:var(--accent);">View</a></div>
+{% endif %}

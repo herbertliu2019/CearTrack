@@ -107,7 +107,7 @@
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
               <span style="color:var(--accent);font-weight:700;font-size:0.8em;
                            text-transform:uppercase;letter-spacing:0.06em;"
-                    x-text="r.module"></span>
+                    x-text="r.module_label || r.module"></span>
               <span style="font-family:monospace;font-weight:600;" x-text="r.sn"></span>
               <template x-if="r.system_sn && r.system_sn !== r.sn">
                 <span style="color:var(--text-secondary);font-size:0.82em;"
@@ -145,9 +145,9 @@
     </div>
   </div>
 
-  <!-- Module cards — 5 columns, all in one row -->
+  <!-- Module cards — one row when the window fits them all -->
   <div style="max-width:1350px;margin:0 auto;">
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:16px;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;">
 
       <!-- Laptop -->
       <a href="/laptop/" style="text-decoration:none;">
@@ -334,6 +334,69 @@
         </div>
       </a>
 
+      <!-- Monitor -->
+      <a href="/monitor/" style="text-decoration:none;">
+        <div class="mod-card">
+          <div class="mod-card-header">
+            <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="3" y="5" width="30" height="20" rx="2" stroke="var(--accent)" stroke-width="1.5"/>
+              <rect x="7" y="9" width="22" height="12" rx="1" fill="var(--accent)" fill-opacity="0.08" stroke="var(--accent)" stroke-width="1"/>
+              <line x1="18" y1="25" x2="18" y2="30" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="11" y1="31" x2="25" y2="31" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <span class="mod-name">Monitor</span>
+          </div>
+          <div class="mod-stats">
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.monitor?.today ?? 0"></div>
+              <div class="mod-stat-lbl">Today</div>
+            </div>
+            <div class="mod-stat-divider"></div>
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.monitor?.week ?? 0"></div>
+              <div class="mod-stat-lbl">This Week</div>
+            </div>
+            <div class="mod-stat-divider"></div>
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.monitor?.month ?? 0"></div>
+              <div class="mod-stat-lbl">This Month</div>
+            </div>
+          </div>
+        </div>
+      </a>
+
+      <!-- Console -->
+      <a href="/console/" style="text-decoration:none;">
+        <div class="mod-card">
+          <div class="mod-card-header">
+            <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="2" y="11" width="32" height="15" rx="7" stroke="var(--accent)" stroke-width="1.5"/>
+              <line x1="9" y1="15" x2="9" y2="22" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="5.5" y1="18.5" x2="12.5" y2="18.5" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="25" cy="16.5" r="1.6" fill="var(--accent)" fill-opacity="0.6"/>
+              <circle cx="29" cy="20.5" r="1.6" fill="var(--accent)" fill-opacity="0.6"/>
+            </svg>
+            <span class="mod-name">Game Console</span>
+          </div>
+          <div class="mod-stats">
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.console?.today ?? 0"></div>
+              <div class="mod-stat-lbl">Today</div>
+            </div>
+            <div class="mod-stat-divider"></div>
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.console?.week ?? 0"></div>
+              <div class="mod-stat-lbl">This Week</div>
+            </div>
+            <div class="mod-stat-divider"></div>
+            <div class="mod-stat">
+              <div class="mod-stat-val" x-text="summary.console?.month ?? 0"></div>
+              <div class="mod-stat-lbl">This Month</div>
+            </div>
+          </div>
+        </div>
+      </a>
+
     </div>
   </div>
 
@@ -347,7 +410,7 @@ function landingApp() {
     searched: false,
     expandedKey: null,
     schemas: {},
-    summary: { laptop:{today:0,week:0,month:0}, wipe:{today:0,week:0,month:0}, cpu:{today:0,week:0,month:0}, mem:{today:0,week:0,month:0}, gpu:{today:0,week:0,month:0} },
+    summary: { laptop:{today:0,week:0,month:0}, wipe:{today:0,week:0,month:0}, cpu:{today:0,week:0,month:0}, mem:{today:0,week:0,month:0}, gpu:{today:0,week:0,month:0}, monitor:{today:0,week:0,month:0}, console:{today:0,week:0,month:0} },
 
     async init() {
       try {

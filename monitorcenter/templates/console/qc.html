@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}Game Console QC — CEARTrack{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/console.css') }}">
+<style>
+.kpi-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
+.kpi-card { background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:14px 16px; text-align:center; }
+.kpi-value { font-size:1.9em; font-weight:700; line-height:1.1; color:var(--accent); }
+.kpi-value.pass { color:var(--pass); } .kpi-value.fail { color:var(--fail); } .kpi-value.muted { color:var(--text-secondary); }
+.kpi-label { font-size:.7em; font-weight:600; text-transform:uppercase; letter-spacing:.07em; color:var(--text-secondary); margin-top:5px; }
+.kpi-sub { font-size:.7em; color:var(--text-secondary); margin-top:3px; }
+.qc-tabs { display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap; }
+.qc-tabs a { padding:8px 16px; border-radius:6px; border:1px solid var(--border); color:var(--text-secondary); text-decoration:none; font-weight:600; font-size:.9em; }
+.qc-tabs a.on, .qc-tabs a:hover { border-color:var(--accent); color:var(--accent); background:rgba(99,102,241,.08); }
+.qc-tabs .cnt { margin-left:6px; padding:0 7px; border-radius:10px; background:var(--warn); color:#0b1020; font-size:.8em; }
+.qc-table td.act { white-space:nowrap; }
+.qc-table input.qc-note { min-height:36px; padding:4px 8px; width:200px; }
+.qc-table .con-btn { min-height:36px; padding:4px 14px; }
+.qc-table tr.rej td { background:rgba(231,76,60,.10); }
+.qc-table tr.carry td:first-child { border-left:3px solid var(--warn); }
+@media (max-width:900px) { .kpi-strip { grid-template-columns:repeat(2,1fr); } }
+</style>
+<div class="con-wide" x-data="consoleQC()" x-init="init()">
+  {% include "console/_nav.html" %}
+
+  <div class="qc-tabs">
+    <a href="/console/qc?view=today" class="{{ 'on' if view == 'today' }}">Today</a>
+    {% if counts.pending_all %}<a href="/console/qc?view=pending" class="{{ 'on' if view == 'pending' }}">Pending (earlier auto-sampled)<span class="cnt">{{ counts.pending_all }}</span></a>{% endif %}
+    <a href="/console/qc?view=history" class="{{ 'on' if view == 'history' }}">History</a>
+  </div>
+
+  <div class="kpi-strip">
+    <div class="kpi-card"><div class="kpi-value">{{ counts.passed + counts.rejected }}</div><div class="kpi-label">QC'd</div>
+      <div class="kpi-sub">of {{ tested }} tested in range</div></div>
+    <div class="kpi-card"><div class="kpi-value pass">{{ counts.passed }}</div><div class="kpi-label">QC Passed</div></div>
+    <div class="kpi-card"><div class="kpi-value {{ 'fail' if counts.rejected else 'muted' }}">{{ counts.rejected }}</div><div class="kpi-label">QC Rejected</div></div>
+    {% set done = counts.passed + counts.rejected %}
+    <div class="kpi-card"><div class="kpi-value">{{ ((counts.passed * 100 / done)|round(1) ~ '%') if done else '—' }}</div><div class="kpi-label">QC pass rate</div></div>
+  </div>
+
+  {% if view == 'today' %}
+  <!-- Record a QC result: the QC operator picks the unit by policy and scans/enters its SN -->
+  <div class="con-sec">
+    <div class="con-row">
+      <div><label class="con-lbl">QC Operator ID *</label>
+        <input type="text" x-model="operator" @change="persist()"></div>
+      <div><label class="con-lbl">Serial Number to QC *</label>
+        <input type="text" x-ref="sn" x-model="sn" autofocus
+               @keydown.enter.prevent="lookup()" @change="lookup()"></div>
+    </div>
+    <div class="con-err" x-show="err" x-text="err" x-cloak style="margin-top:10px;"></div>
+    <div id="qc-unit"></div>
+    <div x-show="found" x-cloak style="margin-top:12px;">
+      <label class="con-lbl">Note</label>
+      <input type="text" x-model="note" placeholder="Pass: blank = default text · Reject: reason required">
+      <div style="margin-top:12px;display:flex;gap:10px;">
+        <button class="con-btn" type="button" :disabled="saving" @click="submitSn('Passed')">QC Pass</button>
+        <button class="con-btn danger" type="button" :disabled="saving" @click="submitSn('Rejected')">QC Reject</button>
+      </div>
+    </div>
+  </div>
+  {% elif view == 'history' %}
+  <div class="con-sec">
+    <form method="get" action="/console/qc" class="con-row" style="align-items:end;">
+      <input type="hidden" name="view" value="history">
+      <div><label class="con-lbl">QC date from</label><input type="date" name="date_from" value="{{ f.date_from }}"></div>
+      <div><label class="con-lbl">to</label><input type="date" name="date_to" value="{{ f.date_to }}"></div>
+      <div><label class="con-lbl">Status</label>
+        <select name="status"><option value="">All</option>
+          {% for s in ['Pending', 'Passed', 'Rejected'] %}<option {{ 'selected' if f.status == s }}>{{ s }}</option>{% endfor %}</select></div>
+      <div><label class="con-lbl">QC Operator ID</label><input type="text" name="qc_by" value="{{ f.qc_by }}"></div>
+      <div style="flex:0 0 auto;"><button class="con-btn" type="submit">Filter</button></div>
+    </form>
+  </div>
+  {% else %}
+  <div class="con-sec">
+    <div class="con-row" style="align-items:end;">
+      <div style="max-width:240px;"><label class="con-lbl">QC Operator ID</label>
+        <input type="text" x-model="operator" @change="persist()"></div>
+      <div class="con-warn" style="flex:2;">These were created by the former automatic sampling. Resolve them here; no new ones are generated.</div>
+    </div>
+    <div class="con-err" x-show="err" x-text="err" x-cloak style="margin-top:10px;"></div>
+  </div>
+  {% endif %}
+
+  <div class="con-sec" style="overflow-x:auto;">
+    <div style="color:var(--text-secondary);margin-bottom:8px;">{{ rows|length }} record(s){% if view == 'history' %} · QC date {{ f.date_from }} – {{ f.date_to }}{% endif %}</div>
+    <table class="con-table qc-table">
+      <thead><tr><th>Date</th><th>SN</th><th>Model</th><th>Traveler</th><th>Tested</th><th>Tested by</th>
+        <th>Marks</th><th>QC status</th><th>QC Operator ID / time</th><th>QC note / action</th></tr></thead>
+      <tbody>
+      {% for r in rows %}
+        <tr class="{{ 'rej' if r.status == 'Rejected' }} {{ 'carry' if r.status == 'Pending' and r.sampled_on != today }}" x-data="{ note: '' }">
+          <td style="white-space:nowrap;">{{ r.sampled_on }}{% if r.status == 'Pending' and r.sampled_on != today %}<div style="color:var(--warn);font-size:.8em;">carried over</div>{% endif %}</td>
+          <td><a href="/console/tests/{{ r.test_id }}">{{ r.serial_no }}</a></td>
+          <td>{{ r.manufacturer }} {{ r.model }}</td>
+          <td style="white-space:nowrap;">{{ r.traveler_id or '—' }}</td>
+          <td style="white-space:nowrap;">{{ (r.tested_at or '').replace('T', ' ')[:16] }}</td>
+          <td>{{ r.tested_by or '—' }}</td>
+          <td style="font-family:monospace;font-size:.85em;">{{ r.marks }}</td>
+          <td><span class="badge {{ 'pass' if r.status == 'Passed' else 'fail' if r.status == 'Rejected' else 'warn' }}">{{ r.status }}</span></td>
+          <td style="white-space:nowrap;">{% if r.qc_by %}{{ r.qc_by }}<div style="color:var(--text-secondary);font-size:.85em;">{{ (r.qc_at or '').replace('T', ' ')[:16] }}</div>{% else %}—{% endif %}</td>
+          <td class="act">
+            {% if r.status == 'Pending' %}
+              <input type="text" class="qc-note" x-model="note" placeholder="Note (blank = default text)">
+              <button class="con-btn" type="button" @click="submitId({{ r.id }}, 'Passed', note)">Pass</button>
+              <button class="con-btn danger" type="button" @click="submitId({{ r.id }}, 'Rejected', note)">Reject</button>
+            {% else %}{{ r.note or '' }}{% endif %}
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="10" style="color:var(--text-secondary);">
+          {% if view == 'today' %}No QC records today yet. Enter a QC Operator ID and the SN above to record one.
+          {% elif view == 'pending' %}No pending QC items.
+          {% else %}No QC records in this range.{% endif %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div style="color:var(--text-secondary);font-size:.85em;margin-top:10px;">
+      After QC: apply a small <b style="color:#3b82f6;">blue dot</b> (QC Passed) or <b style="color:var(--fail);">red dot</b> (QC Rejected — keep the console separate).
+    </div>
+  </div>
+</div>
+
+<script>
+function consoleQC() {
+  return {
+    operator: '', sn: '', note: '', err: '', found: false, saving: false,
+    init() { this.operator = localStorage.getItem('con_operator') || ''; },
+    persist() { localStorage.setItem('con_operator', this.operator); },
+    async lookup() {
+      this.err = ''; this.found = false;
+      const box = document.getElementById('qc-unit');
+      const sn = this.sn.trim();
+      if (!sn) { box.innerHTML = ''; return; }
+      const r = await fetch('/console/qc/lookup?serial_no=' + encodeURIComponent(sn));
+      box.innerHTML = await r.text();
+      this.found = !!box.querySelector('.card-sn');
+    },
+    async submitSn(status, overwrite = false) {
+      this.err = '';
+      if (!this.operator.trim()) { this.err = 'QC Operator ID is required'; return; }
+      if (status === 'Rejected' && !this.note.trim()) { this.err = 'Enter a note for the rejection'; return; }
+      if (status === 'Rejected' && !overwrite && !window.confirm('Reject this unit?')) return;
+      this.saving = true;
+      try {
+        const fd = new FormData();
+        fd.append('operator', this.operator.trim());
+        fd.append('serial_no', this.sn.trim());
+        fd.append('status', status);
+        fd.append('note', this.note.trim());
+        if (overwrite) fd.append('confirm_overwrite', '1');
+        const r = await fetch('/console/qc/submit', { method: 'POST', body: fd });
+        const j = await r.json();
+        if (r.status === 409 && j.needs_confirm) {
+          this.saving = false;
+          if (window.confirm(j.message)) return this.submitSn(status, true);
+          return;
+        }
+        if (!j.ok) { this.err = (j.errors || ['Failed']).join('; '); return; }
+        location.reload();
+      } finally { this.saving = false; }
+    },
+    // Legacy Pending rows (former automatic sampling)
+    async submitId(id, status, note) {
+      this.err = '';
+      if (!this.operator.trim()) { this.err = 'QC Operator ID is required'; return; }
+      if (status === 'Rejected' && !window.confirm('Reject this unit?')) return;
+      const fd = new FormData();
+      fd.append('operator', this.operator.trim());
+      fd.append('status', status);
+      fd.append('note', note || '');
+      const r = await fetch('/console/qc/' + id, { method: 'POST', body: fd });
+      const j = await r.json();
+      if (!j.ok) { this.err = (j.errors || ['Failed']).join('; '); return; }
+      location.reload();
+    },
+  };
+}
+</script>
+{% endblock %}

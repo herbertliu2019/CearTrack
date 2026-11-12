@@ -1,0 +1,6 @@
+<div class="con-sub">
+  <a href="/console/" class="{{ 'on' if request.path == '/console/' }}">Entry</a>
+  <a href="/console/tests" class="{{ 'on' if request.path.startswith('/console/tests') }}">Test Results</a>
+  <a href="/console/qc" class="{{ 'on' if request.path.startswith('/console/qc') }}">QC</a>
+  <a href="/console/admin/models" class="{{ 'on' if request.path.startswith('/console/admin') }}">Models</a>
+</div>

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}{{ t.serial_no }} — Game Console{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/console.css') }}">
+<div class="con-wrap" style="max-width:900px;">
+  {% include "console/_nav.html" %}
+
+  {% if qc and qc.status == 'Rejected' %}
+  <div class="con-err"><b>QC REJECTED</b> by {{ qc.qc_by }} ({{ qc.qc_at.replace('T', ' ') }}){% if qc.note %}: {{ qc.note }}{% endif %}</div>
+  {% endif %}
+  {% if t.superseded_by %}
+  <div class="con-warn">Superseded by a newer retest — <a href="/console/tests/{{ t.superseded_by }}" style="color:var(--accent);">view latest</a></div>
+  {% endif %}
+
+  <div class="con-sec {{ 'qc-rej' if qc and qc.status == 'Rejected' }}">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div>
+        <div class="card-sn" style="font-size:1.3em;">{{ t.serial_no }}</div>
+        <div style="color:var(--text-secondary);">{{ t.manufacturer }} {{ t.model }}{% if t.color %} · {{ t.color }}{% endif %}</div>
+      </div>
+      <span class="res-badge {{ t.result|lower }}"><i></i>{{ t.result }}</span>
+    </div>
+    <div class="kv-grid" style="margin-top:14px;">
+      <div class="kv-label">Traveler ID</div><div class="kv-value">{{ t.traveler_id or '—' }}</div>
+      <div class="kv-label">Tested</div><div class="kv-value">{{ t.tested_at.replace('T', ' ') }} by {{ t.tested_by or '—' }}</div>
+      {% if t.source == 'api' %}<div class="kv-label">Source</div><div class="kv-value">API upload
+        {% if t.ext_json_path %}· <a href="/console/external/{{ t.ext_json_path }}" target="_blank" style="color:var(--accent);">JSON</a>{% endif %}
+        {% if t.ext_pdf_path %}· <a href="/console/external/{{ t.ext_pdf_path }}" target="_blank" style="color:var(--accent);">PDF</a>{% endif %}
+        {% if t.ext_result and t.ext_result|lower != t.result|lower %}<span style="color:var(--warn);">· tool reported {{ t.ext_result }}, CearTrack calculated {{ t.result }}</span>{% endif %}
+      </div>{% endif %}
+      <div class="kv-label">Marks</div><div class="kv-value" style="font-family:monospace;">{{ t.marks }}</div>
+      <div class="kv-label">Cosmetic</div><div class="kv-value">{{ cosmetic|join(', ') or '—' }}</div>
+      <div class="kv-label">Sanitize</div><div class="kv-value">{{ t.sanitize_method }} · {{ t.sanitize_result }}{% if t.sanitize_date %} · {{ t.sanitize_date }}{% endif %}</div>
+      {% if t.grade or t.condition %}<div class="kv-label">Grade / Condition</div><div class="kv-value">{{ t.grade or '—' }} · {{ t.condition or '—' }}</div>{% endif %}
+      {% if t.functionality %}<div class="kv-label">Functionality</div><div class="kv-value">{{ t.functionality }}</div>{% endif %}
+      {% if t.part_no %}<div class="kv-label">Part No.</div><div class="kv-value">{{ t.part_no }}</div>{% endif %}
+      {% if t.weight is not none %}<div class="kv-label">Weight</div><div class="kv-value">{{ t.weight }} lb</div>{% endif %}
+      {% if t.cd_dvd %}<div class="kv-label">CD/DVD Drive</div><div class="kv-value">{{ t.cd_dvd }}</div>{% endif %}
+      {% if t.storage_desc %}<div class="kv-label">Storage</div><div class="kv-value">{{ t.storage_desc }}</div>{% endif %}
+      {% if t.hdd_sn %}<div class="kv-label">HDD SN / TID</div><div class="kv-value">{{ t.hdd_sn }} / {{ t.hdd_traveler_id }}</div>{% endif %}
+      {% if t.notes %}<div class="kv-label">Notes</div><div class="kv-value">{{ t.notes }}</div>{% endif %}
+      {% if qc %}<div class="kv-label">QC</div><div class="kv-value">{{ qc.status }}{% if qc.note %} — {{ qc.note }}{% endif %}</div>{% endif %}
+    </div>
+  </div>
+
+  <div class="con-sec">
+    <h3>Check items</h3>
+    {% for it in items %}
+    <div class="item-row">
+      <div class="item-name">{{ it.label }} <span style="color:var(--text-secondary);font-size:.8em;">({{ it.type }})</span></div>
+      <span class="badge {{ 'pass' if it.status == 'Pass' else 'fail' if it.status == 'Fail' else 'warn' }}">{{ it.status }}</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if t.reset_photo %}
+  <div class="con-sec">
+    <h3>Reset photo</h3>
+    <a href="/console/photos/{{ t.reset_photo }}" target="_blank">
+      <img src="/console/photos/{{ t.reset_photo }}" alt="reset photo" style="max-width:100%;border-radius:6px;">
+    </a>
+  </div>
+  {% endif %}
+
+  {% if history|length > 1 %}
+  <div class="con-sec">
+    <h3>Test history for this SN</h3>
+    {% for h in history %}
+    <div><a href="/console/tests/{{ h.id }}" style="color:var(--accent);">{{ h.tested_at.replace('T', ' ') }}</a>
+      — {{ h.result }}{% if h.superseded_by %} (superseded){% endif %}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="con-sec">
+    <h3>Audit timeline</h3>
+    <ul class="tl">
+      {% for e in timeline %}
+      <li><span class="ts">{{ e.ts.replace('T', ' ') }}</span> · {{ e.actor or '—' }} · <b>{{ e.action }}</b>
+        {% if e.detail %}<div style="color:var(--text-secondary);font-family:monospace;">{{ e.detail }}</div>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,40 @@
+  <div class="con-sec" style="overflow-x:auto;">
+    <div style="color:var(--text-secondary);margin-bottom:8px;">{{ rows|length }} record(s){% if truncated %} <span style="color:var(--warn);">— showing only the first {{ limit }}; narrow the date range or export CSV for all</span>{% endif %}</div>
+    <table class="con-table">
+      <thead><tr><th>Time</th><th>Traveler</th><th>SN</th><th>Model</th>
+        {% if show_sales_fields %}<th>Part No.</th><th>Color</th>
+        <th>Weight</th><th>Grade</th><th>Condition</th><th>Functionality</th><th>CD/DVD</th>
+        <th>Storage</th>{% endif %}<th>Sanitize</th><th>Cosmetic</th><th>Notes</th><th>Result</th><th>Marks</th>
+        <th>Operator ID</th><th>Source</th><th>QC</th></tr></thead>
+      <tbody>
+      {% for r in rows %}
+        <tr class="{{ 'sup' if r.superseded_by }}">
+          <td style="white-space:nowrap;">{{ r.tested_at.replace('T', ' ') }}</td>
+          <td style="white-space:nowrap;">{{ r.traveler_id or '' }}</td>
+          <td><a href="/console/tests/{{ r.id }}">{{ r.serial_no or '(no SN)' }}</a></td>
+          <td>{{ r.manufacturer }} {{ r.model }}</td>
+          {% if show_sales_fields %}
+          <td>{{ r.part_no or '' }}</td>
+          <td>{{ r.color or '' }}</td>
+          <td>{{ r.weight if r.weight is not none else '' }}</td>
+          <td>{{ r.grade or '' }}</td>
+          <td style="white-space:nowrap;">{{ r.condition or '' }}</td>
+          <td>{{ r.functionality or '' }}</td>
+          <td>{{ r.cd_dvd or '' }}</td>
+          <td>{{ ((r.storage_size or '') ~ ' ' ~ (r.storage_type or ''))|trim }}</td>
+          {% endif %}
+          <td style="white-space:nowrap;">{{ r.sanitize_method }} · {{ r.sanitize_result }}{% if r.sanitize_date %} · {{ r.sanitize_date }}{% endif %}</td>
+          <td>{{ r.cosmetic }}</td>
+          <td>{{ r.notes or '' }}</td>
+          <td><span class="badge {{ 'pass' if r.result == 'Pass' else 'fail' }}">{{ r.result }}</span></td>
+          <td>{{ r.marks }}</td>
+          <td>{{ r.tested_by or '' }}</td>
+          <td>{% if r.source == 'api' %}<span class="badge warn">API</span>{% else %}Manual{% endif %}</td>
+          <td>{% if r.qc_status == 'Rejected' %}<span class="badge fail">Rejected</span>{% else %}{{ r.qc_status or '' }}{% endif %}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="{{ 20 if show_sales_fields else 12 }}"style="color:var(--text-secondary);">No records.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
