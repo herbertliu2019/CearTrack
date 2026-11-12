@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% block title %}Monitor Entry — CEARTrack{% endblock %}
+{% macro row(code, label) %}
+<div class="item-row">
+  <div class="item-name">{{ label }}</div>
+  <div class="seg">
+    <input type="radio" id="i{{ code }}p" name="item_{{ code }}" value="Pass" checked><label class="p" for="i{{ code }}p">Pass</label>
+    <input type="radio" id="i{{ code }}f" name="item_{{ code }}" value="Fail"><label class="f" for="i{{ code }}f">Fail</label>
+    <input type="radio" id="i{{ code }}n" name="item_{{ code }}" value="N/A"><label class="n" for="i{{ code }}n">N/A</label>
+  </div>
+</div>
+{% endmacro %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/console.css') }}">
+<style>
+.ce-wrap { max-width: 1320px; margin: 0 auto; padding-bottom: 8px; }
+.ce-idbar { display: grid; grid-template-columns: 1fr 1.1fr 1.2fr 1.2fr 1.2fr; gap: 12px; align-items: end; }
+.ce-idbar .con-lbl { margin-top: 0; }
+.ce-cols { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.ce-cols .con-sec { margin-bottom: 14px; }
+.ce-h { display: flex; align-items: center; gap: 10px; }
+.ce-step { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--accent); color: #0b1020; font-weight: 700; font-size: .85em; letter-spacing: 0; }
+.ce-h .ce-tools { margin-left: auto; }
+.ce-sub { color: var(--text-secondary); font-size: .78em; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.ce-wrap .item-row { padding: 6px 8px; border-radius: 6px; }
+.ce-wrap .item-row:has(input[value="Fail"]:checked) { background: rgba(231,76,60,.14); }
+.ce-wrap .item-row:has(input[value="N/A"]:checked) .item-name { color: var(--text-secondary); }
+.ce-wrap .seg label { min-width: 84px; min-height: 48px; font-weight: 600; }
+.ce-wrap .item-name { font-size: 1.05em; }
+.ce-grp { color: var(--text-secondary); font-size: .72em; text-transform: uppercase; letter-spacing: .08em; margin: 10px 0 4px; }
+.ce-grp:first-of-type { margin-top: 0; }
+.ce-footer { position: sticky; bottom: 0; z-index: 20; display: flex; gap: 14px; align-items: center;
+  background: var(--bg-card); border: 1px solid var(--border); border-top: 2px solid var(--accent);
+  border-radius: 10px; padding: 10px 14px; box-shadow: 0 -6px 18px rgba(0,0,0,.35); }
+.ce-footer #marks-box { flex: 1; min-width: 0; }
+.ce-footer .con-save { width: auto; min-width: 200px; min-height: 56px; }
+.ce-footer .marks-row { flex-wrap: nowrap; }
+.ce-footer .marks-row input { min-width: 0; }
+.ce-sticker { font-weight: 700; white-space: nowrap; }
+@media (max-width: 1050px) {
+  .ce-idbar { grid-template-columns: 1fr 1fr; }
+  .ce-cols { grid-template-columns: 1fr; }
+  .ce-footer { flex-wrap: wrap; }
+  .ce-footer .marks-row { flex-wrap: wrap; }
+  .ce-footer .con-save { width: 100%; }
+}
+</style>
+<div class="con-wide ce-wrap" x-data="monitorEntry()" x-init="init()">
+  {% include "monitor/_nav.html" %}
+
+  <div class="con-err" x-show="errors.length" x-cloak>
+    <template x-for="e in errors" :key="e"><div x-text="e"></div></template>
+  </div>
+
+  <form x-ref="form" @submit.prevent="save()" autocomplete="off" @change="preview()" @input="preview()">
+
+    <div class="con-sec">
+      <div class="ce-idbar">
+        <div><label class="con-lbl">Operator ID *</label>
+          <input type="text" name="operator" x-model="operator" @change="persist()" required></div>
+        <div><label class="con-lbl">Traveler ID (optional)</label>
+          <input type="text" name="traveler_id" x-ref="traveler" autofocus
+                 @keydown.enter.prevent="$refs.sn.focus()"></div>
+        <div><label class="con-lbl">Serial Number *</label>
+          <input type="text" name="serial_no" x-ref="sn"
+                 hx-get="/monitor/sn-check" hx-trigger="check" hx-target="#sn-warn" hx-include="this"
+                 @keydown.enter.prevent="htmx.trigger($refs.sn, 'check'); $refs.mfr.focus()"
+                 @blur="htmx.trigger($refs.sn, 'check')"></div>
+        <div><label class="con-lbl">Manufacturer *</label>
+          <input type="text" name="manufacturer" x-ref="mfr" list="mfr-list"
+                 @keydown.enter.prevent="$refs.model.focus()"></div>
+        <div><label class="con-lbl">Model *</label>
+          <input type="text" name="model" x-ref="model" list="model-list" @change="onModel()"
+                 @keydown.enter.prevent="$refs.size.focus()"></div>
+      </div>
+      <datalist id="mfr-list">{% for mfr in models|map(attribute='manufacturer')|unique %}<option value="{{ mfr }}">{% endfor %}</datalist>
+      <datalist id="model-list">{% for m in models %}<option value="{{ m.model }}">{{ m.manufacturer }}</option>{% endfor %}</datalist>
+      <datalist id="size-list">{% for s in sizes %}<option value="{{ s }}">{% endfor %}</datalist>
+      <div id="sn-warn"></div>
+
+      <div class="con-row" style="margin-top:12px;">
+        <div><label class="con-lbl">Size</label>
+          <input type="text" name="size" x-ref="size" list="size-list" placeholder="e.g. 27 inch"></div>
+        <div><label class="con-lbl">Color (optional)</label>
+          <input type="text" name="color"></div>
+        <div><label class="con-lbl">Weight, lb (optional)</label>
+          <input type="number" name="weight" step="0.01" min="0" inputmode="decimal"></div>
+        <div><label class="con-lbl">Inventory notes (optional)</label>
+          <input type="text" name="inv_notes" placeholder="e.g. 4k, 60 Hz +"></div>
+      </div>
+    </div>
+
+    <div class="ce-cols">
+      <div>
+        <div class="con-sec">
+          <h3 class="ce-h"><span class="ce-step">A</span> Display
+            <span class="ce-sub">dead + bright pixels, total</span></h3>
+          <label class="con-lbl">Dead / bright pixel count (fail if more than {{ max_dead }})</label>
+          <input type="number" name="dead_pixels" value="0" min="0" max="9999" step="1" inputmode="numeric">
+        </div>
+
+        <div class="con-sec">
+          <h3 class="ce-h"><span class="ce-step">B</span> Missing accessories <span class="ce-sub">goes into Mark</span></h3>
+          <div class="chips">
+            {% for m in missing_options %}
+            <label class="chip"><input type="checkbox" name="missing" value="{{ m }}"><span>{{ m }}</span></label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="con-sec">
+          <h3 class="ce-h"><span class="ce-step">C</span> Functionality
+            <span class="ce-sub">all default to Pass — change only the exceptions</span>
+            <span class="ce-tools"><button type="button" class="con-btn ghost" style="min-height:36px;padding:4px 12px;"
+                    @click="allPass()">Reset all to Pass</button></span>
+          </h3>
+          <div id="items-box">
+            <div class="ce-grp">Key functions <span class="ce-sub">— a Fail makes the unit Fail</span></div>
+            {% for code, label, typ in items if typ == 'key' %}{{ row(code, label) }}{% endfor %}
+            <div class="ce-grp">Secondary functions <span class="ce-sub">— a Fail does not fail the unit</span></div>
+            {% for code, label, typ in items if typ != 'key' %}{{ row(code, label) }}{% endfor %}
+          </div>
+        </div>
+
+        <div class="con-sec">
+          <h3>Grade / Condition</h3>
+          <div class="con-row">
+            <div><label class="con-lbl">Grade</label>
+              <select name="grade">
+                <option value="">— none —</option>
+                {% for g, lab in grade_labels.items() %}<option value="{{ g }}">{{ lab }}</option>{% endfor %}
+              </select></div>
+            <div><label class="con-lbl">Condition</label>
+              <select name="condition">
+                <option value="">— select —</option>
+                {% for c in conditions.values() %}<option>{{ c }}</option>{% endfor %}
+              </select></div>
+          </div>
+          <label class="con-lbl">Functionality</label>
+          <select name="functionality">
+            <option value="">— none —</option>
+            {% for f in functionality %}<option>{{ f }}</option>{% endfor %}
+          </select>
+        </div>
+
+        <div class="con-sec">
+          <h3 class="ce-h"><span class="ce-step">D</span> Notes</h3>
+          <textarea name="notes" rows="3" placeholder="Optional"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="ce-footer">
+      <div id="marks-box">
+        <div class="marks-row"><input type="text" readonly value="" placeholder="Mark"><span class="res-badge pass"><i></i>Pass</span></div>
+      </div>
+      <button type="submit" class="con-btn con-save" :disabled="saving" x-text="saving ? 'Saving…' : 'Save'">Save</button>
+    </div>
+  </form>
+
+  <div class="con-toast" :class="toast.ok ? 'ok' : 'bad'" x-show="toast.msg" x-text="toast.msg" x-cloak></div>
+</div>
+
+<script>
+window.copyMarks = function () {
+  const el = document.getElementById('marks-text');
+  if (!el) return false;
+  if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(el.value); return true; }
+  el.select();
+  try { return document.execCommand('copy'); } catch (e) { return false; }
+};
+
+function monitorEntry() {
+  return {
+    operator: '', saving: false, errors: [], toast: { msg: '', ok: true },
+    previewSeq: 0, previewTimer: null,
+    models: {{ models|tojson }},
+    init() {
+      this.operator = localStorage.getItem('mon_operator') || '';
+      this.$refs.traveler.focus();
+      this.preview();
+    },
+    persist() { localStorage.setItem('mon_operator', this.operator); },
+    // Known model -> fill manufacturer/size if empty.
+    onModel() {
+      const name = this.$refs.model.value.trim().toLowerCase();
+      const mfr = this.$refs.mfr.value.trim().toLowerCase();
+      const m = this.models.find(x => x.model.toLowerCase() === name && (!mfr || x.manufacturer.toLowerCase() === mfr));
+      if (!m) return;
+      if (!this.$refs.mfr.value.trim()) this.$refs.mfr.value = m.manufacturer;
+      if (!this.$refs.size.value.trim() && m.size) this.$refs.size.value = m.size;
+    },
+    preview() {
+      clearTimeout(this.previewTimer);
+      this.previewTimer = setTimeout(() => this._preview(), 150);
+    },
+    async _preview() {
+      const seq = ++this.previewSeq;
+      const box = document.getElementById('marks-box');
+      try {
+        const r = await fetch('/monitor/marks-preview', { method: 'POST', body: new FormData(this.$refs.form) });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const html = await r.text();
+        if (seq === this.previewSeq) box.innerHTML = html;
+      } catch (e) {
+        if (seq === this.previewSeq)
+          box.innerHTML = '<div class="con-err" style="margin:0;">Result preview failed (' + e.message +
+                          ') — the result is still calculated when you Save.</div>';
+      }
+    },
+    allPass() {
+      document.querySelectorAll('#items-box input[type=radio][value="Pass"]').forEach(r => { r.checked = true; });
+      this.preview();
+    },
+    flash(msg, ok) {
+      this.toast = { msg, ok };
+      setTimeout(() => this.toast.msg = '', 3000);
+    },
+    async save(confirmed = false) {
+      this.errors = [];
+      this.saving = true;
+      try {
+        const fd = new FormData(this.$refs.form);
+        if (confirmed) fd.append('confirm_retest', '1');
+        const r = await fetch('/monitor/tests', { method: 'POST', body: fd });
+        const j = await r.json();
+        if (r.status === 409 && j.needs_confirm) {
+          this.saving = false;
+          if (window.confirm(j.message)) return this.save(true);
+          return;
+        }
+        if (!j.ok) { this.errors = j.errors || ['Save failed']; window.scrollTo(0, 0); return; }
+        this.flash('Saved — ' + j.result, true);
+        if (j.new_model) { setTimeout(() => location.reload(), 900); return; }   // refresh model suggestions
+        this.resetForm();
+      } catch (e) {
+        this.errors = ['Network error: ' + e];
+      } finally {
+        this.saving = false;
+      }
+    },
+    resetForm() {
+      const f = this.$refs.form;
+      f.reset();
+      f.operator.value = this.operator;      // reset() bypasses x-model
+      document.getElementById('sn-warn').innerHTML = '';
+      this.preview();
+      this.$refs.traveler.focus();
+    },
+  };
+}
+</script>
+{% endblock %}

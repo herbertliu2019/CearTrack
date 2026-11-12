@@ -1,0 +1,5 @@
+<div class="con-sub">
+  <a href="/monitor/" class="{{ 'on' if request.path == '/monitor/' }}">Entry</a>
+  <a href="/monitor/tests" class="{{ 'on' if request.path.startswith('/monitor/tests') }}">Test Results</a>
+  <a href="/monitor/qc" class="{{ 'on' if request.path.startswith('/monitor/qc') }}">QC</a>
+</div>

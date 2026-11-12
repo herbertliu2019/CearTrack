@@ -1,0 +1,10 @@
+<div class="marks-row" x-data="{ copied: false }">
+  <input type="text" readonly id="marks-text" value="{{ marks }}" placeholder="Mark (missing accessories)">
+  <button type="button" class="con-btn ghost"
+          @click="copied = window.copyMarks(); setTimeout(() => copied = false, 1500)"
+          x-text="copied ? 'Copied' : 'Copy'">Copy</button>
+  <span class="res-badge {{ result|lower }}"><i></i>{{ result }}</span>
+  {% if dead > max_dead %}
+  <span class="ce-sticker" style="color:var(--fail);">Dead pixels {{ dead }} &gt; {{ max_dead }}</span>
+  {% endif %}
+</div>
