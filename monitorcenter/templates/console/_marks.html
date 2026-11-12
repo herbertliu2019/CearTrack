@@ -1,5 +1,6 @@
+<div class="marks-cap">Marks · auto-generated, not editable — click Copy</div>
 <div class="marks-row" x-data="{ copied: false }">
-  <input type="text" readonly id="marks-text" value="{{ marks }}">
+  <input type="text" readonly tabindex="-1" id="marks-text" value="{{ marks }}" title="Auto-generated from your entries; use Copy">
   <button type="button" class="con-btn ghost"
           @click="copied = window.copyMarks(); setTimeout(() => copied = false, 1500)"
           x-text="copied ? 'Copied' : 'Copy'">Copy</button>

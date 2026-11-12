@@ -55,6 +55,12 @@
 /* marks + badge */
 .marks-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .marks-row input { flex: 1; min-width: 200px; font-family: monospace; }
+/* auto-generated Marks: looks read-only so operators don't try to type in it */
+.marks-cap { font-size: .72em; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
+             color: var(--text-secondary); margin-bottom: 4px; }
+.marks-row input[readonly] { background: transparent; border-style: dashed; color: var(--text-secondary);
+                             cursor: default; caret-color: transparent; }
+.marks-row input[readonly]:focus { outline: none; box-shadow: none; border-color: var(--border); }
 .res-badge { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px;
   border-radius: 22px; font-weight: 700; border: 1px solid var(--border); }
 .res-badge i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }

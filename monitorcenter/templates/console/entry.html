@@ -222,7 +222,8 @@
     <!-- E: result + label sticker + save (always visible) -->
     <div class="ce-footer">
       <div id="marks-box">
-        <div class="marks-row"><input type="text" readonly value="" placeholder="ERP Marks"><span class="res-badge pass"><i></i>Pass</span></div>
+        <div class="marks-cap">Marks · auto-generated, not editable — click Copy</div>
+        <div class="marks-row"><input type="text" readonly tabindex="-1" value="" placeholder="ERP Marks"><span class="res-badge pass"><i></i>Pass</span></div>
       </div>
       <button type="submit" class="con-btn con-save" :disabled="saving" x-text="saving ? 'Saving…' : 'Save'">Save</button>
     </div>
