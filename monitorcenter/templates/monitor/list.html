@@ -5,6 +5,138 @@
 <div class="con-wide">
   {% include "monitor/_nav.html" %}
 
+  <style>
+  /* Period stats — same look as CPU dashboard */
+  .kpi-strip { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:16px; }
+  .kpi-card { background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:16px 18px; text-align:center; }
+  .kpi-value { font-size:2em; font-weight:700; line-height:1.1; color:var(--accent); }
+  .kpi-value.pass { color:var(--pass); } .kpi-value.fail { color:var(--fail); } .kpi-value.muted { color:var(--text-secondary); }
+  .kpi-label { font-size:.7em; font-weight:600; text-transform:uppercase; letter-spacing:.07em; color:var(--text-secondary); margin-top:5px; }
+  .chart-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+  .chart-panel { background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:16px 18px; }
+  .chart-title { font-size:.7em; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text-secondary); margin-bottom:12px; }
+  .hbar-list { display:grid; grid-template-columns:minmax(0,max-content) 1fr auto; column-gap:8px; row-gap:5px; align-items:center; }
+  .hbar-row { display:contents; }
+  .hbar-label { font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text-primary); max-width:260px; }
+  .hbar-track { height:12px; background:rgba(255,255,255,.06); border-radius:3px; overflow:hidden; display:flex; }
+  .hbar-fill { height:100%; opacity:.85; transition:width .4s ease; }
+  .hbar-val { min-width:28px; font-size:11.5px; font-weight:700; color:var(--accent); text-align:right; white-space:nowrap; }
+  .period-tabs { display:flex; gap:6px; }
+  .tab-btn { padding:6px 14px; border-radius:6px; border:1px solid var(--border); background:transparent; color:var(--text-secondary);
+    cursor:pointer; font-size:.82em; font-weight:600; transition:all .15s; }
+  .tab-btn.active, .tab-btn:hover { border-color:var(--accent); color:var(--accent); background:rgba(99,102,241,.08); }
+  .daily-panel { background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:14px 18px; margin-bottom:14px; }
+  .daily-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .daily-legend { display:flex; gap:14px; font-size:.78em; color:var(--text-secondary); }
+  .legend-dot { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:middle; }
+  .legend-dot.pass { background:var(--pass); } .legend-dot.fail { background:var(--fail); }
+  .daily-chart { display:flex; align-items:flex-end; gap:4px; height:140px; padding:18px 0 26px; border-bottom:1px solid rgba(255,255,255,.08); position:relative; }
+  .daily-col { flex:1; height:100%; display:flex; flex-direction:column-reverse; min-width:14px; position:relative; }
+  .daily-col:hover .daily-tooltip { display:block; }
+  .daily-seg { width:100%; transition:opacity .15s; }
+  .daily-seg.pass { background:var(--pass); } .daily-seg.fail { background:var(--fail); }
+  .daily-col:hover .daily-seg { opacity:.85; }
+  .daily-label { position:absolute; bottom:-20px; left:50%; transform:translateX(-50%); font-size:10px; color:var(--text-secondary); white-space:nowrap; }
+  .daily-total { position:absolute; top:-16px; left:50%; transform:translateX(-50%); font-size:10px; font-weight:700; color:var(--text-secondary); white-space:nowrap; }
+  .daily-tooltip { display:none; position:absolute; bottom:100%; left:50%; transform:translateX(-50%); background:var(--bg-primary,#1a1a1a);
+    border:1px solid var(--border); border-radius:5px; padding:6px 10px; font-size:.75em; white-space:nowrap; z-index:5; pointer-events:none; margin-bottom:4px; }
+  @media (max-width:900px) { .kpi-strip { grid-template-columns:repeat(2,1fr); } .chart-row { grid-template-columns:1fr; } }
+  </style>
+
+  <!-- Period stats (latest test per SN; week = Sun–Sat) -->
+  <div x-data="monStats()" x-init="load()" style="margin-bottom:14px;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+      <div class="period-tabs">
+        <button type="button" class="tab-btn" :class="{active: period==='week'}" @click="setPeriod('week')">Week</button>
+        <button type="button" class="tab-btn" :class="{active: period==='month'}" @click="setPeriod('month')">Month</button>
+        <button type="button" class="tab-btn" :class="{active: period==='custom'}" @click="setPeriod('custom')">Custom</button>
+      </div>
+      <template x-if="period!=='custom'">
+        <div class="period-tabs">
+          <button type="button" class="tab-btn" @click="shift(-1)">‹ Prev</button>
+          <button type="button" class="tab-btn" @click="today()">Today</button>
+          <button type="button" class="tab-btn" @click="shift(1)">Next ›</button>
+        </div>
+      </template>
+      <template x-if="period==='custom'">
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="date" x-model="cStart" style="width:auto;min-height:0;padding:6px 10px;font-size:.85em;">
+          <span style="color:var(--text-secondary);">–</span>
+          <input type="date" x-model="cEnd" style="width:auto;min-height:0;padding:6px 10px;font-size:.85em;">
+          <button type="button" class="tab-btn active" @click="load()">Apply</button>
+        </div>
+      </template>
+      <span style="color:var(--text-secondary);font-size:.85em;" x-text="s.start ? s.start + ' – ' + s.end : ''"></span>
+    </div>
+    <div class="con-err" x-show="err" x-text="err" x-cloak></div>
+
+    <div class="kpi-strip">
+      <div class="kpi-card"><div class="kpi-value" x-text="s.summary ? s.summary.total : '…'"></div><div class="kpi-label">Tested (unique SN)</div></div>
+      <div class="kpi-card"><div class="kpi-value pass" x-text="s.summary ? s.summary.pass : '…'"></div><div class="kpi-label">Passed</div></div>
+      <div class="kpi-card"><div class="kpi-value" :class="s.summary && s.summary.fail ? 'fail' : 'muted'" x-text="s.summary ? s.summary.fail : '…'"></div><div class="kpi-label">Failed</div></div>
+      <div class="kpi-card"><div class="kpi-value" x-text="s.summary && s.summary.pass_rate !== null ? s.summary.pass_rate + '%' : '—'"></div><div class="kpi-label">Pass Rate</div></div>
+      <div class="kpi-card"><div class="kpi-value" x-text="s.summary ? s.summary.avg_per_day : '…'"></div><div class="kpi-label">Avg / Day</div></div>
+    </div>
+
+    <div class="chart-row">
+      <div class="chart-panel">
+        <div class="chart-title">By Model</div>
+        <template x-if="!(s.by_model||[]).length"><div style="color:var(--text-secondary);font-size:.8em;padding:8px 0;">No data</div></template>
+        <div class="hbar-list" x-show="(s.by_model||[]).length">
+          <template x-for="m in (s.by_model||[])" :key="m.model">
+            <div class="hbar-row">
+              <span class="hbar-label" :title="m.model" x-text="m.model"></span>
+              <div class="hbar-track">
+                <div class="hbar-fill" :style="'width:' + w(m.pass, maxModel()) + '%;background:var(--pass)'"></div>
+                <div class="hbar-fill" :style="'width:' + w(m.fail, maxModel()) + '%;background:var(--fail)'"></div>
+              </div>
+              <span class="hbar-val" x-text="m.pass + m.fail"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+      <div class="chart-panel">
+        <div class="chart-title">Fail Reasons</div>
+        <template x-if="!(s.fail_reasons||[]).length"><div style="color:var(--text-secondary);font-size:.8em;padding:8px 0;">No failures</div></template>
+        <div class="hbar-list" x-show="(s.fail_reasons||[]).length">
+          <template x-for="r in (s.fail_reasons||[])" :key="r.reason">
+            <div class="hbar-row">
+              <span class="hbar-label" :title="r.reason" x-text="r.reason"></span>
+              <div class="hbar-track"><div class="hbar-fill" :style="'width:' + w(r.count, s.fail_reasons[0].count) + '%;background:var(--fail)'"></div></div>
+              <span class="hbar-val" x-text="r.count"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <div class="daily-panel" x-show="(s.daily||[]).length">
+      <div class="daily-head">
+        <div class="chart-title" style="margin:0;">Daily Volume <span style="text-transform:none;letter-spacing:0;font-weight:400;">— click a day to filter the list below</span></div>
+        <div class="daily-legend">
+          <span><span class="legend-dot pass"></span>Pass</span>
+          <span><span class="legend-dot fail"></span>Fail</span>
+        </div>
+      </div>
+      <div class="daily-chart">
+        <template x-for="d in (s.daily||[])" :key="d.date">
+          <div class="daily-col" :style="((d.pass + d.fail) ? 'cursor:pointer;' : '') + (selDay===d.date ? 'outline:1px solid var(--accent);' : '')" @click="(d.pass + d.fail) && goDay(d.date)">
+            <div class="daily-total" x-show="d.pass + d.fail" x-text="d.pass + d.fail"></div>
+            <div class="daily-seg fail" :style="'height:' + h(d.fail) + '%'"></div>
+            <div class="daily-seg pass" :style="'height:' + h(d.pass) + '%'"></div>
+            <div class="daily-label" x-text="lbl(d.date)"></div>
+            <div class="daily-tooltip">
+              <div style="font-weight:700;margin-bottom:3px;" x-text="d.date"></div>
+              <div><span class="legend-dot pass"></span>Pass <span x-text="d.pass"></span></div>
+              <div x-show="d.fail"><span class="legend-dot fail"></span>Fail <span x-text="d.fail"></span></div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+
+
   <form method="get" action="/monitor/tests" class="con-sec">
     <div class="con-row">
       <div><label class="con-lbl">From</label><input type="date" name="date_from" value="{{ f.date_from }}"></div>
@@ -22,37 +154,63 @@
     </div>
   </form>
 
-  <div class="con-sec" style="overflow-x:auto;">
-    <div style="color:var(--text-secondary);margin-bottom:8px;">{{ rows|length }} record(s){% if truncated %} <span style="color:var(--warn);">— showing only the first {{ limit }}; narrow the date range or export CSV for all</span>{% endif %}</div>
-    <table class="con-table">
-      <thead><tr><th>Time</th><th>Traveler</th><th>SN</th><th>Model</th><th>Size</th><th>Color</th><th>Weight</th>
-        <th>Grade</th><th>Condition</th><th>Functionality</th><th>Dead px</th><th>Notes</th>
-        <th>Result</th><th>Mark</th><th>Operator ID</th><th>QC</th></tr></thead>
-      <tbody>
-      {% for r in rows %}
-        <tr class="{{ 'sup' if r.superseded_by }}">
-          <td style="white-space:nowrap;">{{ r.tested_at.replace('T', ' ') }}</td>
-          <td style="white-space:nowrap;">{{ r.traveler_id or '' }}</td>
-          <td><a href="/monitor/tests/{{ r.id }}">{{ r.serial_no }}</a></td>
-          <td>{{ r.manufacturer }} {{ r.model }}</td>
-          <td style="white-space:nowrap;">{{ r.size or '' }}</td>
-          <td>{{ r.color or '' }}</td>
-          <td>{{ r.weight if r.weight is not none else '' }}</td>
-          <td>{{ r.grade or '' }}</td>
-          <td style="white-space:nowrap;">{{ r.condition or '' }}</td>
-          <td>{{ r.functionality or '' }}</td>
-          <td>{{ r.dead_pixels }}</td>
-          <td>{{ r.inv_notes or '' }}{% if r.notes %} {{ r.notes }}{% endif %}</td>
-          <td><span class="badge {{ 'pass' if r.result == 'Pass' else 'fail' }}">{{ r.result }}</span></td>
-          <td>{{ r.marks }}</td>
-          <td>{{ r.tested_by or '' }}</td>
-          <td>{% if r.qc_status == 'Rejected' %}<span class="badge fail">Rejected</span>{% else %}{{ r.qc_status or '' }}{% endif %}</td>
-        </tr>
-      {% else %}
-        <tr><td colspan="16" style="color:var(--text-secondary);">No records.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
+  <div id="rows-box">{% include "monitor/_rows.html" %}</div>
 </div>
+<script>
+const monForm = () => document.querySelector('form[action="/monitor/tests"]');
+async function monReloadRows() {
+  const p = new URLSearchParams(new FormData(monForm()));
+  p.set('fragment', '1');
+  const box = document.getElementById('rows-box');
+  box.style.opacity = '.5';
+  try {
+    const r = await fetch('/monitor/tests?' + p);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    box.innerHTML = await r.text();
+  } catch (e) {
+    box.insertAdjacentHTML('afterbegin', '<div class="con-err">Load failed: ' + e + '</div>');
+  } finally { box.style.opacity = ''; }
+}
+function monStats() {
+  return {
+    period: 'week', ref: '', cStart: '', cEnd: '', s: {}, err: '', selDay: '', first: true,
+    setPeriod(p) { this.period = p; this.ref = ''; if (p !== 'custom') this.load(); },
+    today() { this.ref = ''; this.load(); },
+    shift(n) {
+      const base = this.ref || new Date().toISOString().slice(0, 10);
+      const d = new Date(base + 'T00:00:00');
+      if (this.period === 'week') d.setDate(d.getDate() + 7 * n); else d.setMonth(d.getMonth() + n, 1);
+      this.ref = [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+      this.load();
+    },
+    async load() {
+      this.err = ''; this.selDay = '';
+      const p = new URLSearchParams({ period: this.period });
+      if (this.period === 'custom') { p.set('start', this.cStart); p.set('end', this.cEnd); }
+      else if (this.ref) p.set('ref', this.ref);
+      try {
+        const r = await fetch('/monitor/api/stats?' + p);
+        const j = await r.json();
+        if (!r.ok) { this.err = j.error || 'Load failed'; return; }
+        this.s = j;
+      } catch (e) { this.err = 'Network error: ' + e; return; }
+      // first load: the server already rendered this week's rows
+      if (this.first) { this.first = false; return; }
+      this.setRange(this.s.start, this.s.end);
+    },
+    setRange(a, b) {
+      const f = monForm(); f.date_from.value = a; f.date_to.value = b; monReloadRows();
+    },
+    goDay(d) {
+      if (this.selDay === d) { this.selDay = ''; this.setRange(this.s.start, this.s.end); return; }
+      this.selDay = d; this.setRange(d, d);
+    },
+    maxDay() { return Math.max(1, ...(this.s.daily || []).map(d => d.pass + d.fail)); },
+    h(n) { return 100 * n / this.maxDay(); },
+    maxModel() { return Math.max(1, ...(this.s.by_model || []).map(m => m.pass + m.fail)); },
+    w(n, max) { return max ? 100 * n / max : 0; },
+    lbl(d) { const n = (this.s.daily || []).length; return n > 14 ? d.slice(8) : d.slice(5) + ' ' + ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(d + 'T00:00:00').getDay()]; },
+  };
+}
+</script>
 {% endblock %}

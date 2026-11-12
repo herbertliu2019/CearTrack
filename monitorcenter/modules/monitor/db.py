@@ -198,6 +198,55 @@ def query_tests(conn, date_from=None, date_to=None, result=None, q=None,
     return [dict(r) for r in conn.execute(sql, args)]
 
 
+def period_stats(conn, d_from: str, d_to: str, max_dead: int = 2) -> dict:
+    """Stats for the latest test per SN (superseded excluded) tested in [d_from, d_to]."""
+    from datetime import date, timedelta
+    rows = [dict(r) for r in conn.execute(
+        "SELECT t.id, date(t.tested_at) AS d, t.result, t.dead_pixels, m.manufacturer, m.model "
+        "FROM monitor_tests t JOIN monitor_models m ON m.id=t.model_id "
+        "WHERE t.superseded_by IS NULL AND date(t.tested_at) BETWEEN ? AND ?", (d_from, d_to))]
+    total = len(rows)
+    passed = sum(1 for r in rows if r["result"] == "Pass")
+
+    start, end = date.fromisoformat(d_from), date.fromisoformat(d_to)
+    daily, cur = {}, start
+    while cur <= end:
+        daily[str(cur)] = {"date": str(cur), "pass": 0, "fail": 0}
+        cur += timedelta(days=1)
+    by_model: dict = {}
+    for r in rows:
+        k = "pass" if r["result"] == "Pass" else "fail"
+        daily[r["d"]][k] += 1
+        name = f"{r['manufacturer']} {r['model']}"
+        m = by_model.setdefault(name, {"model": name, "pass": 0, "fail": 0})
+        m[k] += 1
+
+    # Fail reasons: failed key items, plus too many dead pixels
+    reasons: dict = {}
+    failed = [r for r in rows if r["result"] != "Pass"]
+    for r in failed:
+        if (r["dead_pixels"] or 0) > max_dead:
+            reasons["Dead pixels"] = reasons.get("Dead pixels", 0) + 1
+    if failed:
+        ids = [r["id"] for r in failed]
+        q = ("SELECT label, COUNT(*) AS n FROM monitor_test_items WHERE type='key' AND status='Fail' "
+             "AND test_id IN (%s) GROUP BY label" % ",".join("?" * len(ids)))
+        for lab, n in conn.execute(q, ids):
+            reasons[lab] = reasons.get(lab, 0) + n
+
+    days = len(daily)
+    return {
+        "start": d_from, "end": d_to,
+        "summary": {"total": total, "pass": passed, "fail": total - passed,
+                    "pass_rate": round(100 * passed / total, 1) if total else None,
+                    "avg_per_day": round(total / days, 1) if days else 0},
+        "daily": list(daily.values()),
+        "by_model": sorted(by_model.values(), key=lambda x: -(x["pass"] + x["fail"])),
+        "fail_reasons": [{"reason": k, "count": v}
+                         for k, v in sorted(reasons.items(), key=lambda kv: -kv[1])],
+    }
+
+
 def test_timeline(conn, test) -> list[dict]:
     return [dict(r) for r in conn.execute(
         "SELECT * FROM monitor_audit_log WHERE test_id=? OR UPPER(sn)=UPPER(?) ORDER BY id",

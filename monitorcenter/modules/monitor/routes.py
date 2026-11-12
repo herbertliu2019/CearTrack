@@ -192,8 +192,38 @@ def list_tests():
             return Response(buf.getvalue(), mimetype="text/csv", headers={
                 "Content-Disposition": f"attachment; filename=monitor_tests_{today}.csv"})
         truncated = len(rows) > LIMIT
+        if a.get("fragment"):
+            return render_template("monitor/_rows.html", rows=rows[:LIMIT], truncated=truncated,
+                                   limit=LIMIT)
         return render_template("monitor/list.html", rows=rows[:LIMIT], f=f, truncated=truncated,
                                limit=LIMIT)
+    finally:
+        conn.close()
+
+
+@monitor_bp.get("/api/stats")
+def api_stats():
+    """period=week (Sun-Sat) | month | custom; `ref` = any date inside the period (default today)."""
+    a = request.args
+    period = a.get("period", "week")
+    try:
+        ref = date.fromisoformat(a.get("ref") or str(date.today()))
+        if period == "custom":
+            d_from, d_to = date.fromisoformat(a["start"]), date.fromisoformat(a["end"])
+            if d_to < d_from or (d_to - d_from).days > 366:
+                return jsonify({"error": "Invalid range (max 366 days)"}), 400
+        elif period == "month":
+            d_from = ref.replace(day=1)
+            d_to = (d_from + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+        else:
+            d_from = ref - timedelta(days=(ref.weekday() + 1) % 7)   # Sunday start
+            d_to = d_from + timedelta(days=6)
+    except (ValueError, KeyError):
+        return jsonify({"error": "Invalid date"}), 400
+    conn = _conn()
+    try:
+        return jsonify(db.period_stats(conn, str(d_from), str(d_to),
+                                       current_app.config["MONITOR_MAX_DEAD_PIXELS"]))
     finally:
         conn.close()
 
