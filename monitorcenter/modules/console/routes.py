@@ -52,16 +52,16 @@ def _collect(conn, strict: bool):
     items = []
     if new_model is not None:
         model = {"id": 0, **new_model}
-        src = db.generic_items(conn)
+        src = db.entry_items(conn)
     elif model:
-        src = db.model_items(conn, model_id)
+        src = db.entry_items(conn, model_id)
     else:
         errors.append("Select a model")
         model = {"id": 0, "has_data": 1}
         src = []
     for it in src:
-        st = request.form.get(f"item_{it['id']}", "Pass")
-        items.append({**it, "status": st if st in logic.STATUSES else "Pass"})
+        st = request.form.get(f"item_{it['id']}", it["default"])
+        items.append({**it, "status": st if st in logic.STATUSES else it["default"]})
 
     method = _s("sanitize_method") or "Factory Reset"
     s_result = _s("sanitize_result") or logic.default_sanitize_result(method)
@@ -145,11 +145,11 @@ def items_fragment():
     conn = _conn()
     try:
         if request.args.get("model_id") == "__new__":
-            model, items = {"new": True}, db.generic_items(conn)
+            model, items = {"new": True}, db.entry_items(conn)
         else:
             mid = request.args.get("model_id", type=int)
             model = db.get_model(conn, mid) if mid else None
-            items = db.model_items(conn, mid) if model else []
+            items = db.entry_items(conn, mid) if model else []
         return render_template("console/_items.html", model=model, items=items)
     finally:
         conn.close()
@@ -299,12 +299,14 @@ def api_upload():
 
         data, errors = ingest.parse_external(conn, raw)
         if errors:
+            conn.rollback()   # discard check items auto-created during parsing
             return jsonify({"ok": False, "errors": errors}), 400
 
         if data["new_model"] is not None:
             nm = data["new_model"]
             data["model_id"] = db.create_model(conn, nm["manufacturer"], nm["model"],
-                                               nm["storage_kind"], nm["has_data"])
+                                               nm["storage_kind"], nm["has_data"],
+                                               items=data.get("model_items"))
             db.audit(conn, data["operator"], "model_created", None, data["serial_no"],
                      {"model_id": data["model_id"], "model": f"{nm['manufacturer']} {nm['model']}",
                       "source": "api"})

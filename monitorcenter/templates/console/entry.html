@@ -94,7 +94,7 @@
         <datalist id="mfr-list">
           {% for mfr, grp in models|groupby('manufacturer') %}<option value="{{ mfr }}">{% endfor %}
         </datalist>
-        <div class="con-warn">New model is saved with a basic item set (Power / Video / Disc drive / Controller / Memory card / Wi-Fi / HDD bay / USB / Ethernet — set N/A for any that do not apply). Admin can refine it under Models.</div>
+        <div class="con-warn">All SOP check items are shown. For a new model the basic set (Power / Video / Cartridge-Optical / Controller / Memory / Wi-Fi / Hard Drive / USB / Ethernet) defaults to Pass, the rest to N/A — change any that differ. Admin can refine the defaults under Models.</div>
       </div>
 
       {% if show_sales_fields %}

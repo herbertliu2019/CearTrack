@@ -99,58 +99,61 @@ CREATE INDEX IF NOT EXISTS idx_ca_sn   ON console_audit_log(sn);
 CREATE INDEX IF NOT EXISTS idx_ca_test ON console_audit_log(test_id);
 """
 
-# code, label, default_type
+# code, label, default_type — labels follow SOP 8.6.2.3-OP / the inspection tool wording
 _ITEMS = [
-    ("power",       "Power",              "key"),
-    ("video",       "Video (HDMI)",       "key"),
-    ("disc",        "Disc drive",         "key"),
-    ("hdd_slot",    "HDD bay",            "key"),
-    ("cartridge",   "Cartridge slot",     "key"),
-    ("sd_slot",     "SD card slot",       "key"),
-    ("screen",      "Screen",             "key"),
-    ("controller",  "Controller",         "key"),
-    ("memory_port", "Memory card port",   "key"),
-    ("accessory",   "Accessories",        "secondary"),
-    ("wifi",        "Wi-Fi",              "key"),
-    ("usb",         "USB ports",          "secondary"),
-    ("expansion",   "Storage expansion",  "secondary"),
-    ("headphone",   "Headphone jack",     "secondary"),
-    ("ethernet",    "Ethernet",           "secondary"),
-    ("sensor_bar",  "Sensor bar",         "key"),
+    ("power",             "Power Port",                   "key"),
+    ("video",             "Video Port",                   "key"),
+    ("hdd_slot",          "Hard Drive / Hard Drive Slot", "key"),
+    ("cartridge_optical", "Cartridge / Optical Drive",    "key"),
+    ("sd_slot",           "SD Card Slot",                 "key"),
+    ("screen",            "Screen",                       "key"),
+    ("controller",        "Controller Ports",             "key"),
+    ("memory_port",       "Memory Ports",                 "key"),
+    ("accessory",         "Accessory Ports",              "key"),
+    ("wifi",              "Wi-Fi Network",                "key"),
+    ("usb",               "USB Ports",                    "secondary"),
+    ("expansion",         "Expansion Slot",               "secondary"),
+    ("headphone",         "Headphone Jack",               "secondary"),
+    ("ethernet",          "Ethernet Port",                "secondary"),
+    ("sensor_bar",        "Sensor bar",                   "key"),
 ]
+
+# SOP item list, in SOP order. Entry always shows all of these; model config only sets defaults.
+SOP_CODES = ["power", "video", "hdd_slot", "cartridge_optical", "sd_slot", "screen", "controller",
+             "memory_port", "accessory", "wifi", "usb", "expansion", "headphone", "ethernet"]
 
 # (manufacturer, model, storage_kind, has_data, [codes], {code: (type, label_override)})
 # Starting point only — admin adjusts via /console/admin/models.
 _MODELS = [
     ("Sony", "PlayStation 3", "removable", 1,
-     ["power", "video", "disc", "hdd_slot", "controller", "usb", "ethernet"], {}),
+     ["power", "video", "cartridge_optical", "hdd_slot", "controller", "usb", "ethernet"], {}),
     ("Sony", "PlayStation 4", "removable", 1,
-     ["power", "video", "disc", "hdd_slot", "controller", "usb", "wifi", "ethernet"], {}),
+     ["power", "video", "cartridge_optical", "hdd_slot", "controller", "usb", "wifi", "ethernet"], {}),
     ("Sony", "PlayStation 4 Pro", "removable", 1,
-     ["power", "video", "disc", "hdd_slot", "controller", "usb", "wifi", "ethernet"], {}),
+     ["power", "video", "cartridge_optical", "hdd_slot", "controller", "usb", "wifi", "ethernet"], {}),
     ("Sony", "PlayStation 5", "fixed", 1,
-     ["power", "video", "disc", "controller", "usb", "wifi", "ethernet"], {}),
+     ["power", "video", "cartridge_optical", "controller", "usb", "wifi", "ethernet"], {}),
     ("Microsoft", "Xbox 360", "removable", 1,
-     ["power", "video", "disc", "hdd_slot", "controller", "memory_port", "usb", "ethernet"], {}),
+     ["power", "video", "cartridge_optical", "hdd_slot", "controller", "memory_port", "usb", "ethernet"], {}),
     ("Microsoft", "Xbox One", "fixed", 1,
-     ["power", "video", "disc", "controller", "usb", "wifi", "ethernet"], {}),
+     ["power", "video", "cartridge_optical", "controller", "usb", "wifi", "ethernet"], {}),
     ("Microsoft", "Xbox One S/X", "fixed", 1,
-     ["power", "video", "disc", "controller", "usb", "wifi", "ethernet"], {}),
+     ["power", "video", "cartridge_optical", "controller", "usb", "wifi", "ethernet"], {}),
     ("Microsoft", "Xbox Series S/X", "fixed", 1,
-     ["power", "video", "disc", "controller", "usb", "expansion", "wifi", "ethernet"],
-     {"disc": ("secondary", "Disc drive (Series X only)")}),
+     ["power", "video", "cartridge_optical", "controller", "usb", "expansion", "wifi", "ethernet"],
+     {"cartridge_optical": ("secondary", "Cartridge / Optical Drive (Series X only)")}),
     ("Microsoft", "Original Xbox", "fixed", 1,
-     ["power", "video", "disc", "controller", "memory_port", "ethernet"], {}),
+     ["power", "video", "cartridge_optical", "controller", "memory_port", "ethernet"], {}),
     ("Nintendo", "Wii", "fixed", 1,
-     ["power", "video", "disc", "controller", "memory_port", "sensor_bar", "accessory"], {}),
+     ["power", "video", "cartridge_optical", "controller", "memory_port", "sensor_bar", "accessory"], {}),
     ("Nintendo", "Wii U", "fixed", 1,
-     ["power", "video", "disc", "controller", "sd_slot", "usb", "sensor_bar", "wifi"], {}),
+     ["power", "video", "cartridge_optical", "controller", "sd_slot", "usb", "sensor_bar", "wifi"], {}),
     ("Nintendo", "Switch", "fixed", 1,
-     ["power", "screen", "cartridge", "sd_slot", "controller", "headphone", "accessory"],
-     {"power": ("key", "Power (USB-C)")}),
+     ["power", "screen", "cartridge_optical", "sd_slot", "controller", "headphone", "accessory"],
+     {"power": ("key", "Power Port (USB-C)")}),
     ("Nintendo", "Switch Lite", "fixed", 1,
-     ["power", "screen", "cartridge", "sd_slot", "controller", "headphone"],
-     {"power": ("key", "Power (USB-C)")}),
+     ["power", "screen", "cartridge_optical", "sd_slot", "controller", "headphone"],
+     {"power": ("key", "Power Port (USB-C)")}),
 ]
 
 _initialized: set[str] = set()
@@ -206,6 +209,40 @@ def _migrate(conn: sqlite3.Connection) -> None:
             "UPDATE console_model_items SET type='key' WHERE type='secondary' AND item_id IN "
             f"(SELECT id FROM console_check_items WHERE code IN ({q}))", _SOP_KEY_CODES)
         conn.execute("PRAGMA user_version = 1")
+    # v2: SOP item list — merge disc/cartridge into cartridge_optical, SOP labels, accessory = key.
+    if conn.execute("PRAGMA user_version").fetchone()[0] < 2:
+        _migrate_v2(conn)
+        conn.execute("PRAGMA user_version = 2")
+
+
+_SOP_LABELS = {code: label for code, label, _ in _ITEMS}
+_SEED_OVERRIDES = {"Power (USB-C)": "Power Port (USB-C)",
+                   "Disc drive (Series X only)": "Cartridge / Optical Drive (Series X only)"}
+
+
+def _migrate_v2(conn: sqlite3.Connection) -> None:
+    ids = {r[0]: r[1] for r in conn.execute("SELECT code, id FROM console_check_items")}
+    target = ids.get("disc") or ids.get("cartridge_optical") or ids.get("cartridge")
+    if target:
+        for code in ("cartridge_optical", "cartridge", "disc"):
+            old = ids.get(code)
+            if not old or old == target:
+                continue
+            conn.execute("UPDATE OR IGNORE console_model_items SET item_id=? WHERE item_id=?", (target, old))
+            conn.execute("DELETE FROM console_model_items WHERE item_id=?", (old,))   # model had both
+            conn.execute("UPDATE OR IGNORE console_test_items SET item_id=? WHERE item_id=?", (target, old))
+            if not conn.execute("SELECT 1 FROM console_test_items WHERE item_id=? LIMIT 1", (old,)).fetchone():
+                conn.execute("DELETE FROM console_check_items WHERE id=?", (old,))
+            else:   # a test recorded both (should not happen) — keep the row, free the code
+                conn.execute("UPDATE console_check_items SET code=? WHERE id=?", (f"{code}_old", old))
+        conn.execute("UPDATE console_check_items SET code='cartridge_optical' WHERE id=?", (target,))
+    for code, label in _SOP_LABELS.items():
+        conn.execute("UPDATE console_check_items SET label=? WHERE code=?", (label, code))
+    for old_lab, new_lab in _SEED_OVERRIDES.items():
+        conn.execute("UPDATE console_model_items SET label_override=? WHERE label_override=?", (new_lab, old_lab))
+    conn.execute("UPDATE console_check_items SET default_type='key' WHERE code IN ('accessory','cartridge_optical')")
+    conn.execute("UPDATE console_model_items SET type='key' WHERE type='secondary' AND item_id IN "
+                 "(SELECT id FROM console_check_items WHERE code='accessory')")
 
 
 def _seed(conn: sqlite3.Connection) -> None:
@@ -306,7 +343,7 @@ def model_items(conn, model_id) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-GENERIC_CODES = ["power", "video", "disc", "controller", "memory_port", "wifi", "hdd_slot", "usb", "ethernet"]
+GENERIC_CODES = ["power", "video", "cartridge_optical", "controller", "memory_port", "wifi", "hdd_slot", "usb", "ethernet"]
 
 
 def generic_items(conn) -> list[dict]:
@@ -320,6 +357,28 @@ def generic_items(conn) -> list[dict]:
     return sorted(out, key=lambda x: (x["type"] != "key", x["sort"]))
 
 
+def entry_items(conn, model_id=None) -> list[dict]:
+    """Entry form items: every SOP item + any extra item the model uses, in SOP order.
+
+    Items the model uses (or GENERIC_CODES for a new model) default to Pass with the model's
+    type/label; the rest default to N/A with the check item's default type/label.
+    """
+    used = {it["id"]: it for it in (model_items(conn, model_id) if model_id else generic_items(conn))}
+    cat = {r["code"]: dict(r) for r in conn.execute("SELECT * FROM console_check_items")}
+    order = {c: i for i, c in enumerate(SOP_CODES)}
+    out = []
+    for code, ci in cat.items():
+        u = used.get(ci["id"])
+        if code not in order and not u:
+            continue
+        out.append({"id": ci["id"], "code": code,
+                    "type": u["type"] if u else ci["default_type"],
+                    "label": u["label"] if u else ci["label"],
+                    "sort": order.get(code, len(order) + (u["sort"] if u else 0)),
+                    "default": "Pass" if u else "N/A"})
+    return sorted(out, key=lambda x: (x["type"] != "key", x["sort"]))
+
+
 def find_model(conn, manufacturer, model) -> dict | None:
     r = conn.execute(
         "SELECT * FROM console_models WHERE LOWER(manufacturer)=LOWER(?) AND LOWER(model)=LOWER(?)",
@@ -327,16 +386,26 @@ def find_model(conn, manufacturer, model) -> dict | None:
     return dict(r) if r else None
 
 
-def create_model(conn, manufacturer, model, storage_kind, has_data) -> int:
-    """Insert a manually typed model with the generic item set. Caller commits."""
+def create_model(conn, manufacturer, model, storage_kind, has_data, items=None) -> int:
+    """Insert a model with `items` (API: the reported set) or the generic item set. Caller commits."""
     mid = conn.execute(
         "INSERT INTO console_models(manufacturer,model,storage_kind,has_data) VALUES (?,?,?,?)",
         (manufacturer, model, storage_kind, has_data)).lastrowid
-    for it in generic_items(conn):
+    src = [{**it, "sort": i} for i, it in enumerate(items)] if items else generic_items(conn)
+    for it in src:
         conn.execute(
             "INSERT INTO console_model_items(model_id,item_id,type,label_override,sort) "
-            "VALUES (?,?,?,NULL,?)", (mid, it["id"], it["type"], it["sort"]))
+            "VALUES (?,?,?,?,?)", (mid, it["id"], it["type"], it.get("label_override"), it["sort"]))
     return mid
+
+
+def ensure_check_item(conn, code, label, default_type) -> int:
+    """Return the check item id for `code`, creating it if missing. Caller commits."""
+    r = conn.execute("SELECT id FROM console_check_items WHERE code=?", (code,)).fetchone()
+    if r:
+        return r[0]
+    return conn.execute("INSERT INTO console_check_items(code,label,default_type) VALUES (?,?,?)",
+                        (code, label, default_type)).lastrowid
 
 
 def all_check_items(conn) -> list[dict]:
@@ -426,8 +495,11 @@ def period_stats(conn, d_from: str, d_to: str) -> dict:
             reasons["Data sanitization failed"] = reasons.get("Data sanitization failed", 0) + 1
     if failed:
         ids = [r["id"] for r in failed]
-        q = ("SELECT label, COUNT(*) AS n FROM console_test_items WHERE type='key' AND status='Fail' "
-             "AND test_id IN (%s) GROUP BY label" % ",".join("?" * len(ids)))
+        # group by item (current catalog label) so renamed labels don't split the counts
+        q = ("SELECT i.label, COUNT(*) AS n FROM console_test_items ti "
+             "JOIN console_check_items i ON i.id = ti.item_id "
+             "WHERE ti.type='key' AND ti.status='Fail' AND ti.test_id IN (%s) GROUP BY i.id"
+             % ",".join("?" * len(ids)))
         for lab, n in conn.execute(q, ids):
             reasons[lab] = reasons.get(lab, 0) + n
 

@@ -21,6 +21,12 @@ Canonical format:
   "grade": "", "condition": "", "functionality": "", "cd_dvd": "", "part_no": "", "color": "",
   "weight": 0.0, "notes": ""
 }
+
+Inspection-tool format (also accepted): brand / serial / model / tech / outcome / dataSanitization
+("ND-No Data") / mark ("-scratch -dirty" -> cosmetic) / storageSize / storageType / hddSn / hddTravelerId,
+"results": [{"id": "video_port", "label": "Video Port", "type": "Key", "result": "pass"}, ...].
+With "results", every reported item is stored (ids mapped via _ALIASES, unknown ids auto-create a
+check item); the model's configured item list is not used as a filter.
 """
 
 from modules.console import db, logic
@@ -34,26 +40,115 @@ def _text(v) -> str:
     return str(v).strip() if v is not None else ""
 
 
+def _grade(v) -> str:
+    """Accept 'B', 'Grade B', 'grade b', or a full label 'B - Passed ...' -> 'B'. Unknown kept as-is."""
+    s = _text(v)
+    if not s:
+        return ""
+    t = s.split(" - ", 1)[0].strip()
+    if t.lower().startswith("grade"):
+        t = t[5:].strip(" :-")
+    t = t.upper()
+    return t if t in logic.GRADE_LABELS else s
+
+
+# Inspection-tool result id -> existing console_check_items.code. Unknown ids get their own check item.
+_ALIASES = {
+    "power_port": "power", "video_port": "video", "hard_drive": "hdd_slot", "sd_card_slot": "sd_slot",
+    "screen": "screen", "controller_ports": "controller", "memory_ports": "memory_port",
+    "accessory_ports": "accessory", "wifi_network": "wifi", "usb_ports": "usb",
+    "expansion_slot": "expansion", "headphone_jack": "headphone", "ethernet_port": "ethernet",
+}
+
+_STATUS = {"pass": "Pass", "passed": "Pass", "ok": "Pass", "fail": "Fail", "failed": "Fail",
+           "n/a": "N/A", "na": "N/A", "skip": "N/A"}
+
+# dataSanitization code prefix ("ND-No Data") -> logic.METHODS
+_SAN_CODES = {"ND": "No data", "FR": "Factory Reset", "EPS": "EPS", "MD": "Manual Delete",
+              "PS": "Pre-Sanitization", "LK": "Locked", "LOCKED": "Locked"}
+
+
+def _first(raw: dict, *keys):
+    """First non-empty value among `keys` (canonical name first, inspection-tool name after)."""
+    for k in keys:
+        v = raw.get(k)
+        if v not in (None, ""):
+            return v
+    return None
+
+
+def _method(v) -> str:
+    """'ND-No Data' / 'No data' / 'Factory Reset' -> logic.METHODS entry; unknown kept as-is (validated later)."""
+    s = _text(v)
+    if not s:
+        return ""
+    by_name = {_norm(m): m for m in logic.METHODS}
+    if _norm(s) in by_name:
+        return by_name[_norm(s)]
+    code, _, rest = s.partition("-")
+    return _SAN_CODES.get(code.strip().upper()) or by_name.get(_norm(rest)) or s
+
+
+def _cosmetic(raw: dict) -> list[str]:
+    c = raw.get("cosmetic")
+    if c:
+        return [_text(x) for x in c if _text(x)]
+    # inspection tool: "mark": "-minor scratches/blemishes -faceplate is dirty"
+    mark = _text(raw.get("mark"))
+    if not mark:
+        return []
+    parts = [p.strip() for p in mark.split(" -")] if mark.startswith("-") else [mark]
+    return [p.lstrip("-").strip() for p in parts if p.lstrip("-").strip()]
+
+
 def _normalize(raw: dict) -> dict:
-    """External JSON -> canonical dict. Adapt here for the colleague's real format."""
+    """External JSON -> canonical dict. Accepts the canonical format and the inspection-tool format
+    (brand/serial/tech/results/dataSanitization/outcome/mark)."""
     san = raw.get("sanitize") or {}
     items = raw.get("items") or {}
     if isinstance(items, list):
         items = {_text(i.get("name")): _text(i.get("status")) for i in items if isinstance(i, dict)}
+    results = [r for r in (raw.get("results") or []) if isinstance(r, dict) and _text(r.get("id"))]
     return {
-        "serial_no": _text(raw.get("serial_no")), "traveler_id": _text(raw.get("traveler_id")),
-        "manufacturer": _text(raw.get("manufacturer")), "model": _text(raw.get("model")),
-        "operator": _text(raw.get("operator")), "ext_result": _text(raw.get("result")),
-        "items": items, "cosmetic": [_text(c) for c in (raw.get("cosmetic") or []) if _text(c)],
-        "method": _text(san.get("method")), "s_result": _text(san.get("result")),
-        "s_date": _text(san.get("date")), "storage_type": _text(san.get("storage_type")),
-        "storage_size": _text(san.get("storage_size")), "hdd_sn": _text(san.get("hdd_sn")),
-        "hdd_traveler_id": _text(san.get("hdd_traveler_id")),
-        "grade": _text(raw.get("grade")), "condition": _text(raw.get("condition")),
+        "serial_no": _text(_first(raw, "serial_no", "serial")),
+        "traveler_id": _text(_first(raw, "traveler_id", "travelerId")),
+        "manufacturer": _text(_first(raw, "manufacturer", "brand")), "model": _text(raw.get("model")),
+        "operator": _text(_first(raw, "operator", "tech")),
+        "ext_result": _text(_first(raw, "result", "outcome")),
+        "items": items, "results": results, "cosmetic": _cosmetic(raw),
+        "method": _method(_first(san, "method") or raw.get("dataSanitization")),
+        "s_result": _text(san.get("result")),
+        "s_date": _text(san.get("date")),
+        "storage_type": _text(_first(san, "storage_type") or raw.get("storageType")),
+        "storage_size": _text(_first(san, "storage_size") or raw.get("storageSize")),
+        "hdd_sn": _text(_first(san, "hdd_sn") or raw.get("hddSn")),
+        "hdd_traveler_id": _text(_first(san, "hdd_traveler_id") or raw.get("hddTravelerId")),
+        "grade": _grade(raw.get("grade")), "condition": _text(raw.get("condition")),
         "functionality": _text(raw.get("functionality")), "cd_dvd": _text(raw.get("cd_dvd")),
         "part_no": _text(raw.get("part_no")), "color": _text(raw.get("color")),
         "weight": raw.get("weight"), "notes": _text(raw.get("notes")),
     }
+
+
+def _items_from_results(conn, results: list[dict], errors: list[str]) -> list[dict]:
+    """Every reported result becomes a test item (model config is not a filter for API uploads)."""
+    out, seen = [], set()
+    for r in results:
+        rid = _norm(r.get("id")).replace(" ", "_")
+        code = _ALIASES.get(rid, rid)
+        label = _text(r.get("label")) or rid
+        typ = "key" if _norm(r.get("type")) == "key" else "secondary"
+        iid = db.ensure_check_item(conn, code, label, typ)
+        if iid in seen:
+            errors.append(f"duplicate result id '{r.get('id')}'")
+            continue
+        seen.add(iid)
+        st = _STATUS.get(_norm(r.get("result")), "")
+        if not st:
+            errors.append(f"item '{label}': unknown result '{r.get('result')}'")
+            st = "N/A"
+        out.append({"id": iid, "code": code, "type": typ, "label": label, "status": st})
+    return out
 
 
 def parse_external(conn, raw: dict) -> tuple[dict, list[str]]:
@@ -76,34 +171,41 @@ def parse_external(conn, raw: dict) -> tuple[dict, list[str]]:
     model = db.find_model(conn, n["manufacturer"], n["model"])
     new_model = None
     if model:
-        src = db.model_items(conn, model["id"])
+        src = db.entry_items(conn, model["id"])
     else:
         new_model = {"manufacturer": n["manufacturer"], "model": n["model"],
                      "storage_kind": "fixed", "has_data": 1}
         model = {"id": 0, **new_model}
-        src = db.generic_items(conn)
+        src = db.entry_items(conn)
 
-    # Items: match reported names to the model's items by label or code; unreported -> N/A.
-    reported = {_norm(k): v for k, v in n["items"].items()}
-    used: set[str] = set()
-    items = []
-    for it in src:
-        key = next((k for k in (_norm(it["label"]), _norm(it["code"])) if k in reported), None)
-        st = "N/A"
-        if key:
-            used.add(key)
-            v = _norm(reported[key])
-            st = {"pass": "Pass", "passed": "Pass", "ok": "Pass", "fail": "Fail", "failed": "Fail",
-                  "n/a": "N/A", "na": "N/A", "skip": "N/A"}.get(v, "")
-            if not st:
-                errors.append(f"item '{it['label']}': unknown status '{reported[key]}'")
-                st = "N/A"
-        items.append({**it, "status": st})
-    extra = [k for k in n["items"] if _norm(k) not in used]
     notes = n["notes"]
-    if extra:
-        notes = (notes + " " if notes else "") + "[unmapped items: " + ", ".join(extra) + "]"
+    model_items = None
+    if n["results"]:
+        # Inspection-tool format: show every reported result as-is.
+        items = _items_from_results(conn, n["results"], errors)
+        if new_model:   # new model gets the reported set instead of the generic one
+            model_items = [{"id": i["id"], "type": i["type"], "label_override": i["label"]} for i in items]
+    else:
+        # Canonical format: match reported names to the model's items by label or code; unreported -> N/A.
+        reported = {_norm(k): v for k, v in n["items"].items()}
+        used: set[str] = set()
+        items = []
+        for it in src:
+            key = next((k for k in (_norm(it["label"]), _norm(it["code"])) if k in reported), None)
+            st = "N/A"
+            if key:
+                used.add(key)
+                st = _STATUS.get(_norm(reported[key]), "")
+                if not st:
+                    errors.append(f"item '{it['label']}': unknown status '{reported[key]}'")
+                    st = "N/A"
+            items.append({**it, "status": st})
+        extra = [k for k in n["items"] if _norm(k) not in used]
+        if extra:
+            notes = (notes + " " if notes else "") + "[unmapped items: " + ", ".join(extra) + "]"
 
+    if n["method"] and n["method"] not in logic.METHODS:
+        errors.append(f"unknown sanitize method '{n['method']}'")
     method = n["method"] or "Factory Reset"
     s_result = n["s_result"] or logic.default_sanitize_result(method)
     if method == "Locked":
@@ -123,12 +225,13 @@ def parse_external(conn, raw: dict) -> tuple[dict, list[str]]:
 
     errors += logic.validate_sanitize(method, s_result, s_date or "x", n["hdd_sn"], n["hdd_traveler_id"])
     if n["grade"] and n["grade"] not in logic.GRADE_LABELS:
-        errors.append("invalid grade")
+        errors.append(f"invalid grade '{n['grade']}' (expected A-F, e.g. 'B' or 'Grade B')")
     if n["condition"] and n["condition"] not in logic.CONDITIONS.values():
         errors.append("invalid condition")
 
     data = {
         "model": model, "model_id": model["id"], "new_model": new_model, "items": items,
+        "model_items": model_items,
         "traveler_id": n["traveler_id"], "serial_no": n["serial_no"], "color": n["color"],
         "cosmetic": n["cosmetic"], "sanitize_method": method, "sanitize_result": s_result,
         "sanitize_date": s_date, "storage_size": n["storage_size"], "storage_type": n["storage_type"],

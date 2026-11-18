@@ -36,7 +36,7 @@
       </div>
 
       <table class="con-table">
-        <thead><tr><th>Use</th><th>Item</th><th>Type</th><th>Label override</th><th>Sort</th></tr></thead>
+        <thead><tr><th title="Applies to this model: defaults to Pass on Entry (others default to N/A)">Applies (Pass)</th><th>Item</th><th>Type</th><th>Label override</th><th>Sort</th></tr></thead>
         <tbody>
         {% for it in check_items %}
           {% set c = cfg.get(it.id) %}

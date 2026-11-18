@@ -2,9 +2,10 @@
 <div class="item-row">
   <div class="item-name">{{ it.label }}</div>
   <div class="seg">
-    <input type="radio" id="i{{ it.id }}p" name="item_{{ it.id }}" value="Pass" checked><label class="p" for="i{{ it.id }}p">Pass</label>
+    {% set d = it.default or 'Pass' %}
+    <input type="radio" id="i{{ it.id }}p" name="item_{{ it.id }}" value="Pass" {{ 'checked' if d == 'Pass' }}><label class="p" for="i{{ it.id }}p">Pass</label>
     <input type="radio" id="i{{ it.id }}f" name="item_{{ it.id }}" value="Fail"><label class="f" for="i{{ it.id }}f">Fail</label>
-    <input type="radio" id="i{{ it.id }}n" name="item_{{ it.id }}" value="N/A"><label class="n" for="i{{ it.id }}n">N/A</label>
+    <input type="radio" id="i{{ it.id }}n" name="item_{{ it.id }}" value="N/A" {{ 'checked' if d == 'N/A' }}><label class="n" for="i{{ it.id }}n">N/A</label>
   </div>
 </div>
 {% endmacro %}
